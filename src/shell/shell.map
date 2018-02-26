@@ -1,0 +1,824 @@
+
+Allocating common symbols
+Common symbol       size              file
+
+jiffies             0x8               crt0.o
+
+Discarded input sections
+
+ .group         0x0000000000000000       0x10 main.o
+ .group         0x0000000000000000       0x10 main.o
+ .group         0x0000000000000000       0x10 main.o
+ .group         0x0000000000000000       0x10 main.o
+ .group         0x0000000000000000       0x10 main.o
+ .group         0x0000000000000000       0x10 main.o
+ .group         0x0000000000000000       0x10 main.o
+ .group         0x0000000000000000       0x10 main.o
+ .group         0x0000000000000000       0x10 main.o
+ .group         0x0000000000000000       0x10 main.o
+ .group         0x0000000000000000       0x10 main.o
+ .group         0x0000000000000000       0x10 main.o
+ .group         0x0000000000000000       0x10 main.o
+ .group         0x0000000000000000       0x10 main.o
+ .group         0x0000000000000000       0x10 main.o
+ .group         0x0000000000000000       0x10 main.o
+ .group         0x0000000000000000       0x10 main.o
+ .group         0x0000000000000000       0x10 main.o
+ .group         0x0000000000000000       0x10 main.o
+ .group         0x0000000000000000       0x10 main.o
+ .group         0x0000000000000000       0x10 uart.o
+ .group         0x0000000000000000       0x10 uart.o
+ .group         0x0000000000000000       0x10 uart.o
+ .group         0x0000000000000000       0x10 uart.o
+ .group         0x0000000000000000       0x10 uart.o
+ .group         0x0000000000000000       0x10 uart.o
+ .text._ZStanSt12memory_orderSt23__memory_order_modifier
+                0x0000000000000000       0x1c uart.o
+ .ARM.extab.text._ZStanSt12memory_orderSt23__memory_order_modifier
+                0x0000000000000000        0x0 uart.o
+ .ARM.exidx.text._ZStanSt12memory_orderSt23__memory_order_modifier
+                0x0000000000000000        0x8 uart.o
+ .group         0x0000000000000000        0x8 stream.o
+ .group         0x0000000000000000       0x10 stream.o
+ .group         0x0000000000000000        0x8 stream.o
+ .group         0x0000000000000000       0x10 stream.o
+ .group         0x0000000000000000        0x8 stream.o
+ .group         0x0000000000000000       0x10 stream.o
+ .group         0x0000000000000000        0x8 stream.o
+ .group         0x0000000000000000       0x10 stream.o
+ .group         0x0000000000000000        0x8 stream.o
+ .group         0x0000000000000000       0x10 stream.o
+ .group         0x0000000000000000        0x8 stream.o
+ .group         0x0000000000000000       0x10 stream.o
+ .group         0x0000000000000000       0x10 command_processor.o
+ .text._ZN6streamC2Ev
+                0x0000000000000000       0x2c command_processor.o
+ .ARM.extab.text._ZN6streamC2Ev
+                0x0000000000000000        0x0 command_processor.o
+ .ARM.exidx.text._ZN6streamC2Ev
+                0x0000000000000000        0x8 command_processor.o
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+flash            0x0000000008000000 0x0000000000020000 xr
+sram             0x0000000020000000 0x0000000000005000 awl
+*default*        0x0000000000000000 0xffffffffffffffff
+
+Linker script and memory map
+
+
+.text           0x0000000008000000     0x1fb4
+ *(.vect)
+ .vect          0x0000000008000000      0x150 crt0.o
+                0x0000000008000000                vector_table
+ *(.text*)
+ .text          0x0000000008000150       0xd4 crt0.o
+                0x0000000008000150                enable_interrupt
+                0x0000000008000180                disable_interrupt
+                0x00000000080001b0                __adc1_handler
+                0x00000000080001be                __usart1_handler
+                0x00000000080001ca                __systick_handler
+                0x00000000080001f8                __main
+ .text          0x0000000008000224      0x7d4 main.o
+                0x0000000008000224                __aeabi_unwind_cpp_pr0
+                0x000000000800023c                __aeabi_unwind_cpp_pr1
+                0x00000000080002bc                delay_ms(int)
+                0x0000000008000330                gpio_mode(stm32f103::GPIO volatile*, stm32f103::GPIO_PIN, stm32f103::GPIO_CNF, stm32f103::GPIO_MODE)
+                0x00000000080003bc                init_systick(unsigned int, bool)
+                0x000000000800041c                main
+                0x00000000080007f0                serial_puts
+                0x0000000008000810                serial_putc
+                0x0000000008000830                systick_handler
+                0x000000000800094c                memset
+ .text._ZN6streamC2Ev
+                0x00000000080009f8       0x24 main.o
+                0x00000000080009f8                stream::stream()
+                0x00000000080009f8                stream::stream()
+ .text._ZStanSt12memory_orderSt23__memory_order_modifier
+                0x0000000008000a1c       0x1c main.o
+                0x0000000008000a1c                std::operator&(std::memory_order, std::__memory_order_modifier)
+ .text._ZNSt13__atomic_baseIjEC2Ev
+                0x0000000008000a38       0x16 main.o
+                0x0000000008000a38                std::__atomic_base<unsigned int>::__atomic_base()
+                0x0000000008000a38                std::__atomic_base<unsigned int>::__atomic_base()
+ .text._ZNSt6atomicIjEC2Ev
+                0x0000000008000a4e       0x1a main.o
+                0x0000000008000a4e                std::atomic<unsigned int>::atomic()
+                0x0000000008000a4e                std::atomic<unsigned int>::atomic()
+ .text._ZNKSt5arrayIcLj128EE4sizeEv
+                0x0000000008000a68       0x16 main.o
+                0x0000000008000a68                std::array<char, 128u>::size() const
+ .text._ZNSt13__atomic_baseIjEaSEj
+                0x0000000008000a7e       0x3a main.o
+                0x0000000008000a7e                std::__atomic_base<unsigned int>::operator=(unsigned int)
+ .text._ZNSt14__array_traitsIcLj128EE6_S_ptrERA128_Kc
+                0x0000000008000ab8       0x16 main.o
+                0x0000000008000ab8                std::__array_traits<char, 128u>::_S_ptr(char const (&) [128])
+ .text._ZNSt5arrayIcLj128EE4dataEv
+                0x0000000008000ace       0x1a main.o
+                0x0000000008000ace                std::array<char, 128u>::data()
+ .text._ZN9tokenizerILj8EEC2Ev
+                0x0000000008000ae8       0x16 main.o
+                0x0000000008000ae8                tokenizer<8u>::tokenizer()
+                0x0000000008000ae8                tokenizer<8u>::tokenizer()
+ .text._ZNK9tokenizerILj8EEclEPcRSt5arrayIPKcLj8EE
+                0x0000000008000afe       0xd4 main.o
+                0x0000000008000afe                tokenizer<8u>::operator()(char*, std::array<char const*, 8u>&) const
+ .text._ZNSt14__array_traitsIPKcLj8EE6_S_ptrERA8_KS1_
+                0x0000000008000bd2       0x16 main.o
+                0x0000000008000bd2                std::__array_traits<char const*, 8u>::_S_ptr(char const* const (&) [8])
+ .text._ZNSt5arrayIPKcLj8EE4dataEv
+                0x0000000008000be8       0x1a main.o
+                0x0000000008000be8                std::array<char const*, 8u>::data()
+ .text._ZNSt13__atomic_baseIjEppEv
+                0x0000000008000c02       0x30 main.o
+                0x0000000008000c02                std::__atomic_base<unsigned int>::operator++()
+ .text._ZNSt5arrayIPKcLj8EE5beginEv
+                0x0000000008000c32       0x18 main.o
+                0x0000000008000c32                std::array<char const*, 8u>::begin()
+ .text._ZNSt5arrayIPKcLj8EE3endEv
+                0x0000000008000c4a       0x1a main.o
+                0x0000000008000c4a                std::array<char const*, 8u>::end()
+ .text._ZSt4fillIPPKcS1_EvT_S3_RKT0_
+                0x0000000008000c64       0x2e main.o
+                0x0000000008000c64                void std::fill<char const**, char const*>(char const**, char const**, char const* const&)
+ .text._ZNSt14__array_traitsIPKcLj8EE6_S_refERA8_KS1_j
+                0x0000000008000c92       0x1e main.o
+                0x0000000008000c92                std::__array_traits<char const*, 8u>::_S_ref(char const* const (&) [8], unsigned int)
+ .text._ZNSt5arrayIPKcLj8EEixEj
+                0x0000000008000cb0       0x1e main.o
+                0x0000000008000cb0                std::array<char const*, 8u>::operator[](unsigned int)
+ .text._ZSt12__niter_baseIPPKcET_S3_
+                0x0000000008000cce       0x16 main.o
+                0x0000000008000cce                char const** std::__niter_base<char const**>(char const**)
+ .text._ZSt8__fill_aIPPKcS1_EN9__gnu_cxx11__enable_ifIXsrSt11__is_scalarIT0_E7__valueEvE6__typeET_SA_RKS6_
+                0x0000000008000ce4       0x34 main.o
+                0x0000000008000ce4                __gnu_cxx::__enable_if<std::__is_scalar<char const*>::__value, void>::__type std::__fill_a<char const**, char const*>(char const**, char const**, char const* const&)
+ .text          0x0000000008000d18      0x6e4 prf.o
+                0x00000000080013c4                printf
+ .text          0x00000000080013fc       0x98 spi.o
+                0x00000000080013fc                stm32f103::spi::init(stm32f103::SPI_BASE)
+                0x0000000008001438                stm32f103::spi::operator<<(unsigned short)
+ .text          0x0000000008001494      0x378 uart.o
+                0x0000000008001494                stm32f103::uart::uart()
+                0x0000000008001494                stm32f103::uart::uart()
+                0x00000000080014b8                stm32f103::uart::init(stm32f103::USART_BASE, stm32f103::uart::parity, int, unsigned int, unsigned int)
+                0x000000000800158c                stm32f103::uart::operator<<(char const*)
+                0x00000000080015d0                stm32f103::uart::putc(int)
+                0x0000000008001608                stm32f103::uart::getc()
+                0x0000000008001724                stm32f103::uart::gets(char*, unsigned int)
+                0x0000000008001790                uart1_handler
+ .text._ZNSt18__atomic_flag_baseC2Ev
+                0x000000000800180c       0x16 uart.o
+                0x000000000800180c                std::__atomic_flag_base::__atomic_flag_base()
+                0x000000000800180c                std::__atomic_flag_base::__atomic_flag_base()
+ .text._ZNSt11atomic_flagC2Ev
+                0x0000000008001822       0x1a uart.o
+                0x0000000008001822                std::atomic_flag::atomic_flag()
+                0x0000000008001822                std::atomic_flag::atomic_flag()
+ .text._ZNSt13__atomic_baseIcEC2Ev
+                0x000000000800183c       0x16 uart.o
+                0x000000000800183c                std::__atomic_base<char>::__atomic_base()
+                0x000000000800183c                std::__atomic_base<char>::__atomic_base()
+ .text._ZNSt6atomicIcEC2Ev
+                0x0000000008001852       0x1a uart.o
+                0x0000000008001852                std::atomic<char>::atomic()
+                0x0000000008001852                std::atomic<char>::atomic()
+ .text._ZNSt13__atomic_baseIcEaSEc
+                0x000000000800186c       0x3c uart.o
+                0x000000000800186c                std::__atomic_base<char>::operator=(char)
+ .text          0x00000000080018a8      0x1b2 stream.o
+                0x00000000080018a8                stream::stream(stm32f103::uart&)
+                0x00000000080018a8                stream::stream(stm32f103::uart&)
+                0x00000000080018c6                stream::operator<<(char const*)
+                0x00000000080018e6                stream::operator<<(signed char)
+                0x000000000800190e                stream::operator<<(unsigned char)
+                0x0000000008001934                stream::operator<<(short)
+                0x000000000800195c                stream::operator<<(unsigned short)
+                0x0000000008001982                stream::operator<<(int)
+                0x00000000080019a6                stream::operator<<(unsigned int)
+                0x00000000080019ca                stream::operator<<(long long)
+                0x0000000008001a08                stream::operator<<(unsigned long long)
+                0x0000000008001a46                stream::flush()
+ *fill*         0x0000000008001a5a        0x2 
+ .text._ZNK8stream_tclIaEEvRN9stm32f1034uartET_
+                0x0000000008001a5c       0x9c stream.o
+                0x0000000008001a5c                void stream_t::operator()<signed char>(stm32f103::uart&, signed char) const
+ .text._ZNK8stream_tclIhEEvRN9stm32f1034uartET_
+                0x0000000008001af8       0x7c stream.o
+                0x0000000008001af8                void stream_t::operator()<unsigned char>(stm32f103::uart&, unsigned char) const
+ .text._ZNK8stream_tclIsEEvRN9stm32f1034uartET_
+                0x0000000008001b74       0x9c stream.o
+                0x0000000008001b74                void stream_t::operator()<short>(stm32f103::uart&, short) const
+ .text._ZNK8stream_tclItEEvRN9stm32f1034uartET_
+                0x0000000008001c10       0x7c stream.o
+                0x0000000008001c10                void stream_t::operator()<unsigned short>(stm32f103::uart&, unsigned short) const
+ .text._ZNK8stream_tclIiEEvRN9stm32f1034uartET_
+                0x0000000008001c8c       0x90 stream.o
+                0x0000000008001c8c                void stream_t::operator()<int>(stm32f103::uart&, int) const
+ .text._ZNK8stream_tclIjEEvRN9stm32f1034uartET_
+                0x0000000008001d1c       0x78 stream.o
+                0x0000000008001d1c                void stream_t::operator()<unsigned int>(stm32f103::uart&, unsigned int) const
+ .text          0x0000000008001d94      0x11c command_processor.o
+                0x0000000008001d94                command_processor::command_processor()
+                0x0000000008001d94                command_processor::command_processor()
+                0x0000000008001daa                command_processor::operator()(unsigned int, char const**) const
+ *(.rodata*)
+ .rodata        0x0000000008001eb0       0x51 main.o
+ *fill*         0x0000000008001f01        0x3 
+ .rodata        0x0000000008001f04       0x11 prf.o
+ *fill*         0x0000000008001f15        0x3 
+ .rodata        0x0000000008001f18       0x14 spi.o
+ .rodata        0x0000000008001f2c       0x15 uart.o
+ *fill*         0x0000000008001f41        0x3 
+ .rodata        0x0000000008001f44       0x16 stream.o
+ *fill*         0x0000000008001f5a        0x2 
+ .rodata        0x0000000008001f5c       0x56 command_processor.o
+                0x0000000008001fb4                . = ALIGN (0x4)
+ *fill*         0x0000000008001fb2        0x2 
+
+.data           0x0000000008001fb4        0x0
+ .data          0x0000000008001fb4        0x0 crt0.o
+ .data          0x0000000008001fb4        0x0 main.o
+ .data          0x0000000008001fb4        0x0 prf.o
+ .data          0x0000000008001fb4        0x0 spi.o
+ .data          0x0000000008001fb4        0x0 uart.o
+ .data          0x0000000008001fb4        0x0 stream.o
+ .data          0x0000000008001fb4        0x0 command_processor.o
+
+.igot.plt       0x0000000008001fb4        0x0
+ .igot.plt      0x0000000008001fb4        0x0 crt0.o
+
+.got            0x0000000008001fb4       0x20
+ .got           0x0000000008001fb4       0x20 crt0.o
+
+.got.plt        0x0000000008001fd4        0xc
+ .got.plt       0x0000000008001fd4        0xc crt0.o
+                0x0000000008001fd4                _GLOBAL_OFFSET_TABLE_
+
+.data.rel.ro.local
+                0x0000000008001fe0        0xc
+ .data.rel.ro.local
+                0x0000000008001fe0        0x4 main.o
+ .data.rel.ro.local
+                0x0000000008001fe4        0x4 stream.o
+ .data.rel.ro.local
+                0x0000000008001fe8        0x4 command_processor.o
+
+.init_array     0x0000000008001fec        0x8
+ .init_array    0x0000000008001fec        0x4 main.o
+ .init_array    0x0000000008001ff0        0x4 uart.o
+
+.data.rel.local._ZZNK8stream_tclIaEEvRN9stm32f1034uartET_E9__chars__
+                0x0000000008001ff4        0x4
+ .data.rel.local._ZZNK8stream_tclIaEEvRN9stm32f1034uartET_E9__chars__
+                0x0000000008001ff4        0x4 stream.o
+                0x0000000008001ff4                void stream_t::operator()<signed char>(stm32f103::uart&, signed char) const::__chars__
+
+.data.rel.local._ZZNK8stream_tclIhEEvRN9stm32f1034uartET_E9__chars__
+                0x0000000008001ff8        0x4
+ .data.rel.local._ZZNK8stream_tclIhEEvRN9stm32f1034uartET_E9__chars__
+                0x0000000008001ff8        0x4 stream.o
+                0x0000000008001ff8                void stream_t::operator()<unsigned char>(stm32f103::uart&, unsigned char) const::__chars__
+
+.data.rel.local._ZZNK8stream_tclIsEEvRN9stm32f1034uartET_E9__chars__
+                0x0000000008001ffc        0x4
+ .data.rel.local._ZZNK8stream_tclIsEEvRN9stm32f1034uartET_E9__chars__
+                0x0000000008001ffc        0x4 stream.o
+                0x0000000008001ffc                void stream_t::operator()<short>(stm32f103::uart&, short) const::__chars__
+
+.data.rel.local._ZZNK8stream_tclItEEvRN9stm32f1034uartET_E9__chars__
+                0x0000000008002000        0x4
+ .data.rel.local._ZZNK8stream_tclItEEvRN9stm32f1034uartET_E9__chars__
+                0x0000000008002000        0x4 stream.o
+                0x0000000008002000                void stream_t::operator()<unsigned short>(stm32f103::uart&, unsigned short) const::__chars__
+
+.data.rel.local._ZZNK8stream_tclIiEEvRN9stm32f1034uartET_E9__chars__
+                0x0000000008002004        0x4
+ .data.rel.local._ZZNK8stream_tclIiEEvRN9stm32f1034uartET_E9__chars__
+                0x0000000008002004        0x4 stream.o
+                0x0000000008002004                void stream_t::operator()<int>(stm32f103::uart&, int) const::__chars__
+
+.data.rel.local._ZZNK8stream_tclIjEEvRN9stm32f1034uartET_E9__chars__
+                0x0000000008002008        0x4
+ .data.rel.local._ZZNK8stream_tclIjEEvRN9stm32f1034uartET_E9__chars__
+                0x0000000008002008        0x4 stream.o
+                0x0000000008002008                void stream_t::operator()<unsigned int>(stm32f103::uart&, unsigned int) const::__chars__
+
+.glue_7         0x000000000800200c        0x0
+ .glue_7        0x000000000800200c        0x0 linker stubs
+
+.glue_7t        0x000000000800200c        0x0
+ .glue_7t       0x000000000800200c        0x0 linker stubs
+
+.vfp11_veneer   0x000000000800200c        0x0
+ .vfp11_veneer  0x000000000800200c        0x0 linker stubs
+
+.v4_bx          0x000000000800200c        0x0
+ .v4_bx         0x000000000800200c        0x0 linker stubs
+
+.iplt           0x000000000800200c        0x0
+ .iplt          0x000000000800200c        0x0 crt0.o
+
+.rel.dyn        0x000000000800200c        0x0
+ .rel.iplt      0x000000000800200c        0x0 crt0.o
+ .rel.got       0x000000000800200c        0x0 crt0.o
+
+.ARM.extab.text._ZN6streamC2Ev
+                0x000000000800200c        0x0
+ .ARM.extab.text._ZN6streamC2Ev
+                0x000000000800200c        0x0 main.o
+
+.ARM.exidx.text._ZN6streamC2Ev
+                0x000000000800200c        0x0
+ .ARM.exidx.text._ZN6streamC2Ev
+                0x000000000800200c        0x0 main.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab.text._ZStanSt12memory_orderSt23__memory_order_modifier
+                0x000000000800200c        0x0
+ .ARM.extab.text._ZStanSt12memory_orderSt23__memory_order_modifier
+                0x000000000800200c        0x0 main.o
+
+.ARM.exidx.text._ZStanSt12memory_orderSt23__memory_order_modifier
+                0x000000000800200c        0x0
+ .ARM.exidx.text._ZStanSt12memory_orderSt23__memory_order_modifier
+                0x000000000800200c        0x0 main.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab.text._ZNSt13__atomic_baseIjEC2Ev
+                0x000000000800200c        0x0
+ .ARM.extab.text._ZNSt13__atomic_baseIjEC2Ev
+                0x000000000800200c        0x0 main.o
+
+.ARM.exidx.text._ZNSt13__atomic_baseIjEC2Ev
+                0x000000000800200c        0x0
+ .ARM.exidx.text._ZNSt13__atomic_baseIjEC2Ev
+                0x000000000800200c        0x0 main.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab.text._ZNSt6atomicIjEC2Ev
+                0x000000000800200c        0x0
+ .ARM.extab.text._ZNSt6atomicIjEC2Ev
+                0x000000000800200c        0x0 main.o
+
+.ARM.exidx.text._ZNSt6atomicIjEC2Ev
+                0x000000000800200c        0x0
+ .ARM.exidx.text._ZNSt6atomicIjEC2Ev
+                0x000000000800200c        0x0 main.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab      0x000000000800200c       0x9c
+ .ARM.extab     0x000000000800200c       0x24 main.o
+ .ARM.extab     0x0000000008002030        0xc spi.o
+ .ARM.extab     0x000000000800203c        0xc uart.o
+ .ARM.extab     0x0000000008002048       0x54 stream.o
+ .ARM.extab     0x000000000800209c        0xc command_processor.o
+
+.ARM.exidx      0x00000000080020a8       0xa8
+ .ARM.exidx     0x00000000080020a8       0x28 main.o
+                                         0x68 (size before relaxing)
+ .ARM.exidx     0x00000000080020d0        0x8 spi.o
+                                         0x10 (size before relaxing)
+ .ARM.exidx     0x00000000080020d8       0x18 uart.o
+                                         0x48 (size before relaxing)
+ .ARM.exidx     0x00000000080020f0       0x48 stream.o
+                                         0x58 (size before relaxing)
+ .ARM.exidx     0x0000000008002138       0x18 command_processor.o
+                                         0x10 (size before relaxing)
+
+.ARM.extab.text._ZNKSt5arrayIcLj128EE4sizeEv
+                0x0000000008002150        0x0
+ .ARM.extab.text._ZNKSt5arrayIcLj128EE4sizeEv
+                0x0000000008002150        0x0 main.o
+
+.ARM.exidx.text._ZNKSt5arrayIcLj128EE4sizeEv
+                0x0000000008002150        0x0
+ .ARM.exidx.text._ZNKSt5arrayIcLj128EE4sizeEv
+                0x0000000008002150        0x0 main.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab.text._ZNSt13__atomic_baseIjEaSEj
+                0x0000000008002150        0x0
+ .ARM.extab.text._ZNSt13__atomic_baseIjEaSEj
+                0x0000000008002150        0x0 main.o
+
+.ARM.exidx.text._ZNSt13__atomic_baseIjEaSEj
+                0x0000000008002150        0x0
+ .ARM.exidx.text._ZNSt13__atomic_baseIjEaSEj
+                0x0000000008002150        0x0 main.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab.text._ZNSt14__array_traitsIcLj128EE6_S_ptrERA128_Kc
+                0x0000000008002150        0x0
+ .ARM.extab.text._ZNSt14__array_traitsIcLj128EE6_S_ptrERA128_Kc
+                0x0000000008002150        0x0 main.o
+
+.ARM.exidx.text._ZNSt14__array_traitsIcLj128EE6_S_ptrERA128_Kc
+                0x0000000008002150        0x0
+ .ARM.exidx.text._ZNSt14__array_traitsIcLj128EE6_S_ptrERA128_Kc
+                0x0000000008002150        0x0 main.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab.text._ZNSt5arrayIcLj128EE4dataEv
+                0x0000000008002150        0x0
+ .ARM.extab.text._ZNSt5arrayIcLj128EE4dataEv
+                0x0000000008002150        0x0 main.o
+
+.ARM.exidx.text._ZNSt5arrayIcLj128EE4dataEv
+                0x0000000008002150        0x0
+ .ARM.exidx.text._ZNSt5arrayIcLj128EE4dataEv
+                0x0000000008002150        0x0 main.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab.text._ZN9tokenizerILj8EEC2Ev
+                0x0000000008002150        0x0
+ .ARM.extab.text._ZN9tokenizerILj8EEC2Ev
+                0x0000000008002150        0x0 main.o
+
+.ARM.exidx.text._ZN9tokenizerILj8EEC2Ev
+                0x0000000008002150        0x0
+ .ARM.exidx.text._ZN9tokenizerILj8EEC2Ev
+                0x0000000008002150        0x0 main.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab.text._ZNK9tokenizerILj8EEclEPcRSt5arrayIPKcLj8EE
+                0x0000000008002150        0xc
+ .ARM.extab.text._ZNK9tokenizerILj8EEclEPcRSt5arrayIPKcLj8EE
+                0x0000000008002150        0xc main.o
+
+.ARM.exidx.text._ZNK9tokenizerILj8EEclEPcRSt5arrayIPKcLj8EE
+                0x000000000800215c        0x8
+ .ARM.exidx.text._ZNK9tokenizerILj8EEclEPcRSt5arrayIPKcLj8EE
+                0x000000000800215c        0x8 main.o
+
+.ARM.extab.text._ZNSt14__array_traitsIPKcLj8EE6_S_ptrERA8_KS1_
+                0x0000000008002164        0x0
+ .ARM.extab.text._ZNSt14__array_traitsIPKcLj8EE6_S_ptrERA8_KS1_
+                0x0000000008002164        0x0 main.o
+
+.ARM.exidx.text._ZNSt14__array_traitsIPKcLj8EE6_S_ptrERA8_KS1_
+                0x0000000008002164        0x8
+ .ARM.exidx.text._ZNSt14__array_traitsIPKcLj8EE6_S_ptrERA8_KS1_
+                0x0000000008002164        0x8 main.o
+
+.ARM.extab.text._ZNSt5arrayIPKcLj8EE4dataEv
+                0x000000000800216c        0x0
+ .ARM.extab.text._ZNSt5arrayIPKcLj8EE4dataEv
+                0x000000000800216c        0x0 main.o
+
+.ARM.exidx.text._ZNSt5arrayIPKcLj8EE4dataEv
+                0x000000000800216c        0x0
+ .ARM.exidx.text._ZNSt5arrayIPKcLj8EE4dataEv
+                0x000000000800216c        0x0 main.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab.text._ZNSt13__atomic_baseIjEppEv
+                0x000000000800216c        0x0
+ .ARM.extab.text._ZNSt13__atomic_baseIjEppEv
+                0x000000000800216c        0x0 main.o
+
+.ARM.exidx.text._ZNSt13__atomic_baseIjEppEv
+                0x000000000800216c        0x0
+ .ARM.exidx.text._ZNSt13__atomic_baseIjEppEv
+                0x000000000800216c        0x0 main.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab.text._ZNSt5arrayIPKcLj8EE5beginEv
+                0x000000000800216c        0x0
+ .ARM.extab.text._ZNSt5arrayIPKcLj8EE5beginEv
+                0x000000000800216c        0x0 main.o
+
+.ARM.exidx.text._ZNSt5arrayIPKcLj8EE5beginEv
+                0x000000000800216c        0x0
+ .ARM.exidx.text._ZNSt5arrayIPKcLj8EE5beginEv
+                0x000000000800216c        0x0 main.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab.text._ZNSt5arrayIPKcLj8EE3endEv
+                0x000000000800216c        0x0
+ .ARM.extab.text._ZNSt5arrayIPKcLj8EE3endEv
+                0x000000000800216c        0x0 main.o
+
+.ARM.exidx.text._ZNSt5arrayIPKcLj8EE3endEv
+                0x000000000800216c        0x0
+ .ARM.exidx.text._ZNSt5arrayIPKcLj8EE3endEv
+                0x000000000800216c        0x0 main.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab.text._ZSt4fillIPPKcS1_EvT_S3_RKT0_
+                0x000000000800216c        0x0
+ .ARM.extab.text._ZSt4fillIPPKcS1_EvT_S3_RKT0_
+                0x000000000800216c        0x0 main.o
+
+.ARM.exidx.text._ZSt4fillIPPKcS1_EvT_S3_RKT0_
+                0x000000000800216c        0x0
+ .ARM.exidx.text._ZSt4fillIPPKcS1_EvT_S3_RKT0_
+                0x000000000800216c        0x0 main.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab.text._ZNSt14__array_traitsIPKcLj8EE6_S_refERA8_KS1_j
+                0x000000000800216c        0x0
+ .ARM.extab.text._ZNSt14__array_traitsIPKcLj8EE6_S_refERA8_KS1_j
+                0x000000000800216c        0x0 main.o
+
+.ARM.exidx.text._ZNSt14__array_traitsIPKcLj8EE6_S_refERA8_KS1_j
+                0x000000000800216c        0x0
+ .ARM.exidx.text._ZNSt14__array_traitsIPKcLj8EE6_S_refERA8_KS1_j
+                0x000000000800216c        0x0 main.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab.text._ZNSt5arrayIPKcLj8EEixEj
+                0x000000000800216c        0x0
+ .ARM.extab.text._ZNSt5arrayIPKcLj8EEixEj
+                0x000000000800216c        0x0 main.o
+
+.ARM.exidx.text._ZNSt5arrayIPKcLj8EEixEj
+                0x000000000800216c        0x0
+ .ARM.exidx.text._ZNSt5arrayIPKcLj8EEixEj
+                0x000000000800216c        0x0 main.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab.text._ZSt12__niter_baseIPPKcET_S3_
+                0x000000000800216c        0x0
+ .ARM.extab.text._ZSt12__niter_baseIPPKcET_S3_
+                0x000000000800216c        0x0 main.o
+
+.ARM.exidx.text._ZSt12__niter_baseIPPKcET_S3_
+                0x000000000800216c        0x0
+ .ARM.exidx.text._ZSt12__niter_baseIPPKcET_S3_
+                0x000000000800216c        0x0 main.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab.text._ZSt8__fill_aIPPKcS1_EN9__gnu_cxx11__enable_ifIXsrSt11__is_scalarIT0_E7__valueEvE6__typeET_SA_RKS6_
+                0x000000000800216c        0x0
+ .ARM.extab.text._ZSt8__fill_aIPPKcS1_EN9__gnu_cxx11__enable_ifIXsrSt11__is_scalarIT0_E7__valueEvE6__typeET_SA_RKS6_
+                0x000000000800216c        0x0 main.o
+
+.ARM.exidx.text._ZSt8__fill_aIPPKcS1_EN9__gnu_cxx11__enable_ifIXsrSt11__is_scalarIT0_E7__valueEvE6__typeET_SA_RKS6_
+                0x000000000800216c        0x0
+ .ARM.exidx.text._ZSt8__fill_aIPPKcS1_EN9__gnu_cxx11__enable_ifIXsrSt11__is_scalarIT0_E7__valueEvE6__typeET_SA_RKS6_
+                0x000000000800216c        0x0 main.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab.text._ZNSt18__atomic_flag_baseC2Ev
+                0x000000000800216c        0x0
+ .ARM.extab.text._ZNSt18__atomic_flag_baseC2Ev
+                0x000000000800216c        0x0 uart.o
+
+.ARM.exidx.text._ZNSt18__atomic_flag_baseC2Ev
+                0x000000000800216c        0x0
+ .ARM.exidx.text._ZNSt18__atomic_flag_baseC2Ev
+                0x000000000800216c        0x0 uart.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab.text._ZNSt11atomic_flagC2Ev
+                0x000000000800216c        0x0
+ .ARM.extab.text._ZNSt11atomic_flagC2Ev
+                0x000000000800216c        0x0 uart.o
+
+.ARM.exidx.text._ZNSt11atomic_flagC2Ev
+                0x000000000800216c        0x0
+ .ARM.exidx.text._ZNSt11atomic_flagC2Ev
+                0x000000000800216c        0x0 uart.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab.text._ZNSt13__atomic_baseIcEC2Ev
+                0x000000000800216c        0x0
+ .ARM.extab.text._ZNSt13__atomic_baseIcEC2Ev
+                0x000000000800216c        0x0 uart.o
+
+.ARM.exidx.text._ZNSt13__atomic_baseIcEC2Ev
+                0x000000000800216c        0x0
+ .ARM.exidx.text._ZNSt13__atomic_baseIcEC2Ev
+                0x000000000800216c        0x0 uart.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab.text._ZNSt6atomicIcEC2Ev
+                0x000000000800216c        0x0
+ .ARM.extab.text._ZNSt6atomicIcEC2Ev
+                0x000000000800216c        0x0 uart.o
+
+.ARM.exidx.text._ZNSt6atomicIcEC2Ev
+                0x000000000800216c        0x0
+ .ARM.exidx.text._ZNSt6atomicIcEC2Ev
+                0x000000000800216c        0x0 uart.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab.text._ZNSt13__atomic_baseIcEaSEc
+                0x000000000800216c        0x0
+ .ARM.extab.text._ZNSt13__atomic_baseIcEaSEc
+                0x000000000800216c        0x0 uart.o
+
+.ARM.exidx.text._ZNSt13__atomic_baseIcEaSEc
+                0x000000000800216c        0x0
+ .ARM.exidx.text._ZNSt13__atomic_baseIcEaSEc
+                0x000000000800216c        0x0 uart.o
+                                          0x8 (size before relaxing)
+
+.ARM.extab.text._ZNK8stream_tclIaEEvRN9stm32f1034uartET_
+                0x000000000800216c        0xc
+ .ARM.extab.text._ZNK8stream_tclIaEEvRN9stm32f1034uartET_
+                0x000000000800216c        0xc stream.o
+
+.ARM.exidx.text._ZNK8stream_tclIaEEvRN9stm32f1034uartET_
+                0x0000000008002178        0x8
+ .ARM.exidx.text._ZNK8stream_tclIaEEvRN9stm32f1034uartET_
+                0x0000000008002178        0x8 stream.o
+
+.ARM.extab.text._ZNK8stream_tclIhEEvRN9stm32f1034uartET_
+                0x0000000008002180        0xc
+ .ARM.extab.text._ZNK8stream_tclIhEEvRN9stm32f1034uartET_
+                0x0000000008002180        0xc stream.o
+
+.ARM.exidx.text._ZNK8stream_tclIhEEvRN9stm32f1034uartET_
+                0x000000000800218c        0x8
+ .ARM.exidx.text._ZNK8stream_tclIhEEvRN9stm32f1034uartET_
+                0x000000000800218c        0x8 stream.o
+
+.ARM.extab.text._ZNK8stream_tclIsEEvRN9stm32f1034uartET_
+                0x0000000008002194        0xc
+ .ARM.extab.text._ZNK8stream_tclIsEEvRN9stm32f1034uartET_
+                0x0000000008002194        0xc stream.o
+
+.ARM.exidx.text._ZNK8stream_tclIsEEvRN9stm32f1034uartET_
+                0x00000000080021a0        0x8
+ .ARM.exidx.text._ZNK8stream_tclIsEEvRN9stm32f1034uartET_
+                0x00000000080021a0        0x8 stream.o
+
+.ARM.extab.text._ZNK8stream_tclItEEvRN9stm32f1034uartET_
+                0x00000000080021a8        0xc
+ .ARM.extab.text._ZNK8stream_tclItEEvRN9stm32f1034uartET_
+                0x00000000080021a8        0xc stream.o
+
+.ARM.exidx.text._ZNK8stream_tclItEEvRN9stm32f1034uartET_
+                0x00000000080021b4        0x8
+ .ARM.exidx.text._ZNK8stream_tclItEEvRN9stm32f1034uartET_
+                0x00000000080021b4        0x8 stream.o
+
+.ARM.extab.text._ZNK8stream_tclIiEEvRN9stm32f1034uartET_
+                0x00000000080021bc        0xc
+ .ARM.extab.text._ZNK8stream_tclIiEEvRN9stm32f1034uartET_
+                0x00000000080021bc        0xc stream.o
+
+.ARM.exidx.text._ZNK8stream_tclIiEEvRN9stm32f1034uartET_
+                0x00000000080021c8        0x8
+ .ARM.exidx.text._ZNK8stream_tclIiEEvRN9stm32f1034uartET_
+                0x00000000080021c8        0x8 stream.o
+
+.ARM.extab.text._ZNK8stream_tclIjEEvRN9stm32f1034uartET_
+                0x00000000080021d0        0xc
+ .ARM.extab.text._ZNK8stream_tclIjEEvRN9stm32f1034uartET_
+                0x00000000080021d0        0xc stream.o
+
+.ARM.exidx.text._ZNK8stream_tclIjEEvRN9stm32f1034uartET_
+                0x00000000080021dc        0x8
+ .ARM.exidx.text._ZNK8stream_tclIjEEvRN9stm32f1034uartET_
+                0x00000000080021dc        0x8 stream.o
+
+.bss            0x0000000020000000       0x28
+                0x0000000020000000                . = ALIGN (0x4)
+ *(.bss*)
+ .bss           0x0000000020000000        0x0 crt0.o
+ .bss           0x0000000020000000       0x18 main.o
+                0x0000000020000000                atomic_jiffies
+                0x0000000020000004                atomic_milliseconds
+                0x0000000020000008                atomic_seconds
+                0x000000002000000c                __uart0
+ .bss           0x0000000020000018        0x0 prf.o
+ .bss           0x0000000020000018        0x0 spi.o
+ .bss           0x0000000020000018        0x5 uart.o
+ .bss           0x000000002000001d        0x0 stream.o
+ .bss           0x000000002000001d        0x0 command_processor.o
+ *(COMMON)
+ *fill*         0x000000002000001d        0x3 
+ COMMON         0x0000000020000020        0x8 crt0.o
+                0x0000000020000020                jiffies
+                0x0000000020000028                . = ALIGN (0x4)
+LOAD crt0.o
+LOAD main.o
+LOAD prf.o
+LOAD spi.o
+LOAD uart.o
+LOAD stream.o
+LOAD command_processor.o
+OUTPUT(shell.elf elf32-littlearm)
+
+.debug_info     0x0000000000000000     0xce96
+ .debug_info    0x0000000000000000      0x4dc crt0.o
+ .debug_info    0x00000000000004dc     0x47ac main.o
+ .debug_info    0x0000000000004c88      0x495 prf.o
+ .debug_info    0x000000000000511d      0x649 spi.o
+ .debug_info    0x0000000000005766     0x4321 uart.o
+ .debug_info    0x0000000000009a87     0x10b3 stream.o
+ .debug_info    0x000000000000ab3a     0x235c command_processor.o
+
+.debug_abbrev   0x0000000000000000     0x1f40
+ .debug_abbrev  0x0000000000000000      0x178 crt0.o
+ .debug_abbrev  0x0000000000000178      0x8b0 main.o
+ .debug_abbrev  0x0000000000000a28      0x174 prf.o
+ .debug_abbrev  0x0000000000000b9c      0x217 spi.o
+ .debug_abbrev  0x0000000000000db3      0x8c8 uart.o
+ .debug_abbrev  0x000000000000167b      0x3bb stream.o
+ .debug_abbrev  0x0000000000001a36      0x50a command_processor.o
+
+.debug_aranges  0x0000000000000000      0x1e8
+ .debug_aranges
+                0x0000000000000000       0x20 crt0.o
+ .debug_aranges
+                0x0000000000000020       0xc0 main.o
+ .debug_aranges
+                0x00000000000000e0       0x20 prf.o
+ .debug_aranges
+                0x0000000000000100       0x20 spi.o
+ .debug_aranges
+                0x0000000000000120       0x50 uart.o
+ .debug_aranges
+                0x0000000000000170       0x50 stream.o
+ .debug_aranges
+                0x00000000000001c0       0x28 command_processor.o
+
+.debug_line     0x0000000000000000     0x14e8
+ .debug_line    0x0000000000000000       0x87 crt0.o
+ .debug_line    0x0000000000000087      0x665 main.o
+ .debug_line    0x00000000000006ec      0x1d7 prf.o
+ .debug_line    0x00000000000008c3      0x11d spi.o
+ .debug_line    0x00000000000009e0      0x4e4 uart.o
+ .debug_line    0x0000000000000ec4      0x271 stream.o
+ .debug_line    0x0000000000001135      0x3b3 command_processor.o
+
+.debug_str      0x0000000000000000     0x5557
+ .debug_str     0x0000000000000000      0x624 crt0.o
+                                        0x66b (size before relaxing)
+ .debug_str     0x0000000000000624     0x2dc1 main.o
+                                       0x324b (size before relaxing)
+ .debug_str     0x00000000000033e5       0x7d prf.o
+                                        0x17f (size before relaxing)
+ .debug_str     0x0000000000003462       0x4a spi.o
+                                        0x3ec (size before relaxing)
+ .debug_str     0x00000000000034ac     0x1cf9 uart.o
+                                       0x398d (size before relaxing)
+ .debug_str     0x00000000000051a5      0x2f8 stream.o
+                                        0xdae (size before relaxing)
+ .debug_str     0x000000000000549d       0xba command_processor.o
+                                       0x1593 (size before relaxing)
+
+.comment        0x0000000000000000       0x26
+ .comment       0x0000000000000000       0x26 crt0.o
+                                         0x27 (size before relaxing)
+ .comment       0x0000000000000026       0x27 main.o
+ .comment       0x0000000000000026       0x27 prf.o
+ .comment       0x0000000000000026       0x27 spi.o
+ .comment       0x0000000000000026       0x27 uart.o
+ .comment       0x0000000000000026       0x27 stream.o
+ .comment       0x0000000000000026       0x27 command_processor.o
+
+.note.GNU-stack
+                0x0000000000000000        0x0
+ .note.GNU-stack
+                0x0000000000000000        0x0 crt0.o
+ .note.GNU-stack
+                0x0000000000000000        0x0 main.o
+ .note.GNU-stack
+                0x0000000000000000        0x0 prf.o
+ .note.GNU-stack
+                0x0000000000000000        0x0 spi.o
+ .note.GNU-stack
+                0x0000000000000000        0x0 uart.o
+ .note.GNU-stack
+                0x0000000000000000        0x0 stream.o
+ .note.GNU-stack
+                0x0000000000000000        0x0 command_processor.o
+
+.ARM.attributes
+                0x0000000000000000       0x37
+ .ARM.attributes
+                0x0000000000000000       0x37 crt0.o
+ .ARM.attributes
+                0x0000000000000037       0x37 main.o
+ .ARM.attributes
+                0x000000000000006e       0x37 prf.o
+ .ARM.attributes
+                0x00000000000000a5       0x37 spi.o
+ .ARM.attributes
+                0x00000000000000dc       0x37 uart.o
+ .ARM.attributes
+                0x0000000000000113       0x37 stream.o
+ .ARM.attributes
+                0x000000000000014a       0x37 command_processor.o
+
+.debug_frame    0x0000000000000000      0xd3c
+ .debug_frame   0x0000000000000000       0xd8 crt0.o
+ .debug_frame   0x00000000000000d8      0x4f4 main.o
+ .debug_frame   0x00000000000005cc      0x1b0 prf.o
+ .debug_frame   0x000000000000077c       0x5c spi.o
+ .debug_frame   0x00000000000007d8      0x23c uart.o
+ .debug_frame   0x0000000000000a14      0x2a4 stream.o
+ .debug_frame   0x0000000000000cb8       0x84 command_processor.o
+
+.debug_ranges   0x0000000000000000      0x178
+ .debug_ranges  0x0000000000000000       0xc8 main.o
+ .debug_ranges  0x00000000000000c8       0x58 uart.o
+ .debug_ranges  0x0000000000000120       0x40 stream.o
+ .debug_ranges  0x0000000000000160       0x18 command_processor.o
