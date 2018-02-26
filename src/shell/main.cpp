@@ -8,6 +8,7 @@
 
 #include "can.hpp"
 #include "command_processor.hpp"
+#include "gpio_mode.hpp"
 #include "spi.hpp"
 #include "stream.hpp"
 #include "tokenizer.hpp"
@@ -58,24 +59,6 @@ delay_ms ( int ms )
 	    ;
 }
 
-void
-gpio_mode( volatile stm32f103::GPIO * GPIO
-           , stm32f103::GPIO_PIN pin
-           , stm32f103::GPIO_CNF cnf
-           , stm32f103::GPIO_MODE mode )
-{
-    const uint32_t shift = ( pin % 8 ) * 4;
-    const uint32_t mask  = 0x0f << shift;
-
-    if ( pin < 8 ) {
-        GPIO->CRL &= ~mask;
-        GPIO->CRL |= ((cnf << 2) | mode ) << shift;
-    } else {
-        GPIO->CRH &= ~mask;
-        GPIO->CRH |= ((cnf << 2) | mode ) << shift;
-    }
-}
-
 /*
  * Initialize SysTick Timer
  *
@@ -121,7 +104,7 @@ main()
         RCC->CFGR |= ( 2 << 14 ) | 0x02;                              // ADC prescaler (0b10 div by 6), SW(0b10, pll selected as system clock)
         // <--
 
-        // See p112 of RM008 (DocID 13902, Rev. 17)
+        // See p100 of RM008 (DocID 13902, Rev. 17)
         RCC->APB2ENR |= 0x0004; // GPIO A enable
         RCC->APB2ENR |= 0x0008; // GPIO B enable
         RCC->APB2ENR |= 0x0010; // GPIO C enable
@@ -130,42 +113,39 @@ main()
 
         RCC->APB2ENR |= 0x0001;    // AFIO enable
         RCC->APB1ENR |= (1 << 25); // CAN clock enable
+        // ADC prescaler
+        RCC->CFGR &= ~( 0b11 << 14 );
+        RCC->CFGR != ~( 0b10 << 14 );  // set prescaler to 6
     }
 
     atomic_jiffies = 0;
     atomic_milliseconds = 0;
     atomic_seconds = 0;
 
-    // initialize UART0 for debug output
-    if ( auto GPIOA = reinterpret_cast< volatile stm32f103::GPIO * >( stm32f103::GPIOA_BASE ) ) {
-        gpio_mode( GPIOA, stm32f103::PA9, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // 2, 3
-        gpio_mode( GPIOA, stm32f103::PA10, stm32f103::GPIO_CNF_INPUT_PUSH_PULL, stm32f103::GPIO_MODE_INPUT );
+    {
+        stm32f103::gpio_mode gpio_mode;
+        
+        // initialize UART0 for debug output
+        gpio_mode( stm32f103::PA9, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // 2, 3
+        gpio_mode( stm32f103::PA10, stm32f103::GPIO_CNF_INPUT_PUSH_PULL,     stm32f103::GPIO_MODE_INPUT );
         __uart0.init( stm32f103::USART1_BASE, stm32f103::uart::parity_even, 8, 115200, 72000000 );            
-    }
-
-    if ( auto GPIOA = reinterpret_cast< volatile stm32f103::GPIO * >( stm32f103::GPIOA_BASE ) ) {
-        gpio_mode( GPIOA, stm32f103::PA0, stm32f103::GPIO_CNF_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_2M );
-
+        
+        gpio_mode( stm32f103::PA0, stm32f103::GPIO_CNF_OUTPUT_PUSH_PULL,     stm32f103::GPIO_MODE_OUTPUT_2M );
+        
         // SPI
-        gpio_mode( GPIOA, stm32f103::PA4, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // SPI nSS
-        gpio_mode( GPIOA, stm32f103::PA5, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // SPI sclk
-        gpio_mode( GPIOA, stm32f103::PA6, stm32f103::GPIO_CNF_INPUT_PUSH_PULL, stm32f103::GPIO_MODE_INPUT );   // SPI miso
-        gpio_mode( GPIOA, stm32f103::PA7, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // SPI mosi
-
-        stream() << "GPIOA CRL: " << GPIOA->CRL << "\tCLH: " << GPIOA->CRH << std::endl;
-    }
-
-    // CAN
-    if ( auto GPIOA = reinterpret_cast< volatile stm32f103::GPIO * >( stm32f103::GPIOA_BASE ) ) {
-        gpio_mode( GPIOA, stm32f103::PA11, stm32f103::GPIO_CNF_INPUT_PUSH_PULL, stm32f103::GPIO_MODE_INPUT );   // CAN1_RX
-        gpio_mode( GPIOA, stm32f103::PA12, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // CAN1_TX
+        gpio_mode( stm32f103::PA4, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // SPI nSS
+        gpio_mode( stm32f103::PA5, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // SPI sclk
+        gpio_mode( stm32f103::PA6, stm32f103::GPIO_CNF_INPUT_PUSH_PULL,      stm32f103::GPIO_MODE_INPUT );   // SPI miso
+        gpio_mode( stm32f103::PA7, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // SPI mosi
+        
+        // CAN
+        gpio_mode( stm32f103::PA11, stm32f103::GPIO_CNF_INPUT_PUSH_PULL,      stm32f103::GPIO_MODE_INPUT );   // CAN1_RX
+        gpio_mode( stm32f103::PA12, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // CAN1_TX
         enable_interrupt( stm32f103::CAN1_TX_IRQn );
         enable_interrupt( stm32f103::CAN1_RX0_IRQn );
-    }
-
-    // LED
-    if ( auto GPIOC = reinterpret_cast< volatile stm32f103::GPIO * >( stm32f103::GPIOC_BASE ) ) {
-        gpio_mode( GPIOC, stm32f103::PC13, stm32f103::GPIO_CNF_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M );
+        
+        // LED
+        gpio_mode(stm32f103::PC13, stm32f103::GPIO_CNF_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M );
     }
 
     if ( auto AFIO = reinterpret_cast< volatile stm32f103::AFIO * >( stm32f103::AFIO_BASE ) ) {
@@ -208,7 +188,7 @@ main()
         tokenizer_type::argv_type argv;
 
         while ( true ) {
-            stream() << "prompt > ";
+            stream() << "stm32f103 > ";
             auto length = stm32f103::uart::gets( cbuf.data(), cbuf.size() );
             auto argc = tokenizer_type()( cbuf.data(), argv );
             command_processor()( argc, argv.data() );

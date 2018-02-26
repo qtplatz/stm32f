@@ -306,25 +306,27 @@ namespace stm32f103 {  // as known as Blue Pill
         OTG_FS_IRQn                 = 67      /* USB OTG FS global Interrupt                          */
     } IRQn_type;
 
-    enum GPIO_PIN {
-        PA0 = 0
-        , PA1
-        , PA2
-        , PA3
-        , PA4
-        , PA5
-        , PA6
-        , PA7
-        , PA8
-        , PA9
+    enum GPIOA_PIN {
+        PA0 = 0   // ADC0, CTS2, T2C1E, WKUP
+        , PA1     // ADC1, RTS2, T2C2
+        , PA2     // ADC2, TX2,  T2C3
+        , PA3     // ADC3
+        , PA4     // ADC4
+        , PA5     // ADC5
+        , PA6     // ADC6
+        , PA7     // ADC7
+        , PA8     // 
+        , PA9     // 
         , PA10
         , PA11
         , PA12
         , PA13
         , PA14
         , PA15
-        , PB0 = 0
-        , PB1
+    };
+    enum GPIOB_PIN {
+        PB0 = 0 // ADC8, T3C3
+        , PB1     // ADC9, T3C4
         , PB2
         , PB3
         , PB4
@@ -333,13 +335,15 @@ namespace stm32f103 {  // as known as Blue Pill
         , PB7
         , PB8
         , PB9
-        , PB10
-        , PB11
+        , PB10   // SCL2, RX3
+        , PB11   // SDA2, TX3
         , PB12
         , PB13
         , PB14
         , PB15
-        , PC0 = 0
+    };
+    enum GPIOC_PIN {
+        PC0 = 0
         , PC1
         , PC2
         , PC3

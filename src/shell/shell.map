@@ -23,7 +23,7 @@ sram             0x0000000020000000 0x0000000000005000 awl
 Linker script and memory map
 
 
-.text           0x0000000008000000     0x18c0
+.text           0x0000000008000000     0x1910
  *(.vect)
  .vect          0x0000000008000000      0x150 crt0.o
                 0x0000000008000000                vector_table
@@ -39,200 +39,202 @@ Linker script and memory map
                 0x00000000080001a4                __adc1_handler
                 0x00000000080001a8                enable_interrupt
                 0x00000000080001c0                disable_interrupt
- .text          0x00000000080001dc      0x1cc main.o
-                0x00000000080001dc                __aeabi_unwind_cpp_pr0
-                0x00000000080001e0                __aeabi_unwind_cpp_pr1
-                0x00000000080001e4                delay_ms(int)
-                0x0000000008000210                gpio_mode(stm32f103::GPIO volatile*, stm32f103::GPIO_PIN, stm32f103::GPIO_CNF, stm32f103::GPIO_MODE)
-                0x000000000800025c                init_systick(unsigned int, bool)
-                0x0000000008000290                serial_puts
-                0x00000000080002a4                serial_putc
-                0x00000000080002b8                systick_handler
-                0x0000000008000394                memset
- .text.startup  0x00000000080003a8      0x398 main.o
-                0x00000000080003a8                main
- .text          0x0000000008000740      0x430 prf.o
-                0x0000000008000798                printf
- .text          0x0000000008000b70       0x3c spi.o
-                0x0000000008000b70                stm32f103::spi::init(stm32f103::SPI_BASE)
-                0x0000000008000b84                stm32f103::spi::operator<<(unsigned short)
- .text          0x0000000008000bac      0x1dc uart.o
-                0x0000000008000bac                stm32f103::uart::uart()
-                0x0000000008000bac                stm32f103::uart::uart()
-                0x0000000008000bb8                stm32f103::uart::init(stm32f103::USART_BASE, stm32f103::uart::parity, int, unsigned int, unsigned int)
-                0x0000000008000c38                stm32f103::uart::operator<<(char const*)
-                0x0000000008000c68                stm32f103::uart::putc(int)
-                0x0000000008000c74                stm32f103::uart::getc()
-                0x0000000008000d28                stm32f103::uart::gets(char*, unsigned int)
-                0x0000000008000d6c                uart1_handler
- .text          0x0000000008000d88      0x328 stream.o
-                0x0000000008000d88                stream::stream(stm32f103::uart&)
-                0x0000000008000d88                stream::stream(stm32f103::uart&)
-                0x0000000008000d8c                stream::operator<<(char const*)
-                0x0000000008000d9c                stream::operator<<(signed char)
-                0x0000000008000e0c                stream::operator<<(unsigned char)
-                0x0000000008000e54                stream::operator<<(short)
-                0x0000000008000ec4                stream::operator<<(unsigned short)
-                0x0000000008000f0c                stream::operator<<(int)
-                0x0000000008000f78                stream::operator<<(unsigned int)
-                0x0000000008000fbc                stream::operator<<(long long)
-                0x0000000008001034                stream::operator<<(unsigned long long)
-                0x00000000080010ac                stream::flush()
- .text          0x00000000080010b0       0xc0 command_processor.o
-                0x00000000080010b0                command_processor::command_processor()
-                0x00000000080010b0                command_processor::command_processor()
-                0x00000000080010b4                command_processor::operator()(unsigned int, char const**) const
- .text          0x0000000008001170      0x620 can.o
-                0x0000000008001170                stm32f103::can::can()
-                0x0000000008001170                stm32f103::can::can()
-                0x0000000008001194                stm32f103::can::init_enter()
-                0x00000000080011f4                stm32f103::can::init_leave()
-                0x0000000008001254                stm32f103::can::init(stm32f103::PERIPHERAL_BASE)
-                0x0000000008001334                stm32f103::can::set_mode(unsigned int)
-                0x0000000008001360                stm32f103::can::filter(unsigned char, CAN_FIFO, CAN_FILTER_SCALE, CAN_FILTER_MODE, unsigned int, unsigned int)
-                0x00000000080013fc                stm32f103::can::transmit(CanMsg*)
-                0x00000000080014a8                stm32f103::can::tx_status(CAN_TX_MBX)
-                0x0000000008001530                stm32f103::can::cancel(unsigned char)
-                0x0000000008001560                stm32f103::can::rx_queue_clear()
-                0x000000000800156c                stm32f103::can::rx_available()
-                0x0000000008001570                stm32f103::can::rx_queue_get()
-                0x0000000008001584                stm32f103::can::rx_queue_free()
-                0x000000000800159c                stm32f103::can::read(CAN_FIFO, CanMsg*)
-                0x0000000008001614                stm32f103::can::rx_release(CAN_FIFO)
-                0x000000000800162c                stm32f103::can::rx_read(CAN_FIFO)
-                0x000000000800167c                stm32f103::can::rx_read(stm32f103::CAN*, CAN_FIFO)
-                0x0000000008001698                can1_rx0_handler
-                0x0000000008001720                can1_tx_handler
+ .text          0x00000000080001dc      0x270 main.o
+                0x00000000080001dc                void stm32f103::gpio_mode::operator()<stm32f103::GPIOA_PIN>(stm32f103::GPIOA_PIN, stm32f103::GPIO_CNF, stm32f103::GPIO_MODE) const
+                0x000000000800022c                void stm32f103::gpio_mode::operator()<stm32f103::GPIOB_PIN>(stm32f103::GPIOB_PIN, stm32f103::GPIO_CNF, stm32f103::GPIO_MODE) const
+                0x000000000800027c                void stm32f103::gpio_mode::operator()<stm32f103::GPIOC_PIN>(stm32f103::GPIOC_PIN, stm32f103::GPIO_CNF, stm32f103::GPIO_MODE) const
+                0x00000000080002cc                __aeabi_unwind_cpp_pr0
+                0x00000000080002d0                __aeabi_unwind_cpp_pr1
+                0x00000000080002d4                delay_ms(int)
+                0x0000000008000300                init_systick(unsigned int, bool)
+                0x0000000008000334                serial_puts
+                0x0000000008000348                serial_putc
+                0x000000000800035c                systick_handler
+                0x0000000008000438                memset
+ .text.startup  0x000000000800044c      0x374 main.o
+                0x000000000800044c                main
+ .text          0x00000000080007c0      0x430 prf.o
+                0x0000000008000818                printf
+ .text          0x0000000008000bf0       0x3c spi.o
+                0x0000000008000bf0                stm32f103::spi::init(stm32f103::SPI_BASE)
+                0x0000000008000c04                stm32f103::spi::operator<<(unsigned short)
+ .text          0x0000000008000c2c      0x1dc uart.o
+                0x0000000008000c2c                stm32f103::uart::uart()
+                0x0000000008000c2c                stm32f103::uart::uart()
+                0x0000000008000c38                stm32f103::uart::init(stm32f103::USART_BASE, stm32f103::uart::parity, int, unsigned int, unsigned int)
+                0x0000000008000cb8                stm32f103::uart::operator<<(char const*)
+                0x0000000008000ce8                stm32f103::uart::putc(int)
+                0x0000000008000cf4                stm32f103::uart::getc()
+                0x0000000008000da8                stm32f103::uart::gets(char*, unsigned int)
+                0x0000000008000dec                uart1_handler
+ .text          0x0000000008000e08      0x328 stream.o
+                0x0000000008000e08                stream::stream(stm32f103::uart&)
+                0x0000000008000e08                stream::stream(stm32f103::uart&)
+                0x0000000008000e0c                stream::operator<<(char const*)
+                0x0000000008000e1c                stream::operator<<(signed char)
+                0x0000000008000e8c                stream::operator<<(unsigned char)
+                0x0000000008000ed4                stream::operator<<(short)
+                0x0000000008000f44                stream::operator<<(unsigned short)
+                0x0000000008000f8c                stream::operator<<(int)
+                0x0000000008000ff8                stream::operator<<(unsigned int)
+                0x000000000800103c                stream::operator<<(long long)
+                0x00000000080010b4                stream::operator<<(unsigned long long)
+                0x000000000800112c                stream::flush()
+ .text          0x0000000008001130       0xc0 command_processor.o
+                0x0000000008001130                command_processor::command_processor()
+                0x0000000008001130                command_processor::command_processor()
+                0x0000000008001134                command_processor::operator()(unsigned int, char const**) const
+ .text          0x00000000080011f0      0x618 can.o
+                0x00000000080011f0                stm32f103::can::can()
+                0x00000000080011f0                stm32f103::can::can()
+                0x0000000008001214                stm32f103::can::init_enter()
+                0x0000000008001274                stm32f103::can::init_leave()
+                0x00000000080012d4                stm32f103::can::init(stm32f103::PERIPHERAL_BASE, unsigned int)
+                0x00000000080013ac                stm32f103::can::set_mode(unsigned int)
+                0x00000000080013d8                stm32f103::can::filter(unsigned char, CAN_FIFO, CAN_FILTER_SCALE, CAN_FILTER_MODE, unsigned int, unsigned int)
+                0x0000000008001474                stm32f103::can::transmit(CanMsg*)
+                0x0000000008001520                stm32f103::can::tx_status(CAN_TX_MBX)
+                0x00000000080015a8                stm32f103::can::cancel(unsigned char)
+                0x00000000080015d8                stm32f103::can::rx_queue_clear()
+                0x00000000080015e4                stm32f103::can::rx_available()
+                0x00000000080015e8                stm32f103::can::rx_queue_get()
+                0x00000000080015fc                stm32f103::can::rx_queue_free()
+                0x0000000008001614                stm32f103::can::read(CAN_FIFO, CanMsg*)
+                0x000000000800168c                stm32f103::can::rx_release(CAN_FIFO)
+                0x00000000080016a4                stm32f103::can::rx_read(CAN_FIFO)
+                0x00000000080016f4                stm32f103::can::rx_read(stm32f103::CAN*, CAN_FIFO)
+                0x0000000008001710                can1_rx0_handler
+                0x0000000008001798                can1_tx_handler
  *(.rodata*)
  .rodata.str1.4
-                0x0000000008001790       0x4e main.o
- *fill*         0x00000000080017de        0x2 
+                0x0000000008001808       0x3d main.o
+ *fill*         0x0000000008001845        0x3 
  .rodata.str1.4
-                0x00000000080017e0       0x11 prf.o
- *fill*         0x00000000080017f1        0x3 
+                0x0000000008001848       0x11 prf.o
+ *fill*         0x0000000008001859        0x3 
  .rodata.str1.4
-                0x00000000080017f4       0x14 spi.o
+                0x000000000800185c       0x14 spi.o
  .rodata.str1.4
-                0x0000000008001808       0x12 stream.o
- *fill*         0x000000000800181a        0x2 
+                0x0000000008001870       0x12 stream.o
+ *fill*         0x0000000008001882        0x2 
  .rodata.str1.4
-                0x000000000800181c       0x4a command_processor.o
+                0x0000000008001884       0x4a command_processor.o
                                          0x52 (size before relaxing)
- *fill*         0x0000000008001866        0x2 
+ *fill*         0x00000000080018ce        0x2 
  .rodata.str1.4
-                0x0000000008001868       0x58 can.o
-                                         0x5c (size before relaxing)
-                0x00000000080018c0                . = ALIGN (0x4)
+                0x00000000080018d0       0x40 can.o
+                                         0x44 (size before relaxing)
+                0x0000000008001910                . = ALIGN (0x4)
 
-.data           0x00000000080018c0        0x0
- .data          0x00000000080018c0        0x0 crt0.o
- .data          0x00000000080018c0        0x0 main.o
- .data          0x00000000080018c0        0x0 prf.o
- .data          0x00000000080018c0        0x0 spi.o
- .data          0x00000000080018c0        0x0 uart.o
- .data          0x00000000080018c0        0x0 stream.o
- .data          0x00000000080018c0        0x0 command_processor.o
- .data          0x00000000080018c0        0x0 can.o
+.data           0x0000000008001910        0x0
+ .data          0x0000000008001910        0x0 crt0.o
+ .data          0x0000000008001910        0x0 main.o
+ .data          0x0000000008001910        0x0 prf.o
+ .data          0x0000000008001910        0x0 spi.o
+ .data          0x0000000008001910        0x0 uart.o
+ .data          0x0000000008001910        0x0 stream.o
+ .data          0x0000000008001910        0x0 command_processor.o
+ .data          0x0000000008001910        0x0 can.o
 
-.igot.plt       0x00000000080018c0        0x0
- .igot.plt      0x00000000080018c0        0x0 crt0.o
+.igot.plt       0x0000000008001910        0x0
+ .igot.plt      0x0000000008001910        0x0 crt0.o
 
-.got            0x00000000080018c0       0x20
- .got           0x00000000080018c0       0x20 crt0.o
+.got            0x0000000008001910       0x20
+ .got           0x0000000008001910       0x20 crt0.o
 
-.got.plt        0x00000000080018e0        0xc
- .got.plt       0x00000000080018e0        0xc crt0.o
-                0x00000000080018e0                _GLOBAL_OFFSET_TABLE_
+.got.plt        0x0000000008001930        0xc
+ .got.plt       0x0000000008001930        0xc crt0.o
+                0x0000000008001930                _GLOBAL_OFFSET_TABLE_
 
-.init_array     0x00000000080018ec        0x4
- .init_array    0x00000000080018ec        0x4 main.o
+.init_array     0x000000000800193c        0x4
+ .init_array    0x000000000800193c        0x4 main.o
 
 .data.rel.local._ZZNK8stream_tclIjEEvRN9stm32f1034uartET_E9__chars__
-                0x00000000080018f0        0x4
+                0x0000000008001940        0x4
  .data.rel.local._ZZNK8stream_tclIjEEvRN9stm32f1034uartET_E9__chars__
-                0x00000000080018f0        0x4 stream.o
-                0x00000000080018f0                void stream_t::operator()<unsigned int>(stm32f103::uart&, unsigned int) const::__chars__
+                0x0000000008001940        0x4 stream.o
+                0x0000000008001940                void stream_t::operator()<unsigned int>(stm32f103::uart&, unsigned int) const::__chars__
 
 .data.rel.local._ZZNK8stream_tclIiEEvRN9stm32f1034uartET_E9__chars__
-                0x00000000080018f4        0x4
+                0x0000000008001944        0x4
  .data.rel.local._ZZNK8stream_tclIiEEvRN9stm32f1034uartET_E9__chars__
-                0x00000000080018f4        0x4 stream.o
-                0x00000000080018f4                void stream_t::operator()<int>(stm32f103::uart&, int) const::__chars__
+                0x0000000008001944        0x4 stream.o
+                0x0000000008001944                void stream_t::operator()<int>(stm32f103::uart&, int) const::__chars__
 
 .data.rel.local._ZZNK8stream_tclItEEvRN9stm32f1034uartET_E9__chars__
-                0x00000000080018f8        0x4
+                0x0000000008001948        0x4
  .data.rel.local._ZZNK8stream_tclItEEvRN9stm32f1034uartET_E9__chars__
-                0x00000000080018f8        0x4 stream.o
-                0x00000000080018f8                void stream_t::operator()<unsigned short>(stm32f103::uart&, unsigned short) const::__chars__
+                0x0000000008001948        0x4 stream.o
+                0x0000000008001948                void stream_t::operator()<unsigned short>(stm32f103::uart&, unsigned short) const::__chars__
 
 .data.rel.local._ZZNK8stream_tclIsEEvRN9stm32f1034uartET_E9__chars__
-                0x00000000080018fc        0x4
+                0x000000000800194c        0x4
  .data.rel.local._ZZNK8stream_tclIsEEvRN9stm32f1034uartET_E9__chars__
-                0x00000000080018fc        0x4 stream.o
-                0x00000000080018fc                void stream_t::operator()<short>(stm32f103::uart&, short) const::__chars__
+                0x000000000800194c        0x4 stream.o
+                0x000000000800194c                void stream_t::operator()<short>(stm32f103::uart&, short) const::__chars__
 
 .data.rel.local._ZZNK8stream_tclIhEEvRN9stm32f1034uartET_E9__chars__
-                0x0000000008001900        0x4
+                0x0000000008001950        0x4
  .data.rel.local._ZZNK8stream_tclIhEEvRN9stm32f1034uartET_E9__chars__
-                0x0000000008001900        0x4 stream.o
-                0x0000000008001900                void stream_t::operator()<unsigned char>(stm32f103::uart&, unsigned char) const::__chars__
+                0x0000000008001950        0x4 stream.o
+                0x0000000008001950                void stream_t::operator()<unsigned char>(stm32f103::uart&, unsigned char) const::__chars__
 
 .data.rel.local._ZZNK8stream_tclIaEEvRN9stm32f1034uartET_E9__chars__
-                0x0000000008001904        0x4
+                0x0000000008001954        0x4
  .data.rel.local._ZZNK8stream_tclIaEEvRN9stm32f1034uartET_E9__chars__
-                0x0000000008001904        0x4 stream.o
-                0x0000000008001904                void stream_t::operator()<signed char>(stm32f103::uart&, signed char) const::__chars__
+                0x0000000008001954        0x4 stream.o
+                0x0000000008001954                void stream_t::operator()<signed char>(stm32f103::uart&, signed char) const::__chars__
 
-.glue_7         0x0000000008001908        0x0
- .glue_7        0x0000000008001908        0x0 linker stubs
+.glue_7         0x0000000008001958        0x0
+ .glue_7        0x0000000008001958        0x0 linker stubs
 
-.glue_7t        0x0000000008001908        0x0
- .glue_7t       0x0000000008001908        0x0 linker stubs
+.glue_7t        0x0000000008001958        0x0
+ .glue_7t       0x0000000008001958        0x0 linker stubs
 
-.vfp11_veneer   0x0000000008001908        0x0
- .vfp11_veneer  0x0000000008001908        0x0 linker stubs
+.vfp11_veneer   0x0000000008001958        0x0
+ .vfp11_veneer  0x0000000008001958        0x0 linker stubs
 
-.v4_bx          0x0000000008001908        0x0
- .v4_bx         0x0000000008001908        0x0 linker stubs
+.v4_bx          0x0000000008001958        0x0
+ .v4_bx         0x0000000008001958        0x0 linker stubs
 
-.iplt           0x0000000008001908        0x0
- .iplt          0x0000000008001908        0x0 crt0.o
+.iplt           0x0000000008001958        0x0
+ .iplt          0x0000000008001958        0x0 crt0.o
 
-.rel.dyn        0x0000000008001908        0x0
- .rel.iplt      0x0000000008001908        0x0 crt0.o
- .rel.got       0x0000000008001908        0x0 crt0.o
+.rel.dyn        0x0000000008001958        0x0
+ .rel.iplt      0x0000000008001958        0x0 crt0.o
+ .rel.got       0x0000000008001958        0x0 crt0.o
 
-.ARM.extab      0x0000000008001908        0x0
- .ARM.extab     0x0000000008001908        0x0 main.o
- .ARM.extab     0x0000000008001908        0x0 spi.o
- .ARM.extab     0x0000000008001908        0x0 uart.o
- .ARM.extab     0x0000000008001908        0x0 stream.o
- .ARM.extab     0x0000000008001908        0x0 command_processor.o
- .ARM.extab     0x0000000008001908        0x0 can.o
+.ARM.extab      0x0000000008001958        0x0
+ .ARM.extab     0x0000000008001958        0x0 main.o
+ .ARM.extab     0x0000000008001958        0x0 spi.o
+ .ARM.extab     0x0000000008001958        0x0 uart.o
+ .ARM.extab     0x0000000008001958        0x0 stream.o
+ .ARM.extab     0x0000000008001958        0x0 command_processor.o
+ .ARM.extab     0x0000000008001958        0x0 can.o
 
-.ARM.exidx      0x0000000008001908       0x98
- .ARM.exidx     0x0000000008001908        0x8 main.o
-                                         0x48 (size before relaxing)
- .ARM.exidx     0x0000000008001910        0x8 spi.o
-                                         0x10 (size before relaxing)
- .ARM.exidx     0x0000000008001918       0x18 uart.o
-                                         0x38 (size before relaxing)
- .ARM.exidx     0x0000000008001930       0x28 stream.o
+.ARM.exidx      0x0000000008001958       0x98
+ .ARM.exidx     0x0000000008001958        0x8 main.o
                                          0x58 (size before relaxing)
- .ARM.exidx     0x0000000008001958        0x8 command_processor.o
+ .ARM.exidx     0x0000000008001960        0x8 spi.o
                                          0x10 (size before relaxing)
- .ARM.exidx     0x0000000008001960       0x40 can.o
+ .ARM.exidx     0x0000000008001968       0x18 uart.o
+                                         0x38 (size before relaxing)
+ .ARM.exidx     0x0000000008001980       0x28 stream.o
+                                         0x58 (size before relaxing)
+ .ARM.exidx     0x00000000080019a8        0x8 command_processor.o
+                                         0x10 (size before relaxing)
+ .ARM.exidx     0x00000000080019b0       0x40 can.o
                                          0x98 (size before relaxing)
 
 .ARM.extab.text.startup
-                0x00000000080019a0        0x0
+                0x00000000080019f0        0x0
  .ARM.extab.text.startup
-                0x00000000080019a0        0x0 main.o
+                0x00000000080019f0        0x0 main.o
 
 .ARM.exidx.text.startup
-                0x00000000080019a0       0x10
+                0x00000000080019f0       0x10
  .ARM.exidx.text.startup
-                0x00000000080019a0       0x10 main.o
+                0x00000000080019f0       0x10 main.o
 
 .bss            0x0000000020000000       0xc8
                 0x0000000020000000                . = ALIGN (0x4)
@@ -267,35 +269,35 @@ LOAD command_processor.o
 LOAD can.o
 OUTPUT(shell.elf elf32-littlearm)
 
-.debug_info     0x0000000000000000     0xfcca
+.debug_info     0x0000000000000000    0x11f43
  .debug_info    0x0000000000000000      0x5c6 crt0.o
- .debug_info    0x00000000000005c6     0x574b main.o
- .debug_info    0x0000000000005d11      0x617 prf.o
- .debug_info    0x0000000000006328      0x660 spi.o
- .debug_info    0x0000000000006988     0x449b uart.o
- .debug_info    0x000000000000ae23     0x1418 stream.o
- .debug_info    0x000000000000c23b     0x2458 command_processor.o
- .debug_info    0x000000000000e693     0x1637 can.o
+ .debug_info    0x00000000000005c6     0x5dea main.o
+ .debug_info    0x00000000000063b0      0x617 prf.o
+ .debug_info    0x00000000000069c7      0x5a0 spi.o
+ .debug_info    0x0000000000006f67     0x449b uart.o
+ .debug_info    0x000000000000b402     0x1418 stream.o
+ .debug_info    0x000000000000c81a     0x2458 command_processor.o
+ .debug_info    0x000000000000ec72     0x32d1 can.o
 
-.debug_abbrev   0x0000000000000000     0x27a9
+.debug_abbrev   0x0000000000000000     0x2a5f
  .debug_abbrev  0x0000000000000000      0x17f crt0.o
- .debug_abbrev  0x000000000000017f      0xa30 main.o
- .debug_abbrev  0x0000000000000baf      0x1f6 prf.o
- .debug_abbrev  0x0000000000000da5      0x240 spi.o
- .debug_abbrev  0x0000000000000fe5      0x92a uart.o
- .debug_abbrev  0x000000000000190f      0x422 stream.o
- .debug_abbrev  0x0000000000001d31      0x559 command_processor.o
- .debug_abbrev  0x000000000000228a      0x51f can.o
+ .debug_abbrev  0x000000000000017f      0xa53 main.o
+ .debug_abbrev  0x0000000000000bd2      0x1f6 prf.o
+ .debug_abbrev  0x0000000000000dc8      0x240 spi.o
+ .debug_abbrev  0x0000000000001008      0x92a uart.o
+ .debug_abbrev  0x0000000000001932      0x422 stream.o
+ .debug_abbrev  0x0000000000001d54      0x559 command_processor.o
+ .debug_abbrev  0x00000000000022ad      0x7b2 can.o
 
-.debug_loc      0x0000000000000000     0x2617
+.debug_loc      0x0000000000000000     0x2c1f
  .debug_loc     0x0000000000000000       0x42 crt0.o
- .debug_loc     0x0000000000000042      0x918 main.o
- .debug_loc     0x000000000000095a      0x88b prf.o
- .debug_loc     0x00000000000011e5       0x42 spi.o
- .debug_loc     0x0000000000001227      0x38a uart.o
- .debug_loc     0x00000000000015b1      0x7a3 stream.o
- .debug_loc     0x0000000000001d54      0x111 command_processor.o
- .debug_loc     0x0000000000001e65      0x7b2 can.o
+ .debug_loc     0x0000000000000042      0xee5 main.o
+ .debug_loc     0x0000000000000f27      0x88b prf.o
+ .debug_loc     0x00000000000017b2       0x42 spi.o
+ .debug_loc     0x00000000000017f4      0x38a uart.o
+ .debug_loc     0x0000000000001b7e      0x7a3 stream.o
+ .debug_loc     0x0000000000002321      0x111 command_processor.o
+ .debug_loc     0x0000000000002432      0x7ed can.o
 
 .debug_aranges  0x0000000000000000      0x110
  .debug_aranges
@@ -315,33 +317,33 @@ OUTPUT(shell.elf elf32-littlearm)
  .debug_aranges
                 0x00000000000000f0       0x20 can.o
 
-.debug_line     0x0000000000000000     0x18cf
+.debug_line     0x0000000000000000     0x1b80
  .debug_line    0x0000000000000000       0x92 crt0.o
- .debug_line    0x0000000000000092      0x64a main.o
- .debug_line    0x00000000000006dc      0x199 prf.o
- .debug_line    0x0000000000000875      0x12b spi.o
- .debug_line    0x00000000000009a0      0x4fa uart.o
- .debug_line    0x0000000000000e9a      0x2da stream.o
- .debug_line    0x0000000000001174      0x3e9 command_processor.o
- .debug_line    0x000000000000155d      0x372 can.o
+ .debug_line    0x0000000000000092      0x6b8 main.o
+ .debug_line    0x000000000000074a      0x199 prf.o
+ .debug_line    0x00000000000008e3      0x12b spi.o
+ .debug_line    0x0000000000000a0e      0x4fa uart.o
+ .debug_line    0x0000000000000f08      0x2da stream.o
+ .debug_line    0x00000000000011e2      0x3e9 command_processor.o
+ .debug_line    0x00000000000015cb      0x5b5 can.o
 
-.debug_str      0x0000000000000000     0x6123
+.debug_str      0x0000000000000000     0x62c3
  .debug_str     0x0000000000000000      0x681 crt0.o
                                         0x6e9 (size before relaxing)
- .debug_str     0x0000000000000681     0x343a main.o
-                                       0x3c3f (size before relaxing)
- .debug_str     0x0000000000003abb       0x74 prf.o
+ .debug_str     0x0000000000000681     0x366f main.o
+                                       0x3eb4 (size before relaxing)
+ .debug_str     0x0000000000003cf0       0x74 prf.o
                                         0x16b (size before relaxing)
- .debug_str     0x0000000000003b2f       0x4a spi.o
-                                        0x3f1 (size before relaxing)
- .debug_str     0x0000000000003b79     0x1cf3 uart.o
+ .debug_str     0x0000000000003d64       0x4a spi.o
+                                        0x3b6 (size before relaxing)
+ .debug_str     0x0000000000003dae     0x1cf3 uart.o
                                        0x39b0 (size before relaxing)
- .debug_str     0x000000000000586c      0x2f8 stream.o
+ .debug_str     0x0000000000005aa1      0x2f8 stream.o
                                         0xdac (size before relaxing)
- .debug_str     0x0000000000005b64       0x31 command_processor.o
+ .debug_str     0x0000000000005d99       0x31 command_processor.o
                                        0x1591 (size before relaxing)
- .debug_str     0x0000000000005b95      0x58e can.o
-                                        0xfb9 (size before relaxing)
+ .debug_str     0x0000000000005dca      0x4f9 can.o
+                                       0x20a9 (size before relaxing)
 
 .comment        0x0000000000000000       0x26
  .comment       0x0000000000000000       0x26 crt0.o
@@ -392,21 +394,21 @@ OUTPUT(shell.elf elf32-littlearm)
  .ARM.attributes
                 0x0000000000000181       0x37 can.o
 
-.debug_frame    0x0000000000000000      0x740
+.debug_frame    0x0000000000000000      0x784
  .debug_frame   0x0000000000000000       0xb0 crt0.o
- .debug_frame   0x00000000000000b0      0x108 main.o
- .debug_frame   0x00000000000001b8       0xa0 prf.o
- .debug_frame   0x0000000000000258       0x3c spi.o
- .debug_frame   0x0000000000000294       0xc4 uart.o
- .debug_frame   0x0000000000000358      0x17c stream.o
- .debug_frame   0x00000000000004d4       0x4c command_processor.o
- .debug_frame   0x0000000000000520      0x220 can.o
+ .debug_frame   0x00000000000000b0      0x150 main.o
+ .debug_frame   0x0000000000000200       0xa0 prf.o
+ .debug_frame   0x00000000000002a0       0x3c spi.o
+ .debug_frame   0x00000000000002dc       0xc4 uart.o
+ .debug_frame   0x00000000000003a0      0x17c stream.o
+ .debug_frame   0x000000000000051c       0x4c command_processor.o
+ .debug_frame   0x0000000000000568      0x21c can.o
 
-.debug_ranges   0x0000000000000000      0x838
- .debug_ranges  0x0000000000000000      0x3c0 main.o
- .debug_ranges  0x00000000000003c0       0xb8 prf.o
- .debug_ranges  0x0000000000000478       0x20 spi.o
- .debug_ranges  0x0000000000000498       0xf0 uart.o
- .debug_ranges  0x0000000000000588      0x158 stream.o
- .debug_ranges  0x00000000000006e0       0x20 command_processor.o
- .debug_ranges  0x0000000000000700      0x138 can.o
+.debug_ranges   0x0000000000000000      0x878
+ .debug_ranges  0x0000000000000000      0x408 main.o
+ .debug_ranges  0x0000000000000408       0xb8 prf.o
+ .debug_ranges  0x00000000000004c0       0x20 spi.o
+ .debug_ranges  0x00000000000004e0       0xf0 uart.o
+ .debug_ranges  0x00000000000005d0      0x158 stream.o
+ .debug_ranges  0x0000000000000728       0x20 command_processor.o
+ .debug_ranges  0x0000000000000748      0x130 can.o

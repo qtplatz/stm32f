@@ -44,7 +44,8 @@ OBJS = crt0.o main.o prf.o spi.o uart.o stream.o command_processor.o can.o
 
 all: shell.elf shell.dump shell.bin
 
-main.o: tokenizer.hpp
+main.o: tokenizer.hpp gpio_mode.hpp
+gpio_mode.o: gpio_mode.hpp
 can.o: can.hpp
 
 shell.dump:	shell.elf

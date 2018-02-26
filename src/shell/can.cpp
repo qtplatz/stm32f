@@ -197,7 +197,7 @@ can::init_leave()
 
 
 CAN_STATUS
-can::init( stm32f103::PERIPHERAL_BASE base )
+can::init( stm32f103::PERIPHERAL_BASE base, uint32_t control )
 {
     status_ = CAN_INIT_FAILED;
     rx_head_ = rx_tail_ = rx_count_ = rx_lost_ = 0;
@@ -206,31 +206,34 @@ can::init( stm32f103::PERIPHERAL_BASE base )
     if ( auto CAN = reinterpret_cast< volatile stm32f103::CAN * >( base ) ) {
         can_ = CAN;
         can_->MCR &= ~CAN_MCR_SLEEP;
-
+        
         stream() << "can::init" << std::endl;
-        
-        if ( init_enter() != CAN_OK )
-            return status_;
-        
-        stream() << "can::init -- can_active" << std::endl;
-        can_active = 1;
-        
-        can_->MCR = ( 1 << 4 ) | 1; // NART (no auto retransmission), INRQ (initialization request)
-        uint32_t brp = ( pclk1 / 18 ) / 500000; // 500kbps
 
-        // set BTR register so that sample point is at about 72% bit time from bit start
-        // TSEG1 = 12, TSEG2 = 5, SJW = 4 => 1 CAN bit = 18 TQ, sample at 72%
-        can_->BTR &= ~(((        0x03) << 24) | ((        0x07) << 20) | ((         0x0F) << 16) | (          0x1FF)); 
+        //rcc_clk_enable(RCC_AFIO);                       // enable clocks for AFIO
+        //rcc_clk_enable(RCC_CAN);                        // and CAN
+        //rcc_reset_dev(RCC_CAN);                         // reset CAN interface
+
+        can_active = 1;                                         // set CAN active flag (for interrupt handler
+
+        can_->MCR &= ~CAN_MCR_SLEEP;            // reset CAN sleep mode (default after reset)
+
+        if ( init_enter() != CAN_OK)            // enter CAN initialization mode
+            return status_;                              // error, so return
+
+        can_->MCR &= ~CAN_CONTROL_MASK;         // set mode bits
+        can_->MCR |= (control & CAN_CONTROL_MASK);
+
+        can_->BTR &= ~CAN_TIMING_MASK;               // Set the bit timing register
+        // can_->BTR |= (can_speed_table[speed].btr & CAN_TIMING_MASK);
+        uint32_t brp = ( pclk1 / 18 ) / 500000; // 500kbps
         can_->BTR |=  ((((4-1) & 0x03) << 24) | (((5-1) & 0x07) << 20) | (((12-1) & 0x0F) << 16) | ((brp-1) & 0x1FF));
+        
         can_->IER = (CAN_IER_FMPIE0 | CAN_IER_FMPIE1 | CAN_IER_TMEIE);
 
-        if ( init_leave() == CAN_OK ) {
-            while ( !(can_->TSR & CAN_TSR_TME0 ) )
-                ;
-            while ( !(can_->TSR & CAN_TSR_TME1 ) )
-                ;
-            while ( !(can_->TSR & CAN_TSR_TME2 ) )
-                ;                        
+        if ( init_leave() == CAN_OK)  {
+            while (!(can_->TSR & CAN_TSR_TME0));    // Transmit mailbox 0 is empty
+            while (!(can_->TSR & CAN_TSR_TME1));    // Transmit mailbox 0 is empty
+            while (!(can_->TSR & CAN_TSR_TME2));    // Transmit mailbox 0 is empty
         }
     }
     return status_;
