@@ -23,6 +23,9 @@ std::atomic< uint32_t > atomic_jiffies;      //  100us  (4.97 days)
 std::atomic< uint32_t > atomic_milliseconds; // 1000us  (49.71 days)
 std::atomic< uint32_t > atomic_seconds;      // 1s      (136.1925 years)
 
+stm32f103::uart __uart0;
+stm32f103::spi __spi0;
+
 extern "C" {
     void enable_interrupt( stm32f103::IRQn_type IRQn );
     void disable_interrupt( stm32f103::IRQn_type IRQn );
@@ -52,8 +55,6 @@ delay_ms ( int ms )
 	while ( atomic_jiffies.load() - t0 < (10*ms) )
 	    ;
 }
-
-stm32f103::uart __uart0;
 
 void
 gpio_mode( volatile stm32f103::GPIO * GPIO
@@ -132,16 +133,12 @@ main()
 
     // initialize UART0 for debug output
     if ( auto GPIOA = reinterpret_cast< volatile stm32f103::GPIO * >( stm32f103::GPIOA_BASE ) ) {
-        //GPIOA->CRH &= 0xfffff00f;  // pin A9, A10 alternate function output 
-        //GPIOA->CRH |= 0x00000bb0;  //
         gpio_mode( GPIOA, stm32f103::PA9, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // 2, 3
-        gpio_mode( GPIOA, stm32f103::PA10, stm32f103::GPIO_CNF_INPUT_PULL_UP_PULL_DOWN, stm32f103::GPIO_MODE_INPUT );
+        gpio_mode( GPIOA, stm32f103::PA10, stm32f103::GPIO_CNF_INPUT_PUSH_PULL, stm32f103::GPIO_MODE_INPUT );
         __uart0.init( stm32f103::USART1_BASE, stm32f103::uart::parity_even, 8, 115200, 72000000 );            
     }
 
     if ( auto GPIOA = reinterpret_cast< volatile stm32f103::GPIO * >( stm32f103::GPIOA_BASE ) ) {
-        //GPIOA->CRL &= 0x0f00ffff;  // pin A4,A5,7 alternate function output 
-        //GPIOA->CRL |= 0xb0bb0000;  //
         gpio_mode( GPIOA, stm32f103::PA0, stm32f103::GPIO_CNF_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_2M );
         
         gpio_mode( GPIOA, stm32f103::PA4, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // 2, 3
@@ -162,15 +159,14 @@ main()
 
     init_systick( 7200, true ); // 100us tick
 
-    stm32f103::spi spi0;
-    spi0.init( stm32f103::SPI1_BASE );
+    __spi0.init( stm32f103::SPI1_BASE );
 
     {
         int x = 0;
         for ( size_t i = 0; i < 3; ++i ) {
             delay_ms( 500 );
             stream() << "Hello world: " << x++ << "\tjiffies: " << atomic_jiffies.load() << std::endl;
-            spi0 << uint16_t( ~x );
+            __spi0 << uint16_t( ~x );
         }
 
         std::array< char, 128 > cbuf;
@@ -179,7 +175,7 @@ main()
         tokenizer_type::argv_type argv;
 
         while ( true ) {
-            stream() << "prompt: ";
+            stream() << "prompt > ";
             auto length = stm32f103::uart::gets( cbuf.data(), cbuf.size() );
             auto argc = tokenizer_type()( cbuf.data(), argv );
             command_processor()( argc, argv.data() );

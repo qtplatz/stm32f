@@ -14,7 +14,12 @@ namespace stm32f103 {  // as known as Blue Pill
         STACKINIT = 0x20005000   // stack top address (SRAM = 0x20000000 - 0x20004FFFF)
     };
 
-    enum PERIPHERAL_BASE {
+#ifdef __cplusplus
+    enum PERIPHERAL_BASE : uint32_t
+#else
+    enum PERIPHERAL_BASE
+#endif
+    {
         PERIPH_BASE       = 0x40000000
         , SRAM_BASE       = 0x20000000
         , APB1PERIPH_BASE = PERIPH_BASE
@@ -25,6 +30,8 @@ namespace stm32f103 {  // as known as Blue Pill
         , AFIO_BASE       = ( APB2PERIPH_BASE + 0x0000 ) //  AFIO base address is 0x40010000
         , SYSTICK_BASE	  = 0xe000e010
         , NVIC_BASE       = 0xe000e100
+        , CAN1_BASE       = 0x40006400
+        , CAN2_BASE       = 0x40006800
     };
 
     enum GPIO_BASE {
@@ -61,7 +68,7 @@ namespace stm32f103 {  // as known as Blue Pill
         , GPIO_CNF_ALT_OUTPUT_ODRAIN = 3
         , GPIO_CNF_INPUT_ANALOG = 0
         , GPIO_CNF_INPUT_FLOATING = 1
-        , GPIO_CNF_INPUT_PULL_UP_PULL_DOWN = 2
+        , GPIO_CNF_INPUT_PUSH_PULL = 2
     };
 
     enum GPIO_MODE {
@@ -181,6 +188,48 @@ namespace stm32f103 {  // as known as Blue Pill
         uint32_t SR;   // 8
         uint32_t DATA; // c
     } SPI_type;
+
+    // p674, RM0008, p695 Table 181
+    struct CAN_TxMailBox {
+        uint32_t TIR;
+        uint32_t TDTR;
+        uint32_t TDLR;
+        uint32_t TDHR;        
+    };
+    struct  CAN_FIFOMailBox {
+        uint32_t RIR;
+        uint32_t RDTR;
+        uint32_t RDLR;
+        uint32_t RDHR;
+    };
+    struct  CAN_FilterRegister {
+        uint32_t FR1;
+        uint32_t FR2;
+    };
+    typedef struct CAN {
+        uint32_t MCR;
+        uint32_t MSR;
+        uint32_t TSR;
+        uint32_t RF0R;
+        uint32_t RF1R;
+        uint32_t IER;   // interrupt enable register
+        uint32_t ESR;   // error status register
+        uint32_t BTR;   // bit timing register  0x01c
+        uint32_t Reserved0[ 0x58 ];
+        struct CAN_TxMailBox txMailBox[ 3 ];
+        struct CAN_FIFOMailBox fifoMailBox[ 3 ];
+        uint32_t Reserved1[ 12 ];
+        uint32_t FMR;
+        uint32_t FM1R;
+        uint32_t Reserved2;
+        uint32_t FS1R;
+        uint32_t Reserved3;
+        uint32_t FFA1R;
+        uint32_t Reserved4;
+        uint32_t FA1R;
+        uint32_t Reserved5[ 8 ];
+        struct CAN_FilterRegister filterRegister[ 14 ];
+    } CAN_type;
     
     /*
      * STM32F107 Interrupt Number Definition
