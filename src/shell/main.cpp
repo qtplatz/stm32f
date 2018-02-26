@@ -6,6 +6,7 @@
  * https://github.com/trebisky/stm32f103
  */
 
+#include "can.hpp"
 #include "command_processor.hpp"
 #include "spi.hpp"
 #include "stream.hpp"
@@ -25,6 +26,7 @@ std::atomic< uint32_t > atomic_seconds;      // 1s      (136.1925 years)
 
 stm32f103::uart __uart0;
 stm32f103::spi __spi0;
+stm32f103::can __can0;
 
 extern "C" {
     void enable_interrupt( stm32f103::IRQn_type IRQn );
@@ -125,6 +127,9 @@ main()
         RCC->APB2ENR |= 0x0010; // GPIO C enable
         RCC->APB2ENR |= (1 << 14); // UART1 enable;
         RCC->APB2ENR |= (1 << 12); // SPI1 enable;
+
+        RCC->APB2ENR |= 0x0001;    // AFIO enable
+        RCC->APB1ENR |= (1 << 25); // CAN clock enable
     }
 
     atomic_jiffies = 0;
@@ -140,33 +145,61 @@ main()
 
     if ( auto GPIOA = reinterpret_cast< volatile stm32f103::GPIO * >( stm32f103::GPIOA_BASE ) ) {
         gpio_mode( GPIOA, stm32f103::PA0, stm32f103::GPIO_CNF_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_2M );
-        
-        gpio_mode( GPIOA, stm32f103::PA4, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // 2, 3
-        gpio_mode( GPIOA, stm32f103::PA5, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // 2, 3
-        gpio_mode( GPIOA, stm32f103::PA7, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // 2, 3
+
+        // SPI
+        gpio_mode( GPIOA, stm32f103::PA4, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // SPI nSS
+        gpio_mode( GPIOA, stm32f103::PA5, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // SPI sclk
+        gpio_mode( GPIOA, stm32f103::PA6, stm32f103::GPIO_CNF_INPUT_PUSH_PULL, stm32f103::GPIO_MODE_INPUT );   // SPI miso
+        gpio_mode( GPIOA, stm32f103::PA7, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // SPI mosi
 
         stream() << "GPIOA CRL: " << GPIOA->CRL << "\tCLH: " << GPIOA->CRH << std::endl;
     }
 
-    if ( auto AFIO = reinterpret_cast< volatile stm32f103::AFIO * >( stm32f103::AFIO_BASE ) ) {
-        AFIO->MAPR &= ~1; // clear SPI1 remap
-        stream() << "AFIO MAPR: 0x" << AFIO->MAPR << std::endl;
+    // CAN
+    if ( auto GPIOA = reinterpret_cast< volatile stm32f103::GPIO * >( stm32f103::GPIOA_BASE ) ) {
+        gpio_mode( GPIOA, stm32f103::PA11, stm32f103::GPIO_CNF_INPUT_PUSH_PULL, stm32f103::GPIO_MODE_INPUT );   // CAN1_RX
+        gpio_mode( GPIOA, stm32f103::PA12, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // CAN1_TX
+        enable_interrupt( stm32f103::CAN1_TX_IRQn );
+        enable_interrupt( stm32f103::CAN1_RX0_IRQn );
     }
 
+    // LED
     if ( auto GPIOC = reinterpret_cast< volatile stm32f103::GPIO * >( stm32f103::GPIOC_BASE ) ) {
         gpio_mode( GPIOC, stm32f103::PC13, stm32f103::GPIO_CNF_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M );
+    }
+
+    if ( auto AFIO = reinterpret_cast< volatile stm32f103::AFIO * >( stm32f103::AFIO_BASE ) ) {
+        AFIO->MAPR &= ~1;            // clear SPI1 remap
+        AFIO->MAPR &= ~(0b11) << 13; // clear CAN remap (RX = PA11, TX = PA12)
+        stream() << "AFIO MAPR: 0x" << AFIO->MAPR << std::endl;
     }
 
     init_systick( 7200, true ); // 100us tick
 
     __spi0.init( stm32f103::SPI1_BASE );
+    __can0.init( stm32f103::CAN1_BASE );
+
+    CanMsg msg;
+    msg.IDE = CAN_ID_STD;
+    msg.RTR = CAN_RTR_DATA;
+    msg.ID  = 0x55;
+    msg.DLC = 8;
+    msg.Data[ 0 ] = 0xaa;
+    msg.Data[ 1 ] = 0x55;
+    msg.Data[ 2 ] = 0;
+    msg.Data[ 3 ] = 0;
+    msg.Data[ 4 ] = 0;
+    msg.Data[ 5 ] = 0;
+    msg.Data[ 6 ] = 0;
+    msg.Data[ 7 ] = 0;
 
     {
         int x = 0;
-        for ( size_t i = 0; i < 3; ++i ) {
+        for ( size_t i = 0; i < 10; ++i ) {
             delay_ms( 500 );
             stream() << "Hello world: " << x++ << "\tjiffies: " << atomic_jiffies.load() << std::endl;
             __spi0 << uint16_t( ~x );
+            __can0.transmit( &msg );
         }
 
         std::array< char, 128 > cbuf;

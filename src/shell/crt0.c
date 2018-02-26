@@ -17,6 +17,10 @@ void disable_interrupt(IRQn_type IRQn);
 void set_system_clock_to_25Mhz(void);
 void set_system_clock_to_72Mhz(void);
 void __adc1_handler(void);
+void __can1_tx_handler(void);
+void __can1_rx0_handler(void);
+void __can1_rx1_handler(void);
+void __can1_sce_handler(void);
 void __usart1_handler(void);
 void __systick_handler(void);
 void __main(void);
@@ -64,10 +68,10 @@ void ( * const vector_table [] )() __attribute__ ((section(".vect"))) = {
 	0,                              /* 0x080 DMA1_Ch6                        */
 	0,                              /* 0x084 DMA1_Ch7                        */
 	__adc1_handler,                 /* 0x088 ADC1 and ADC2 global            */
-	0,                              /* 0x08C CAN1_TX                         */
-	0,                              /* 0x090 CAN1_RX0                        */
-	0,                              /* 0x094 CAN1_RX1                        */
-	0,                              /* 0x098 CAN1_SCE                        */
+	__can1_tx_handler,              /* 0x08C CAN1_TX                         */
+	__can1_rx0_handler,             /* 0x090 CAN1_RX0                        */
+	__can1_rx1_handler,             /* 0x094 CAN1_RX1                        */
+	__can1_sce_handler,             /* 0x098 CAN1_SCE                        */
 	0,                              /* 0x09C EXTI Lines 9:5                  */
 	0,                              /* 0x0A0 TIM1 Break                      */
 	0,                              /* 0x0A4 TIM1 Update                     */
@@ -136,6 +140,28 @@ disable_interrupt(IRQn_type IRQn)
 
 void
 __adc1_handler(void)
+{
+}
+
+void
+__can1_tx_handler(void)
+{
+    can1_tx_handler();
+}
+
+void
+__can1_rx0_handler(void)
+{
+    can1_rx0_handler();
+}
+
+void
+__can1_rx1_handler(void)
+{
+}
+    
+void
+__can1_sce_handler(void)
 {
 }
 
