@@ -5,6 +5,7 @@
 //
 
 #include "command_processor.hpp"
+#include "gpio.hpp"
 #include "gpio_mode.hpp"
 #include "printf.h"
 #include "spi.hpp"
@@ -51,6 +52,32 @@ alt_test( size_t argc, const char ** argv )
     }
 }
 
+void
+gpio_test( size_t argc, const char ** argv )
+{
+    using namespace stm32f103;
+    
+    if ( argc > 1 ) {
+        if ( strcmp( argv[1], "spi" ) == 0 ) {
+            gpio_mode()( PA4, GPIO_CNF_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_2M );
+            gpio_mode()( PA5, GPIO_CNF_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_2M );
+            gpio_mode()( PA6, GPIO_CNF_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_2M );
+            gpio_mode()( PA7, GPIO_CNF_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_2M );
+            for ( int i = 0; i < 0xfffff; ++i ) {
+                stm32f103::gpio< decltype( stm32f103::PA4 ) >( stm32f103::PA4 ) = bool( i & 01 );
+                stm32f103::gpio< decltype( stm32f103::PA5 ) >( stm32f103::PA5 ) = bool( i & 01 );
+                stm32f103::gpio< decltype( stm32f103::PA6 ) >( stm32f103::PA6 ) = bool( i & 01 );
+                stm32f103::gpio< decltype( stm32f103::PA7 ) >( stm32f103::PA7 ) = bool( i & 01 );
+                auto tp = atomic_jiffies.load();
+                while ( tp == atomic_jiffies.load() ) // 100us
+                    ;
+            }
+        }
+    } else {
+        stream() << "gpio PA4" << std::endl;
+    }
+}
+
 command_processor::command_processor()
 {
 }
@@ -68,6 +95,8 @@ command_processor::operator()( size_t argc, const char ** argv ) const
             spi_test( argc, argv );
         if ( strcmp( argv[0], "alt" ) == 0 )
             alt_test( argc, argv );        
+        if ( strcmp( argv[0], "gpio" ) == 0 )
+            gpio_test( argc, argv );        
     }
 
     stream() << "\tpossbile commands are: spi" << std::endl;

@@ -1,6 +1,5 @@
 // Copyright (C) 2018 MS-Cheminformatics LLC
 
-#include "gpio.hpp"
 #include "spi.hpp"
 #include "stm32f103.hpp"
 #include "stream.hpp"
@@ -40,7 +39,7 @@ namespace stm32f103 {
         SSOE         = (01 << 2) // SS output enable
     };
 
-    constexpr uint32_t fclk = 05; // 1/64 ( ~= 0.8us)
+    constexpr uint32_t fclk = 06; // 1/256 ( ~= 0.8us)
     // constexpr uint32_t cr1 = BIDIMODE | DFF | SSM | SSI | SPE | ((fclk & 7) << 3) | MSTR; // BIDIMODE|16bit|SPI enable|MSTR
     // constexpr uint32_t cr1 = BIDIMODE | SSM | SSI | ((fclk & 7) << 3) | MSTR; // BIDIMODE|16bit|SPI enable|MSTR
     constexpr uint32_t cr1 = BIDIMODE | DFF | ((fclk & 7) << 3) | MSTR; // BIDIMODE|16bit|SPI enable|MSTR
@@ -49,7 +48,6 @@ namespace stm32f103 {
     void
     spi::init( stm32f103::SPI_BASE base )
     {
-        const int fclk = 0; // 1/2 fpclk
         __spi_lock.clear();
         __spi_rxd = 0;
         
