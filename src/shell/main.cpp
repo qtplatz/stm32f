@@ -161,6 +161,7 @@ main()
     __spi0.init( stm32f103::SPI1_BASE );
     __can0.init( stm32f103::CAN1_BASE );
 
+    // CAN is experimental, not working yet.
     CanMsg msg;
     msg.IDE = CAN_ID_STD;
     msg.RTR = CAN_RTR_DATA;
@@ -177,11 +178,11 @@ main()
 
     {
         int x = 0;
-        for ( size_t i = 0; i < 10; ++i ) {
+        for ( size_t i = 0; i < 10; ++i, ++x ) {
             delay_ms( 500 );
-            stream() << "Hello world: " << x++ << "\tjiffies: " << atomic_jiffies.load() << std::endl;
+            // stream() << "Hello world: " << x<< "\tjiffies: " << atomic_jiffies.load() << std::endl;
             __spi0 << uint16_t( ~x );
-            __can0.transmit( &msg );
+            // __can0.transmit( &msg );
         }
 
         std::array< char, 128 > cbuf;

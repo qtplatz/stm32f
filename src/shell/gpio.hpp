@@ -17,16 +17,6 @@ namespace stm32f103 {
     struct gpio_base {
         template< typename PIN_type > volatile GPIO * operator()( PIN_type pin ) const;
     };
-    template<> volatile GPIO * gpio_base::operator()( GPIOA_PIN pin ) const { return reinterpret_cast< volatile GPIO * >( GPIOA_BASE ); }
-    template<> volatile GPIO * gpio_base::operator()( GPIOB_PIN pin ) const { return reinterpret_cast< volatile GPIO * >( GPIOB_BASE ); }
-    template<> volatile GPIO * gpio_base::operator()( GPIOC_PIN pin ) const { return reinterpret_cast< volatile GPIO * >( GPIOC_BASE ); }
-
-    struct gpio_number {
-        template< typename PIN_type > uint32_t operator()() const {
-            // return static_cast< uint32_t >( pin );
-            return 0;
-        }
-    };
 
     template< typename GPIO_PIN_type >
     class gpio {

@@ -56,7 +56,7 @@ namespace stm32f103 {  // as known as Blue Pill
     enum SPI_BASE
 #endif
     {
-        SPI1_BASE	    = 0x40013000
+        SPI1_BASE	    = 0x40013000  // p742, RM0008, Rev 17
         , SPI2_BASE     = 0x40003800
         , SPI3_BASE	    = 0x40003c00
     };
