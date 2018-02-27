@@ -96,7 +96,7 @@ spi1_handler()
         if ( SPI->SR ) {
             while( __spi_lock.test_and_set( std::memory_order_acquire ) ) // acquire lock
                 ;            
-            printf("SPI2 IRQ: " );
+            printf("SPI IRQ: " );
             if ( SPI->SR & 0x80 )
                 printf("BSY,");
             if ( SPI->SR & 0x40 )
@@ -112,7 +112,7 @@ spi1_handler()
             if ( SPI->SR & 02 )
                 printf("TXE" );
             
-            printf("[%x]\n", __spi_rxd.load() );
+            printf(" Rx=[%x]\n", __spi_rxd.load() );
 
             __spi_lock.clear();
         }
