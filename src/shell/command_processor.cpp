@@ -13,6 +13,7 @@
 #include "stm32f103.hpp"
 #include <atomic>
 #include <algorithm>
+#include <functional>
 
 extern stm32f103::spi __spi0;
 extern std::atomic< uint32_t > atomic_jiffies;
@@ -26,29 +27,67 @@ strcmp( const char * a, const char * b )
     return *reinterpret_cast< const unsigned char *>(a) - *reinterpret_cast< const unsigned char *>(b);
 }
 
+int
+strtod( const char * s )
+{
+    int sign = 1;
+    int num = 0;
+    while ( *s ) {
+        if ( *s == '-' )
+            sign = -1;
+        else if ( '0' <= *s && *s <= '9' )
+            num += (num * 10) + ((*s) - '0');
+        ++s;
+    }
+    return num * sign;
+}
+
 void
 spi_test( size_t argc, const char ** argv )
 {
-    while ( true ) {
+    // spi num
+    size_t count = 1024;
+
+    if ( argc >= 2 ) {
+        count = strtod( argv[ 1 ] );
+        if ( count == 0 )
+            count = 1;
+    }
+
+    while ( count-- ) {
         uint32_t d = atomic_jiffies.load();
         __spi0 << ( d & 0xffff );
-        mdelay( 200 );
+        mdelay( 100 );
     }
 }
 
 void
 alt_test( size_t argc, const char ** argv )
 {
-    // ALT
-    using namespace stm32f103;
-    gpio_mode()( PA15, GPIO_CNF_ALT_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_50M ); // NSS
-    gpio_mode()( PB3,  GPIO_CNF_ALT_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_50M ); // SCLK
-    gpio_mode()( PB4,  GPIO_CNF_INPUT_FLOATING,       GPIO_MODE_INPUT );      // MISO
-    gpio_mode()( PB5,  GPIO_CNF_ALT_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_50M ); // MOSI
-    
-    if ( auto AFIO = reinterpret_cast< volatile stm32f103::AFIO * >( stm32f103::AFIO_BASE ) ) {
-        AFIO->MAPR |= 1;            // clear SPI1 remap
-        stream() << "\tAFIO MAPR: 0x" << AFIO->MAPR << std::endl;
+    // alt spi [remap]
+    using namespace stm32f103;    
+    auto AFIO = reinterpret_cast< volatile stm32f103::AFIO * >( stm32f103::AFIO_BASE );
+    if ( argc > 1 && strcmp( argv[1], "spi" ) == 0 ) {
+        if ( argc == 2 ) {
+            gpio_mode()( stm32f103::PA4, GPIO_CNF_ALT_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_50M ); // ~SS
+            gpio_mode()( stm32f103::PA5, GPIO_CNF_ALT_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_50M ); // SCLK
+            gpio_mode()( stm32f103::PA6, GPIO_CNF_INPUT_FLOATING,       GPIO_MODE_INPUT );      // MISO
+            gpio_mode()( stm32f103::PA7, GPIO_CNF_ALT_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_50M ); // MOSI
+            AFIO->MAPR &= ~1;            // clear SPI1 remap
+        }
+        if ( argc > 2 && strcmp( argv[2], "remap" ) == 0 ) {
+            gpio_mode()( stm32f103::PA15, GPIO_CNF_ALT_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_50M ); // NSS
+            gpio_mode()( stm32f103::PB3,  GPIO_CNF_ALT_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_50M ); // SCLK
+            gpio_mode()( stm32f103::PB4,  GPIO_CNF_INPUT_FLOATING,       GPIO_MODE_INPUT );      // MISO
+            gpio_mode()( stm32f103::PB5,  GPIO_CNF_ALT_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_50M ); // MOSI
+            AFIO->MAPR |= 1;          // set SPI1 remap
+        }
+        stream() << "\tEnable SPI, AFIO MAPR: 0x" << AFIO->MAPR << std::endl;
+    } else {
+        stream()
+            << "\tError: insufficent arguments\nalt spi [remap]"
+            << "\tAFIO MAPR: 0x" << AFIO->MAPR
+            << std::endl;
     }
 }
 
@@ -57,7 +96,7 @@ gpio_test( size_t argc, const char ** argv )
 {
     using namespace stm32f103;
     
-    if ( argc > 1 ) {
+    if ( argc >= 2 ) {
         if ( strcmp( argv[1], "spi" ) == 0 ) {
             gpio_mode()( PA4, GPIO_CNF_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_2M );
             gpio_mode()( PA5, GPIO_CNF_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_2M );
@@ -74,7 +113,7 @@ gpio_test( size_t argc, const char ** argv )
             }
         }
     } else {
-        stream() << "gpio PA4" << std::endl;
+        stream() << "gpio spi" << std::endl;
     }
 }
 
@@ -82,22 +121,37 @@ command_processor::command_processor()
 {
 }
 
+class premitive {
+public:
+    const char * arg0_;
+    void (*f_)(size_t, const char **);
+    const char * help_;
+};
+
+static const premitive command_table [] = {
+    { "spi", spi_test,     " [number]" }
+    , { "alt", alt_test,   " spi [remap]" }
+    , { "gpio", gpio_test, " spi -- (toggles A4-A7 as GPIO)" }
+};
+
 bool
 command_processor::operator()( size_t argc, const char ** argv ) const
 {
     stream() << "command_procedssor: argc=" << argc << " argv = {";
     for ( size_t i = 0; i < argc; ++i )
-        stream() << argv[i] << ( ( i < argc - 1 ) ? ", " : "" );
+         stream() << argv[i] << ( ( i < argc - 1 ) ? ", " : "" );
     stream() << "}" << std::endl;
-
+    
     if ( argc > 0 ) {
-        if ( strcmp( argv[0], "spi" ) == 0 )
-            spi_test( argc, argv );
-        if ( strcmp( argv[0], "alt" ) == 0 )
-            alt_test( argc, argv );        
-        if ( strcmp( argv[0], "gpio" ) == 0 )
-            gpio_test( argc, argv );        
+        for ( auto& cmd: command_table ) {
+            if ( strcmp( cmd.arg0_, argv[0] ) == 0 ) {
+                cmd.f_( argc, argv );
+                break;
+            }
+        }
+    } else {
+        stream() << "command processor -- help" << std::endl;
+        for ( auto& cmd: command_table )
+            stream() << "\t" << cmd.arg0_ << cmd.help_ << std::endl;
     }
-
-    stream() << "\tpossbile commands are: spi" << std::endl;
 }
