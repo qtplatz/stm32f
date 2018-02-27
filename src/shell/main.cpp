@@ -8,6 +8,7 @@
 
 #include "can.hpp"
 #include "command_processor.hpp"
+#include "gpio.hpp"
 #include "gpio_mode.hpp"
 #include "spi.hpp"
 #include "stream.hpp"
@@ -101,9 +102,9 @@ main()
         RCC->CR   = ( 1 << 24 ) | ( 1 << 16 ) | (0b10000 << 3) | 1;   // PLLON, HSEON, HSITRIM(0b10000), HSION
         while ( ! RCC->CR & ( 1 << 17 ) )                             // Wait until HSE settles down (HSE RDY)
             ;
-        RCC->CFGR |= ( 2 << 14 ) | 0x02;                              // ADC prescaler (0b10 div by 6), SW(0b10, pll selected as system clock)
+        RCC->CFGR |= 0x02;                      // SW(0b10, pll selected as system clock)        
         // <--
-
+        
         // See p100 of RM008 (DocID 13902, Rev. 17)
         RCC->APB2ENR |= 0x0004; // GPIO A enable
         RCC->APB2ENR |= 0x0008; // GPIO B enable
@@ -115,7 +116,7 @@ main()
         RCC->APB1ENR |= (1 << 25); // CAN clock enable
         // ADC prescaler
         RCC->CFGR &= ~( 0b11 << 14 );
-        RCC->CFGR != ~( 0b10 << 14 );  // set prescaler to 6
+        RCC->CFGR |= ( 0b10 << 14 );  // set prescaler to 6
     }
 
     atomic_jiffies = 0;
@@ -129,8 +130,6 @@ main()
         gpio_mode( stm32f103::PA9, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // 2, 3
         gpio_mode( stm32f103::PA10, stm32f103::GPIO_CNF_INPUT_PUSH_PULL,     stm32f103::GPIO_MODE_INPUT );
         __uart0.init( stm32f103::USART1_BASE, stm32f103::uart::parity_even, 8, 115200, 72000000 );            
-        
-        gpio_mode( stm32f103::PA0, stm32f103::GPIO_CNF_OUTPUT_PUSH_PULL,     stm32f103::GPIO_MODE_OUTPUT_2M );
         
         // SPI
         gpio_mode( stm32f103::PA4, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // SPI nSS
@@ -147,6 +146,9 @@ main()
         // LED
         gpio_mode(stm32f103::PC13, stm32f103::GPIO_CNF_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M );
     }
+    
+    stm32f103::gpio_mode()( stm32f103::PA0,  stm32f103::GPIO_CNF_OUTPUT_PUSH_PULL,     stm32f103::GPIO_MODE_OUTPUT_2M );
+    stm32f103::gpio_mode()( stm32f103::PB12, stm32f103::GPIO_CNF_OUTPUT_PUSH_PULL,     stm32f103::GPIO_MODE_OUTPUT_2M );
 
     if ( auto AFIO = reinterpret_cast< volatile stm32f103::AFIO * >( stm32f103::AFIO_BASE ) ) {
         AFIO->MAPR &= ~1;            // clear SPI1 remap
@@ -223,21 +225,13 @@ systick_handler()
     if ( ( tp % 10000 ) == 0 )
         ++atomic_seconds;
 
-    if ( auto GPIOA = reinterpret_cast< volatile stm32f103::GPIO * >( stm32f103::GPIOA_BASE ) ) {
-        if ( tp & 01 )
-            GPIOA->BRR = 1 << ( stm32f103::PA0 );
-        else
-            GPIOA->BSRR = 1 << ( stm32f103::PA0 );
-    }
+    // systick (100us)
+    stm32f103::gpio< decltype( stm32f103::PB12 ) >( stm32f103::PB12 ) = bool( tp & 01 );
 
-    if ( ( tp % (10 * 250) ) == 0 ) {
-        static uint32_t x(0);
-        if ( auto GPIOC = reinterpret_cast< volatile stm32f103::GPIO * >( stm32f103::GPIOC_BASE ) ) {
-            if ( x++ & 01 )
-                GPIOC->BRR = 1 << ( stm32f103::PC13 );       // LED RESET
-            else
-                GPIOC->BSRR = 1 << ( stm32f103::PC13 );      // LED SET
-        }
+    // LED (200ms)
+    if ( ( tp % ( 10 * 200 ) ) == 0 ) {
+        static uint32_t blink = 0;
+        stm32f103::gpio< decltype( stm32f103::PC13 ) >( stm32f103::PC13 ) = bool( blink++ & 01 );
     }
 }
 
