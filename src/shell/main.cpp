@@ -22,13 +22,17 @@
 
 extern uint64_t jiffies;  // 100us
 
-std::atomic< uint32_t > atomic_jiffies;      //  100us  (4.97 days)
-std::atomic< uint32_t > atomic_milliseconds; // 1000us  (49.71 days)
-std::atomic< uint32_t > atomic_seconds;      // 1s      (136.1925 years)
+std::atomic< uint32_t > atomic_jiffies;          //  100us  (4.97 days)
+std::atomic< uint32_t > atomic_milliseconds;     // 1000us  (49.71 days)
+std::atomic< uint32_t > atomic_250_milliseconds;
+std::atomic< uint32_t > atomic_seconds;          // 1s      (136.1925 years)
+
+static std::atomic_flag __lock_flag;
 
 stm32f103::uart __uart0;
 stm32f103::spi __spi0;
 stm32f103::can __can0;
+
 
 extern "C" {
     void enable_interrupt( stm32f103::IRQn_type IRQn );
@@ -44,16 +48,8 @@ extern "C" {
     int main();
 }
 
-static void
-delay_one_ms ( void )
-{
-    auto t0 = atomic_jiffies.load();
-	while ( atomic_jiffies.load() - t0 < 10 )
-	    ;
-}
-
 void
-delay_ms ( int ms )
+mdelay ( uint32_t ms )
 {
     auto t0 = atomic_jiffies.load();
 	while ( atomic_jiffies.load() - t0 < (10*ms) )
@@ -102,18 +98,39 @@ main()
         RCC->CR   = ( 1 << 24 ) | ( 1 << 16 ) | (0b10000 << 3) | 1;   // PLLON, HSEON, HSITRIM(0b10000), HSION
         while ( ! RCC->CR & ( 1 << 17 ) )                             // Wait until HSE settles down (HSE RDY)
             ;
-        RCC->CFGR |= 0x02;                      // SW(0b10, pll selected as system clock)        
+        RCC->CFGR |= 0x02;                      // SW(0b10, pll selected as system clock)
         // <--
+        ///////////////////////////////////////////////////////
+
+        // See RM0008 section 7.3.7 p111 (DocID 13902, Rev. 17) APB2 peripheral clock enable register
+        RCC->APB2ENR |= 0x0001;     // AFIO enable
         
-        // See p100 of RM008 (DocID 13902, Rev. 17)
-        RCC->APB2ENR |= 0x0004; // GPIO A enable
-        RCC->APB2ENR |= 0x0008; // GPIO B enable
-        RCC->APB2ENR |= 0x0010; // GPIO C enable
-        RCC->APB2ENR |= (1 << 14); // UART1 enable;
+        RCC->APB2ENR |= 0x0004;     // IOPA EN := GPIO A enable
+        RCC->APB2ENR |= 0x0008;     // IOPB EN := GPIO B enable
+        RCC->APB2ENR |= 0x0010;     // IOPC EN := GPIO C enable
+
+        // RCC->APB2ENR |= (1 <<  9); // ADC1
+        // RCC->APB2ENR |= (1 << 10); // ADC2
+        // RCC->APB2ENR |= (1 << 11); // TIM1
+
         RCC->APB2ENR |= (1 << 12); // SPI1 enable;
 
-        RCC->APB2ENR |= 0x0001;    // AFIO enable
+        // RCC->APB2ENR |= (1 << 13); // TIM8
+        
+        RCC->APB2ENR |= (1 << 14); // UART1 enable;
+
+        // 7.3.8 p114 (APB1 peripheral clock enable register)
+        // RCC->APB1ENR |= 0b111111;  // TIM 2..7
+        // RCC->APB1ENR |= 07 << 6;   // TIM 12,13,14
+        // RCC->APB1ENR |= 1 << 11;   // WWD GEN
+        // RCC->APB1ENR |= 1 << 14;   // SPI2
+        // RCC->APB1ENR |= 1 << 15;    // SPI3
+        // RCC->APB1ENR |= 0x0f << 17; // USART 2..5
+        // RCC->APB1ENR |= 03 << 21;   // I2C 1,2
+        // RCC->APB1ENR |= 01 << 23;   // USB
+
         RCC->APB1ENR |= (1 << 25); // CAN clock enable
+
         // ADC prescaler
         RCC->CFGR &= ~( 0b11 << 14 );
         RCC->CFGR |= ( 0b10 << 14 );  // set prescaler to 6
@@ -132,11 +149,12 @@ main()
         __uart0.init( stm32f103::USART1_BASE, stm32f103::uart::parity_even, 8, 115200, 72000000 );            
         
         // SPI
+        // (see RM0008, p166, Table 25)
         gpio_mode( stm32f103::PA4, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // SPI nSS
         gpio_mode( stm32f103::PA5, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // SPI sclk
         gpio_mode( stm32f103::PA6, stm32f103::GPIO_CNF_INPUT_PUSH_PULL,      stm32f103::GPIO_MODE_INPUT );   // SPI miso
         gpio_mode( stm32f103::PA7, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // SPI mosi
-        
+
         // CAN
         gpio_mode( stm32f103::PA11, stm32f103::GPIO_CNF_INPUT_PUSH_PULL,      stm32f103::GPIO_MODE_INPUT );   // CAN1_RX
         gpio_mode( stm32f103::PA12, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // CAN1_TX
@@ -152,8 +170,8 @@ main()
 
     if ( auto AFIO = reinterpret_cast< volatile stm32f103::AFIO * >( stm32f103::AFIO_BASE ) ) {
         AFIO->MAPR &= ~1;            // clear SPI1 remap
-        AFIO->MAPR &= ~(0b11) << 13; // clear CAN remap (RX = PA11, TX = PA12)
-        stream() << "AFIO MAPR: 0x" << AFIO->MAPR << std::endl;
+        AFIO->MAPR &= ~(0b11 << 13); // clear CAN remap (RX = PA11, TX = PA12)
+        stream() << "\tAFIO MAPR: 0x" << AFIO->MAPR << std::endl;
     }
 
     init_systick( 7200, true ); // 100us tick
@@ -179,10 +197,10 @@ main()
     {
         int x = 0;
         for ( size_t i = 0; i < 10; ++i, ++x ) {
-            delay_ms( 500 );
+            mdelay( 500 );
             // stream() << "Hello world: " << x<< "\tjiffies: " << atomic_jiffies.load() << std::endl;
-            __spi0 << uint16_t( ~x );
             // __can0.transmit( &msg );
+            __spi0 << uint16_t( ~x );
         }
 
         std::array< char, 128 > cbuf;
@@ -225,6 +243,9 @@ systick_handler()
 
     if ( ( tp % 10000 ) == 0 )
         ++atomic_seconds;
+
+    if ( ( tp % 10 * 250 ) == 0 )
+        ++atomic_250_milliseconds;
 
     // systick (100us)
     stm32f103::gpio< decltype( stm32f103::PB12 ) >( stm32f103::PB12 ) = bool( tp & 01 );
