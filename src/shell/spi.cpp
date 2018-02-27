@@ -5,6 +5,7 @@
 #include "stm32f103.hpp"
 #include "stream.hpp"
 #include "printf.h"
+#include <atomic>
 
 extern "C" {
     void spi1_handler();
@@ -13,6 +14,10 @@ extern "C" {
 }
 
 namespace stm32f103 {
+
+    static std::atomic_flag __spi_lock;
+    static std::atomic< uint32_t > __spi_rxd;
+    
     // p702 SPI
     // p742 RM0008
     enum SPI_CR1 { BIDIMODE   = (01 << 15) // Bidirectional data mode enable
@@ -38,41 +43,41 @@ namespace stm32f103 {
     constexpr uint32_t fclk = 05; // 1/64 ( ~= 0.8us)
     // constexpr uint32_t cr1 = BIDIMODE | DFF | SSM | SSI | SPE | ((fclk & 7) << 3) | MSTR; // BIDIMODE|16bit|SPI enable|MSTR
     // constexpr uint32_t cr1 = BIDIMODE | SSM | SSI | ((fclk & 7) << 3) | MSTR; // BIDIMODE|16bit|SPI enable|MSTR
-    constexpr uint32_t cr1 = BIDIMODE | ((fclk & 7) << 3) | MSTR; // BIDIMODE|16bit|SPI enable|MSTR
+    constexpr uint32_t cr1 = BIDIMODE | DFF | ((fclk & 7) << 3) | MSTR; // BIDIMODE|16bit|SPI enable|MSTR
     constexpr uint32_t cr2 = SSOE | (3 << 5); // SS output enable, Rx buffer not empty interrupt, Error interrupt
     
     void
     spi::init( stm32f103::SPI_BASE base )
     {
         const int fclk = 0; // 1/2 fpclk
+        __spi_lock.clear();
+        __spi_rxd = 0;
         
         if ( auto SPI = reinterpret_cast< volatile stm32f103::SPI * >( base ) ) {
             spi_ = SPI;
             SPI->CR2 = cr2;
             SPI->CR1 = cr1 | SPE;
-            // enable_interrupt( stm32f103::SPI1_IRQn );
+            enable_interrupt( stm32f103::SPI1_IRQn );
         }
     }
 
     spi&
     spi::operator << ( uint16_t d )
     {
-        printf("Tx data: %x, CR1=%x == %x, SR=%x\n", d, spi_->CR1, cr1, spi_->SR );
+        while( __spi_lock.test_and_set( std::memory_order_acquire ) ) // acquire lock
+            ;
+        while( __spi_rxd.load() == 0 )
+            ;
+        auto rxd = __spi_rxd.load() & 0xffff;
 
-        spi_->CR1 = cr1 | SPE;
+        __spi_rxd = 0;
 
+        __spi_lock.clear(); // release lock
+        
+        printf("Tx data: %x, Rx data: %x, CR1=%x == %x, SR=%x\n", d, rxd, spi_->CR1, cr1, spi_->SR );
+
+        spi_->CR1 = cr1 | SPE; // enable
         spi_->DATA = d;
-        
-        if ( spi_->SR ) {
-            stream() << "SR: " << spi_->SR << std::endl;
-            if ( spi_->SR & 01 ) // RX buffer not empty
-                stream() << "Rx data: " << spi_->DATA << std::endl;
-        }
-        
-        while ( spi_->SR & (1 << 5) ) {
-            stream() << "MODF (mode falt)" << spi_->SR << " CR1=" << spi_->CR1 << std::endl;
-            spi_->CR1 = cr1;
-        }
     }
 
 }
@@ -81,10 +86,37 @@ void
 spi1_handler()
 {
     if ( auto SPI = reinterpret_cast< volatile stm32f103::SPI * >( stm32f103::SPI1_BASE ) ) {
-        if ( SPI->SR & 01 ) // RX not empty
-            printf("##### spi1 handler SR %x data=%x\n", SPI->SR, SPI->DATA );
+        using namespace stm32f103;
+        if ( SPI->SR & 01 ) { // RX not empty
+            __spi_rxd = SPI->DATA | 0x80000000;
+            SPI->CR1 &= stm32f103::SPE; // disable
+        }
+
+        if ( SPI->SR ) {
+            while( __spi_lock.test_and_set( std::memory_order_acquire ) ) // acquire lock
+                ;            
+            printf("SPI2 IRQ: " );
+            if ( SPI->SR & 0x80 )
+                printf("BSY,");
+            if ( SPI->SR & 0x40 )
+                printf("OVR,");
+            if ( SPI->SR & 0x20 )
+                printf("MODF,");
+            if ( SPI->SR & 0x10 )
+                printf("CRCERR,");
+            if ( SPI->SR & 0x08 )
+                printf("UDR,");
+            if ( SPI->SR & 04 )
+                printf("CHSIDE,");
+            if ( SPI->SR & 02 )
+                printf("TXE" );
+            
+            printf("[%x]\n", __spi_rxd.load() );
+
+            __spi_lock.clear();
+        }
+
         if ( SPI->SR & (1 << 5 ) ) { // MODF (mode falt)
-            printf("##### spi1 handler MODF SR %x\n", SPI->SR );
             SPI->CR1 = stm32f103::cr1;
         }
     }
