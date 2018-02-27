@@ -73,11 +73,12 @@ namespace stm32f103 {
         __spi_rxd = 0;
 
         __spi_lock.clear(); // release lock
-        
-        printf("Tx data: %x, Rx data: %x, CR1=%x == %x, SR=%x\n", d, rxd, spi_->CR1, cr1, spi_->SR );
 
-        spi_->CR1 = cr1 | SPE; // enable
         spi_->DATA = d;
+        
+        printf("Tx data: %x, Rx data: %x, CR1=%x, SR=%x\n", d, rxd, spi_->CR1, spi_->SR );
+
+        spi_->CR1 |= SPE; // enable
     }
 
 }
@@ -89,7 +90,7 @@ spi1_handler()
         using namespace stm32f103;
         if ( SPI->SR & 01 ) { // RX not empty
             __spi_rxd = SPI->DATA | 0x80000000;
-            SPI->CR1 &= stm32f103::SPE; // disable
+            SPI->CR1 &= ~SPE; // disable
         }
 
         if ( SPI->SR ) {
