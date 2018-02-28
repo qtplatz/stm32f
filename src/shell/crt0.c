@@ -143,6 +143,7 @@ disable_interrupt(IRQn_type IRQn)
 void
 __adc1_handler(void)
 {
+    adc1_handler();
 }
 
 void

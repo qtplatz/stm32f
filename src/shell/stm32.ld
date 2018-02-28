@@ -28,9 +28,11 @@ SECTIONS {
 		. = ALIGN(4);
 	} > flash
 	.bss :	{
+                _sbss = . ;        
 		. = ALIGN(4);
 		*(.bss*)       /* Read-write zero initialized data */
 		*(COMMON)
 		. = ALIGN(4);
+                _ebss = . ;
 	} > sram
 }

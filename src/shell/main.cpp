@@ -21,6 +21,7 @@
 #include <cstddef>
 
 extern uint64_t jiffies;  // 100us
+extern uint32_t _sbss, _ebss;
 
 std::atomic< uint32_t > atomic_jiffies;          //  100us  (4.97 days)
 std::atomic< uint32_t > atomic_milliseconds;     // 1000us  (49.71 days)
@@ -32,7 +33,6 @@ static std::atomic_flag __lock_flag;
 stm32f103::uart __uart0;
 stm32f103::spi __spi0;
 stm32f103::can __can0;
-
 
 extern "C" {
     void enable_interrupt( stm32f103::IRQn_type IRQn );
@@ -88,6 +88,9 @@ init_systick( uint32_t s, bool en )
 int
 main()
 {
+    // zero clear .bss
+    memset( &_sbss, 0, reinterpret_cast< const char * >(&_ebss) - reinterpret_cast< const char * >(&_sbss) );
+
     if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
         // clock/pll setup -->
         // RM0008 p98- 
@@ -101,29 +104,30 @@ main()
         RCC->CFGR |= 0x02;                      // SW(0b10, pll selected as system clock)
         // <--
         ///////////////////////////////////////////////////////
+    }
 
-        // See RM0008 section 7.3.7 p111 (DocID 13902, Rev. 17) APB2 peripheral clock enable register
+    if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
+        // See RM0008 section 7.3.7 p111-112 (DocID 13902, Rev. 17) APB2 peripheral clock enable register
         RCC->APB2ENR |= 0x0001;     // AFIO enable
         
         RCC->APB2ENR |= 0x0004;     // IOPA EN := GPIO A enable
         RCC->APB2ENR |= 0x0008;     // IOPB EN := GPIO B enable
         RCC->APB2ENR |= 0x0010;     // IOPC EN := GPIO C enable
 
-        // RCC->APB2ENR |= (1 <<  9); // ADC1
-        // RCC->APB2ENR |= (1 << 10); // ADC2
+        RCC->APB2ENR |= (01 << 9);    // ADC1
         // RCC->APB2ENR |= (1 << 11); // TIM1
 
-        RCC->APB2ENR |= (1 << 12); // SPI1 enable;
+        RCC->APB2ENR |= (01 << 12);   // SPI1 enable;
 
         // RCC->APB2ENR |= (1 << 13); // TIM8
         
-        RCC->APB2ENR |= (1 << 14); // UART1 enable;
+        RCC->APB2ENR |= (01 << 14);   // UART1 enable;
 
         // 7.3.8 p114 (APB1 peripheral clock enable register)
-        // RCC->APB1ENR |= 0b111111;  // TIM 2..7
-        // RCC->APB1ENR |= 07 << 6;   // TIM 12,13,14
-        // RCC->APB1ENR |= 1 << 11;   // WWD GEN
-        // RCC->APB1ENR |= 1 << 14;   // SPI2
+        // RCC->APB1ENR |= 0b111111;   // TIM 2..7
+        // RCC->APB1ENR |= 07 << 6;    // TIM 12,13,14
+        // RCC->APB1ENR |= 1 << 11;    // WWD GEN
+        // RCC->APB1ENR |= 1 << 14;    // SPI2
         // RCC->APB1ENR |= 1 << 15;    // SPI3
         // RCC->APB1ENR |= 0x0f << 17; // USART 2..5
         // RCC->APB1ENR |= 03 << 21;   // I2C 1,2
@@ -136,17 +140,23 @@ main()
         RCC->CFGR |= ( 0b10 << 14 );  // set prescaler to 6
     }
 
-    atomic_jiffies = 0;
-    atomic_milliseconds = 0;
-    atomic_seconds = 0;
+    //atomic_jiffies = 0;
+    //atomic_milliseconds = 0;
+    //atomic_seconds = 0;
 
     {
         stm32f103::gpio_mode gpio_mode;
         
         // initialize UART0 for debug output
-        gpio_mode( stm32f103::PA9, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // 2, 3
+        gpio_mode( stm32f103::PA9, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // (2,3)
         gpio_mode( stm32f103::PA10, stm32f103::GPIO_CNF_INPUT_PUSH_PULL,     stm32f103::GPIO_MODE_INPUT );
-        __uart0.init( stm32f103::USART1_BASE, stm32f103::uart::parity_even, 8, 115200, 72000000 );            
+        __uart0.init( stm32f103::USART1_BASE, stm32f103::uart::parity_even, 8, 115200, 72000000 );
+
+        // ADC  (0..3)
+        gpio_mode( stm32f103::PA0, stm32f103::GPIO_CNF_INPUT_ANALOG,         stm32f103::GPIO_MODE_INPUT ); // ADC1 (0,0)
+        gpio_mode( stm32f103::PA1, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_INPUT ); // ADC2 (0,0)
+        gpio_mode( stm32f103::PA2, stm32f103::GPIO_CNF_INPUT_FLOATING,       stm32f103::GPIO_MODE_INPUT ); // ADC3 (0,0)
+        gpio_mode( stm32f103::PA3, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_INPUT ); // ADC4 (0,0)
         
         // SPI
         // (see RM0008, p166, Table 25)
@@ -174,6 +184,13 @@ main()
         stream() << "\tAFIO MAPR: 0x" << AFIO->MAPR << std::endl;
     }
 
+    {
+        int size = reinterpret_cast< const char * >(&_ebss) - reinterpret_cast< const char * >(&_sbss);
+        stream() << "\t***** BSS = 0x" << uint32_t(&_sbss) << " -- 0x" << uint32_t(&_ebss) << " *****" << std::endl;
+        stream() << "\t***** " << size << " octsts of bss segment is in use." << std::endl;
+        stream() << "\t***** Current stack pointer = " << uint32_t(&size) << std::endl;
+    }
+
     init_systick( 7200, true ); // 100us tick
 
     __spi0.init( stm32f103::SPI1_BASE );
@@ -196,11 +213,11 @@ main()
 
     {
         int x = 0;
-        for ( size_t i = 0; i < 10; ++i, ++x ) {
-            mdelay( 500 );
-            // stream() << "Hello world: " << x<< "\tjiffies: " << atomic_jiffies.load() << std::endl;
+        for ( size_t i = 0; i < 3; ++i, ++x ) {
+            stream() << "Hello world: " << x<< "\tjiffies: " << atomic_jiffies.load() << std::endl;
             // __can0.transmit( &msg );
             __spi0 << uint16_t( ~x );
+            mdelay( 500 );
         }
 
         std::array< char, 128 > cbuf;
@@ -257,11 +274,3 @@ systick_handler()
     }
 }
 
-void *
-memset( void * dest, int value, size_t num )
-{
-    char * p = reinterpret_cast< char * >( dest );
-    while ( num-- )
-        *p++ = value;
-    return dest;
-}

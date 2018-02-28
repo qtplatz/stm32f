@@ -32,6 +32,8 @@ namespace stm32f103 {  // as known as Blue Pill
         , NVIC_BASE       = 0xe000e100
         , CAN1_BASE       = 0x40006400
         , CAN2_BASE       = 0x40006800
+        , ADC1_BASE	      = 0x40012400  // Table 3. p50, RM0008, Rev 17
+        , ADC2_BASE	      = 0x40012800  
     };
 
     enum GPIO_BASE {

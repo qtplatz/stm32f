@@ -40,13 +40,14 @@ LDFLAGS = -nostdlib -nostartfiles
 
 OCDCFG = -f /usr/share/openocd/scripts/interface/stlink-v2.cfg -f /usr/share/openocd/scripts/target/stm32f1x.cfg
 
-OBJS = crt0.o main.o prf.o spi.o uart.o stream.o command_processor.o can.o gpio.o gpio_mode.o atexit.o
+OBJS = crt0.o main.o prf.o spi.o uart.o stream.o command_processor.o can.o gpio.o gpio_mode.o atexit.o adc.o memset.o
 
 all: shell.elf shell.dump shell.bin
 
 main.o: tokenizer.hpp gpio_mode.hpp
 gpio_mode.o: gpio_mode.hpp
 can.o: can.hpp
+adc.o: adc.hpp
 
 shell.dump:	shell.elf
 	$(DUMP) shell.elf >shell.dump
