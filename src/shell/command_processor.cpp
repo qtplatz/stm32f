@@ -148,6 +148,21 @@ adc_test( size_t argc, const char ** argv )
     }
 }
 
+class ctor {
+public:
+    ctor() {
+        stream() << "ctor constracted" << std::endl;
+    };
+    ~ctor() {
+        stream() << "~ctor destracted" << std::endl;
+    };
+};
+
+void
+ctor_test( size_t argc, const char ** argv )
+{
+    ctor x;
+}
 
 command_processor::command_processor()
 {
@@ -165,6 +180,7 @@ static const premitive command_table [] = {
     , { "alt", alt_test,   " spi [remap]" }
     , { "gpio", gpio_test, " spi -- (toggles A4-A7 as GPIO)" }
     , { "adc", adc_test,   "" }
+    , { "ctor", ctor_test,   "" }    
 };
 
 bool
