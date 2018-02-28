@@ -16,7 +16,7 @@
 #include <algorithm>
 #include <functional>
 
-extern stm32f103::spi __spi0;
+extern stm32f103::spi __spi0, __spi1;
 extern stm32f103::adc __adc0;
 
 extern std::atomic< uint32_t > atomic_jiffies;
@@ -57,6 +57,29 @@ strtod( const char * s )
 void
 spi_test( size_t argc, const char ** argv )
 {
+    auto& spix = ( strcmp( argv[0], "spi") == 0 ) ? __spi0 : __spi1;
+
+    if ( ! spix ) {
+        using namespace stm32f103;
+        stream() << argv[0] << " not initialized. -- initializing..." << std::endl;
+        if ( strcmp( argv[0], "spi2" ) == 0 ) {
+            stream() << "Enable APB1 peripheral clock bit 14" << std::endl;
+            if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) )
+                RCC->APB1ENR |= 1 << 14;    // SPI2
+
+            stream() << "GPIO PB12 for ~ss" << std::endl;
+            gpio_mode()( stm32f103::PB12, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // ~SS
+            stream() << "GPIO PB13 for sclk" << std::endl;
+            gpio_mode()( stm32f103::PB13, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // SCLK
+            stream() << "GPIO PB14 for miso" << std::endl;
+            gpio_mode()( stm32f103::PB14, stm32f103::GPIO_CNF_INPUT_FLOATING,       stm32f103::GPIO_MODE_INPUT );      // MISO
+            stream() << "GPIO PB15 for mosi" << std::endl;
+            gpio_mode()( stm32f103::PB15, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // MOSI
+            stream() << "spi2 initializing..." << std::endl;
+            spix.init( stm32f103::SPI2_BASE );
+        }
+    }
+    
     // spi num
     size_t count = 1024;
 
@@ -68,7 +91,7 @@ spi_test( size_t argc, const char ** argv )
 
     while ( count-- ) {
         uint32_t d = atomic_jiffies.load();
-        __spi0 << ( d & 0xffff );
+        spix << uint16_t( d & 0xffff );
         mdelay( 100 );
     }
 }
@@ -331,6 +354,7 @@ public:
 
 static const premitive command_table [] = {
     { "spi",    spi_test,       " spi [replicates]" }
+    , { "spi2", spi_test,       " spi2 [replicates]" }
     , { "alt",  alt_test,       " spi [remap]" }
     , { "gpio", gpio_test,      " pin# (toggle PA# as GPIO, where # is 0..12)" }
     , { "adc",  adc_test,       " replicates (1)" }

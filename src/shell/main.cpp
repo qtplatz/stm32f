@@ -33,6 +33,7 @@ static std::atomic_flag __lock_flag;
 
 stm32f103::uart __uart0;
 stm32f103::spi __spi0;
+stm32f103::spi __spi1;
 stm32f103::can __can0;
 stm32f103::adc __adc0;
 
@@ -47,6 +48,8 @@ extern "C" {
 
     void systick_handler();
     void adc1_handler();
+    void spi1_handler();
+    void spi2_handler();
 
     void * memset( void * ptr, int value, size_t num );
 
@@ -180,9 +183,6 @@ main()
         gpio_mode(stm32f103::PC13, stm32f103::GPIO_CNF_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M );
     }
     
-    stm32f103::gpio_mode()( stm32f103::PA0,  stm32f103::GPIO_CNF_OUTPUT_PUSH_PULL,     stm32f103::GPIO_MODE_OUTPUT_2M );
-    stm32f103::gpio_mode()( stm32f103::PB12, stm32f103::GPIO_CNF_OUTPUT_PUSH_PULL,     stm32f103::GPIO_MODE_OUTPUT_2M );
-
     if ( auto AFIO = reinterpret_cast< volatile stm32f103::AFIO * >( stm32f103::AFIO_BASE ) ) {
         AFIO->MAPR &= ~1;            // clear SPI1 remap
         AFIO->MAPR &= ~(0b11 << 13); // clear CAN remap (RX = PA11, TX = PA12)
@@ -272,7 +272,7 @@ systick_handler()
         ++atomic_250_milliseconds;
 
     // systick (100us)
-    stm32f103::gpio< decltype( stm32f103::PB12 ) >( stm32f103::PB12 ) = bool( tp & 01 );
+    // stm32f103::gpio< decltype( stm32f103::PB12 ) >( stm32f103::PB12 ) = bool( tp & 01 );
 
     // LED (200ms)
     if ( ( tp % ( 10 * 200 ) ) == 0 ) {
@@ -285,4 +285,16 @@ void
 adc1_handler()
 {
     stm32f103::adc::interrupt_handler( &__adc0 );
+}
+
+void
+spi1_handler()
+{
+    stm32f103::spi::interrupt_handler( &__spi0 );
+}
+
+void
+spi2_handler()
+{
+    stm32f103::spi::interrupt_handler( &__spi1 );
 }

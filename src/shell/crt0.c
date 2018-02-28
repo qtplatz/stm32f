@@ -22,6 +22,7 @@ void __can1_rx0_handler(void);
 void __can1_rx1_handler(void);
 void __can1_sce_handler(void);
 void __spi1_handler(void);
+void __spi2_handler(void);
 void __usart1_handler(void);
 void __systick_handler(void);
 void __main(void);
@@ -87,7 +88,7 @@ void ( * const vector_table [] )() __attribute__ ((section(".vect"))) = {
 	0,                              /* 0x0C4 I2C2 event                      */
 	0,                              /* 0x0C8 I2C2 error                      */
 	__spi1_handler,                 /* 0x0CC SPI1                            */
-	0,                              /* 0x0D0 SPI2                            */
+	__spi2_handler,                 /* 0x0D0 SPI2                            */
 	__usart1_handler,               /* 0x0D4 USART1                          */
 	0,                              /* 0x0D8 USART2                          */
 	0,                              /* 0x0DC USART3                          */
@@ -172,6 +173,12 @@ void
 __spi1_handler(void)
 {
     spi1_handler();
+}
+
+void
+__spi2_handler(void)
+{
+    spi2_handler();
 }
 
 void

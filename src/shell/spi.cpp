@@ -15,9 +15,6 @@ extern "C" {
 
 namespace stm32f103 {
 
-    static std::atomic_flag __spi_lock;
-    static std::atomic< uint32_t > __spi_rxd;
-    
     // p702 SPI
     // p742 RM0008
     enum SPI_CR1 { BIDIMODE   = (01 << 15) // Bidirectional data mode enable
@@ -49,29 +46,39 @@ namespace stm32f103 {
     void
     spi::init( stm32f103::SPI_BASE base )
     {
-        __spi_lock.clear();
-        __spi_rxd = 0;
+        lock_.clear();
+        rxd_ = 0;
         
         if ( auto SPI = reinterpret_cast< volatile stm32f103::SPI * >( base ) ) {
             spi_ = SPI;
             SPI->CR2 = cr2;
             SPI->CR1 = cr1 | SPE;
-            enable_interrupt( stm32f103::SPI1_IRQn );
+            switch( base ) {
+            case SPI1_BASE:
+                enable_interrupt( stm32f103::SPI1_IRQn );
+                break;
+            case SPI2_BASE:
+                enable_interrupt( stm32f103::SPI2_IRQn );
+                break;
+            case SPI3_BASE:
+                enable_interrupt( stm32f103::SPI3_IRQn );
+                break;
+            }
         }
     }
 
     spi&
     spi::operator << ( uint16_t d )
     {
-        while( __spi_rxd.load() == 0 )
+        while( rxd_.load() == 0 )
             ;
-        auto rxd = __spi_rxd.load() & 0xffff;
+        auto rxd = rxd_.load() & 0xffff;
         {
-            scoped_spinlock<> lock( __spi_lock );
-            __spi_rxd = 0;
+            scoped_spinlock<> lock( lock_ );
+            rxd_ = 0;
         }
 
-        __spi_lock.clear( std::memory_order_release ); // release lock
+        lock_.clear( std::memory_order_release ); // release lock
 
         spi_->DATA = d;
         
@@ -80,43 +87,47 @@ namespace stm32f103 {
         spi_->CR1 |= SPE; // enable
     }
 
-}
+    void
+    spi::handle_interrupt()
+    {
+        if ( spi_ ) {
+            if ( spi_->SR & 01 ) { // RX not empty
+                rxd_ = spi_->DATA | 0x80000000;
+                spi_->CR1 &= ~SPE; // disable
+            }
 
-void
-spi1_handler()
-{
-    if ( auto SPI = reinterpret_cast< volatile stm32f103::SPI * >( stm32f103::SPI1_BASE ) ) {
-        using namespace stm32f103;
+            if ( spi_->SR ) {
+                scoped_spinlock<> lock( lock_ );
 
-        if ( SPI->SR & 01 ) { // RX not empty
-            __spi_rxd = SPI->DATA | 0x80000000;
-            SPI->CR1 &= ~SPE; // disable
-        }
-
-        if ( SPI->SR ) {
-            scoped_spinlock<> lock( __spi_lock );
-
-            printf("SPI IRQ: " );
-            if ( SPI->SR & 0x80 )
-                printf("BSY,");
-            if ( SPI->SR & 0x40 )
-                printf("OVR,");
-            if ( SPI->SR & 0x20 )
-                printf("MODF,");
-            if ( SPI->SR & 0x10 )
-                printf("CRCERR,");
-            if ( SPI->SR & 0x08 )
-                printf("UDR,");
-            if ( SPI->SR & 04 )
-                printf("CHSIDE,");
-            if ( SPI->SR & 02 )
-                printf("TXE" );
+                printf("SPI IRQ: " );
+                if ( spi_->SR & 0x80 )
+                    printf("BSY,");
+                if ( spi_->SR & 0x40 )
+                    printf("OVR,");
+                if ( spi_->SR & 0x20 )
+                    printf("MODF,");
+                if ( spi_->SR & 0x10 )
+                    printf("CRCERR,");
+                if ( spi_->SR & 0x08 )
+                    printf("UDR,");
+                if ( spi_->SR & 04 )
+                    printf("CHSIDE,");
+                if ( spi_->SR & 02 )
+                    printf("TXE" );
             
-            printf(" Rx=[%x]\n", __spi_rxd.load() );
-        }
+                printf(" Rx=[%x]\n", rxd_.load() );
+            }
 
-        if ( SPI->SR & (1 << 5 ) ) { // MODF (mode falt)
-            SPI->CR1 = stm32f103::cr1;
+            if ( spi_->SR & (1 << 5 ) ) { // MODF (mode falt)
+                spi_->CR1 = stm32f103::cr1;
+            }
         }
     }
+
+    void
+    spi::interrupt_handler( spi * _this )
+    {
+        _this->handle_interrupt();
+    }
+
 }
