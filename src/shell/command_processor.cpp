@@ -215,6 +215,80 @@ afio_test( size_t argc, const char ** argv )
     }
 }
 
+void
+rcc_enable( size_t argc, const char ** argv )
+{
+    const char * myname = argv[ 0 ];
+    
+    if ( argc == 1 ) {
+        int n = 0;
+        for ( auto& p: __apb2enr__ ) {
+            if ( p ) {
+                if ( ( ++n % 8 ) == 0 )
+                    stream() << std::endl;
+                stream() << p << " | ";
+            }
+        }
+        stream() << std::endl;
+        n = 0;
+        for ( auto& p: __apb1enr__ ) {
+            if ( p ) {
+                if ( ( ++n % 8 ) == 0 )
+                    stream() << std::endl;                
+                stream() << p << " | ";
+            }
+        }
+        return;
+    }
+    --argc;
+    ++argv;
+    uint32_t flags1( 0 ), flags2( 0 );
+    while ( argc-- ) {
+        stream() << "looking for : " << argv[ 0 ] << std::endl;
+        uint32_t i = 0;
+        for ( auto& p: __apb2enr__ ) {
+            if ( strcmp( p, argv[ 0 ] ) == 0 ) {
+                flags2 |= (1 << i);
+                stream() << "\tfound on APB2ENR: " << flags2 << std::endl;
+            }
+            ++i;
+        }
+        i = 0;
+        for ( auto& p: __apb1enr__ ) {
+            if ( strcmp( p, argv[ 0 ] ) == 0 ) {
+                flags1 |= (1 << i);
+                stream() << "\tfound on APB1ENR: " << flags1 << std::endl;
+            }
+            ++i;
+        }
+        ++argv;
+    }
+    if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
+        auto prev1 = RCC->APB1ENR;
+        auto prev2 = RCC->APB2ENR;
+        stream() << myname << " : " << flags2 << ", " << flags1 << std::endl;
+        if ( strcmp( myname, "enable" ) == 0 ) {
+            if ( flags2 ) {
+                RCC->APB2ENR |= flags2;
+                stream() << "APB2NER: " << prev2 << " | " << flags2 << "->" << RCC->APB2ENR << std::endl;
+            }
+            if ( flags1 ) {
+                RCC->APB1ENR |= flags1;
+                stream() << "APB1NER: " << prev1 << " | " << flags2 << "->" << RCC->APB1ENR << std::endl;
+            }
+        } else {
+            if ( flags2 ) {
+                RCC->APB2ENR &= ~flags2;
+                stream() << "APB2NER: " << prev2 << " & " << ~flags2 << "->" << RCC->APB2ENR << std::endl;
+            }
+            if ( flags1 ) {
+                RCC->APB1ENR &= ~flags1;
+                stream() << "APB1NER: " << prev1 << " & " << ~flags1 << "->" << RCC->APB1ENR << std::endl;
+            }
+        }
+    }
+}
+
 
 ///////////////////////////////////////////////////////
 
@@ -236,27 +310,36 @@ static const premitive command_table [] = {
     , { "adc",  adc_test,   "" }
     , { "ctor", ctor_test,  "" }
     , { "rcc",  rcc_test,   "" }
-    , { "afio", afio_test,   "" }        
+    , { "afio", afio_test,   "" }
+    , { "disable", rcc_enable, "" }
+    , { "enable", rcc_enable,   "" }        
 };
 
 bool
 command_processor::operator()( size_t argc, const char ** argv ) const
 {
-    stream() << "command_procedssor: argc=" << argc << " argv = {";
-    for ( size_t i = 0; i < argc; ++i )
-         stream() << argv[i] << ( ( i < argc - 1 ) ? ", " : "" );
-    stream() << "}" << std::endl;
+    if ( argc ) {
+        stream() << "command_procedssor: argc=" << argc << " argv = {";
+        for ( size_t i = 0; i < argc; ++i )
+            stream() << argv[i] << ( ( i < argc - 1 ) ? ", " : "" );
+        stream() << "}" << std::endl;
+
+        bool processed( false );
     
-    if ( argc > 0 ) {
-        for ( auto& cmd: command_table ) {
-            if ( strcmp( cmd.arg0_, argv[0] ) == 0 ) {
-                cmd.f_( argc, argv );
-                break;
+        if ( argc > 0 ) {
+            for ( auto& cmd: command_table ) {
+                if ( strcmp( cmd.arg0_, argv[0] ) == 0 ) {
+                    processed = true;
+                    cmd.f_( argc, argv );
+                    break;
+                }
             }
         }
-    } else {
-        stream() << "command processor -- help" << std::endl;
-        for ( auto& cmd: command_table )
-            stream() << "\t" << cmd.arg0_ << cmd.help_ << std::endl;
+        
+        if ( ! processed ) {
+            stream() << "command processor -- help" << std::endl;
+            for ( auto& cmd: command_table )
+                stream() << "\t" << cmd.arg0_ << cmd.help_ << std::endl;
+        }
     }
 }
