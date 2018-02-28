@@ -47,7 +47,7 @@ extern "C" {
 namespace stm32f103 {
     
     static std::atomic_flag __input_lock;
-    static std::atomic< char > __input_char;
+    static std::atomic< int > __input_char;
 }
 
 using namespace stm32f103;
@@ -114,23 +114,13 @@ uart::putc( int c )
 int
 uart::getc()
 {
-    while ( __input_lock.test_and_set( std::memory_order_acquire ) ) // acquire lock
+    int c = 0;
+    while ( ( c = __input_char.load() ) == 0 )
         ;
-    while ( __input_char.load() == 0 )
-        ;
-    auto c = __input_char.load();
     __input_char = 0;
     __input_lock.clear(); // release lock
 
-    // echo
-    if ( c >= 0x20 ) {
-        __uart0.putc( c );
-        if ( c == '\r' )
-            __uart0.putc( '\n' );
-    } else {
-        __uart0.putc( '^' );
-        __uart0.putc( c + 'A' );
-    }
+    __uart0.putc( c ); // echo
     
     return c;
 }
@@ -145,7 +135,12 @@ uart::gets( char * s, size_t size )
         if ( c == '\r' ) {
             *p++ = '\n';
             break;
-        } else {
+        } else if ( c == '\b' || c == 0x7f || c == 0x15 ) {
+            if ( p > s ) {
+                --p;
+                ++size;
+            }
+        } else if ( c >= ' ' && c < 0x7f ) {
             *p++ = c;
             if ( --size == 1 )
                 break;

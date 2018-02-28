@@ -157,11 +157,11 @@ main()
         gpio_mode( stm32f103::PA10, stm32f103::GPIO_CNF_INPUT_PUSH_PULL,     stm32f103::GPIO_MODE_INPUT );
         __uart0.init( stm32f103::USART1_BASE, stm32f103::uart::parity_even, 8, 115200, 72000000 );
 
-        // ADC  (0..3)
+        // ADC  (0)
         gpio_mode( stm32f103::PA0, stm32f103::GPIO_CNF_INPUT_ANALOG,         stm32f103::GPIO_MODE_INPUT ); // ADC1 (0,0)
-        gpio_mode( stm32f103::PA1, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_INPUT ); // ADC2 (0,0)
-        gpio_mode( stm32f103::PA2, stm32f103::GPIO_CNF_INPUT_FLOATING,       stm32f103::GPIO_MODE_INPUT ); // ADC3 (0,0)
-        gpio_mode( stm32f103::PA3, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_INPUT ); // ADC4 (0,0)
+        //gpio_mode( stm32f103::PA1, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_INPUT ); // ADC2 (0,0)
+        //gpio_mode( stm32f103::PA2, stm32f103::GPIO_CNF_INPUT_FLOATING,       stm32f103::GPIO_MODE_INPUT ); // ADC3 (0,0)
+        //gpio_mode( stm32f103::PA3, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_INPUT ); // ADC4 (0,0)
         
         // SPI
         // (see RM0008, p166, Table 25)
@@ -191,9 +191,11 @@ main()
 
     {
         int size = reinterpret_cast< const char * >(&_ebss) - reinterpret_cast< const char * >(&_sbss);
-        stream() << "\t***** BSS = 0x" << uint32_t(&_sbss) << " -- 0x" << uint32_t(&_ebss) << " *****" << std::endl;
-        stream() << "\t***** " << size << " octsts of bss segment is in use." << std::endl;
-        stream() << "\t***** Current stack pointer = " << uint32_t(&size) << std::endl;
+        stream() << "\t**********************************************" << std::endl;
+        stream() << "\t***** BSS = 0x" << uint32_t(&_sbss) << " -- 0x" << uint32_t(&_ebss) << "\t *****" << std::endl;
+        stream() << "\t***** " << size << " octsts of bss segment is in use. ***" << std::endl;
+        stream() << "\t***** Current stack pointer = " << uint32_t(&size) << "\t *****" << std::endl;
+        stream() << "\t**********************************************" << std::endl;
     }
 
     init_systick( 7200, true ); // 100us tick
