@@ -15,7 +15,7 @@ class stream_t {
 public:
     template<typename T>
     void operator()( uart& o_, T d ) const {
-        const static char * __chars__ = "01234567890abcdef";
+        const static char * __chars__ = "0123456789abcdef";
         char buf[ 22 ];
         char * p = &buf[21];
         *p-- = '\0';

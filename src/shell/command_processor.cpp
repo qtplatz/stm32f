@@ -164,6 +164,60 @@ ctor_test( size_t argc, const char ** argv )
     ctor x;
 }
 
+static const char * __apb2enr__ [] = {
+    "AFIO",    nullptr, "IOPA",  "IOPB",  "IOPC",  "IOPD",  "IOPE",  "IOPF"
+    , "IOPG",  "ADC1",  "ADC2",  "TIM1",  "SPI1",  "TIM8",  "USART1","ADC3"
+    , nullptr, nullptr, nullptr, "TIM9",  "TIM10", "TIM11"
+};
+
+static const char * __apb1enr__ [] = {
+    "TIM2",     "TIM3",  "TIM4", "TIM5",  "TIM6",  "TIM7",  "TIM12", "TIM13"
+    , "TIM14", nullptr, nullptr, "WWDG",  nullptr, nullptr, "SPI2",  "SPI3"
+    , nullptr,"USART2","USART3", "USART4","USART5","I2C1",  "I2C2",  "USB"
+    , nullptr,   "CAN", nullptr, "BPK",   "PWR",    "DAC"
+};
+
+void
+rcc_test( size_t argc, const char ** argv )
+{
+    if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
+        stream() << "APB2, APB1 peripheral clock enable register (p112-116, RM0008, Rev 17) " << std::endl;
+        stream() << "\tRCC->APB2ENR : " << RCC->APB2ENR << std::endl;
+        stream() << "\tRCC->APB1ENR : " << RCC->APB1ENR << std::endl;
+        
+        {
+            stream() << "\tEnables : ";
+            int i = 0;
+            for ( auto& p: __apb2enr__ ) {
+                if ( p && ( RCC->APB2ENR & (1<<i) ) )
+                    stream() << p << ", ";                    
+                ++i;
+            }
+            stream() << "|";
+        }
+        {
+            int i = 0;
+            for ( auto& p: __apb1enr__ ) {
+                if ( p && ( RCC->APB1ENR & (1<<i) ) )
+                    stream() << p << ", ";
+                ++i;
+            }
+        }
+        stream() << std::endl;
+    }
+}
+
+void
+afio_test( size_t argc, const char ** argv )
+{
+    if ( auto AFIO = reinterpret_cast< volatile stm32f103::AFIO * >( stm32f103::AFIO_BASE ) ) {    
+        stream() << "\tAFIO MAPR: 0x" << AFIO->MAPR << std::endl;
+    }
+}
+
+
+///////////////////////////////////////////////////////
+
 command_processor::command_processor()
 {
 }
@@ -176,11 +230,13 @@ public:
 };
 
 static const premitive command_table [] = {
-    { "spi", spi_test,     " [number]" }
-    , { "alt", alt_test,   " spi [remap]" }
-    , { "gpio", gpio_test, " spi -- (toggles A4-A7 as GPIO)" }
-    , { "adc", adc_test,   "" }
-    , { "ctor", ctor_test,   "" }    
+    { "spi",    spi_test,   " [number]" }
+    , { "alt",  alt_test,   " spi [remap]" }
+    , { "gpio", gpio_test,  " spi -- (toggles A4-A7 as GPIO)" }
+    , { "adc",  adc_test,   "" }
+    , { "ctor", ctor_test,  "" }
+    , { "rcc",  rcc_test,   "" }
+    , { "afio", afio_test,   "" }        
 };
 
 bool
