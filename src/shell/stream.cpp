@@ -44,6 +44,13 @@ stream::stream( uart& t ) : uart_( t )
 }
 
 stream&
+stream::operator << ( const char c )
+{
+    uart_.putc( c );
+    return *this;    
+}
+
+stream&
 stream::operator << ( const char * s )
 {
     uart_ << s;

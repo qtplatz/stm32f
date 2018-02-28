@@ -107,6 +107,8 @@ void
 gpio_test( size_t argc, const char ** argv )
 {
     using namespace stm32f103;
+
+    const size_t replicates = 0x7fffff;
     
     if ( argc >= 2 ) {
         const char * pin = argv[1];
@@ -116,20 +118,22 @@ gpio_test( size_t argc, const char ** argv )
             if ( pin[3] >= '0' && pin[3] <= '9' )
                 no = no * 10 + pin[3] - '0';
 
+            stream() << "Pulse out to P" << pin[1] << no << std::endl;
+
             switch( pin[1] ) {
             case 'A':
                 gpio_mode()( static_cast< GPIOA_PIN >(no), GPIO_CNF_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_50M );
-                for ( int i = 0; i < 0xfffff; ++i )
+                for ( size_t i = 0; i < replicates; ++i )
                     gpio< GPIOA_PIN >( static_cast< GPIOA_PIN >( no ) ) = bool( i & 01 );
                 break;
             case 'B':
                 gpio_mode()( static_cast< GPIOB_PIN >(no), GPIO_CNF_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_50M );
-                for ( int i = 0; i < 0xfffff; ++i )
+                for ( size_t i = 0; i < replicates; ++i )
                     gpio< GPIOB_PIN >( static_cast< GPIOB_PIN >( no ) ) = bool( i & 01 );
                 break;                
             case 'C':
                 gpio_mode()( static_cast< GPIOC_PIN >(no), GPIO_CNF_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_50M );
-                for ( int i = 0; i < 0xfffff; ++i )
+                for ( size_t i = 0; i < replicates; ++i )
                     gpio< GPIOC_PIN >( static_cast< GPIOC_PIN >( no ) ) = bool( i & 01 );
                 break;                                
             }
@@ -326,15 +330,15 @@ public:
 };
 
 static const premitive command_table [] = {
-    { "spi",    spi_test,   " [number]" }
-    , { "alt",  alt_test,   " spi [remap]" }
-    , { "gpio", gpio_test,  " pin# (toggle PA# as GPIO, where # is 0..12)" }
-    , { "adc",  adc_test,   "" }
-    , { "ctor", ctor_test,  "" }
-    , { "rcc",  rcc_test,   "" }
-    , { "afio", afio_test,   "" }
-    , { "disable", rcc_enable, "" }
-    , { "enable", rcc_enable,   "" }        
+    { "spi",    spi_test,       " spi [replicates]" }
+    , { "alt",  alt_test,       " spi [remap]" }
+    , { "gpio", gpio_test,      " pin# (toggle PA# as GPIO, where # is 0..12)" }
+    , { "adc",  adc_test,       " replicates (1)" }
+    , { "ctor", ctor_test,      "" }
+    , { "rcc",  rcc_test,       " RCC clock enable register list" }
+    , { "disable", rcc_enable,  " reg1 [reg2...] Disable clock for specified peripheral." }
+    , { "enable", rcc_enable,   " reg1 [reg2...] Enable clock for specified peripheral." }
+    , { "afio", afio_test,      " AFIO MAPR list" }
 };
 
 bool
@@ -364,4 +368,5 @@ command_processor::operator()( size_t argc, const char ** argv ) const
                 stream() << "\t" << cmd.arg0_ << cmd.help_ << std::endl;
         }
     }
+    stream() << std::endl;
 }

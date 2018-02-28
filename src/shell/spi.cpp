@@ -4,6 +4,7 @@
 #include "stm32f103.hpp"
 #include "stream.hpp"
 #include "printf.h"
+#include "spinlock.hpp"
 #include <atomic>
 
 extern "C" {
@@ -64,12 +65,11 @@ namespace stm32f103 {
     {
         while( __spi_rxd.load() == 0 )
             ;
-
-        while( __spi_lock.test_and_set( std::memory_order_acquire ) ) // acquire lock
-            ;
-        
         auto rxd = __spi_rxd.load() & 0xffff;
-        __spi_rxd = 0;
+        {
+            scoped_spinlock<> lock( __spi_lock );
+            __spi_rxd = 0;
+        }
 
         __spi_lock.clear( std::memory_order_release ); // release lock
 
@@ -87,14 +87,14 @@ spi1_handler()
 {
     if ( auto SPI = reinterpret_cast< volatile stm32f103::SPI * >( stm32f103::SPI1_BASE ) ) {
         using namespace stm32f103;
+
         if ( SPI->SR & 01 ) { // RX not empty
             __spi_rxd = SPI->DATA | 0x80000000;
             SPI->CR1 &= ~SPE; // disable
         }
 
         if ( SPI->SR ) {
-            while( __spi_lock.test_and_set( std::memory_order_acquire ) ) // acquire lock
-                ;            
+            scoped_spinlock<> lock( __spi_lock );
 
             printf("SPI IRQ: " );
             if ( SPI->SR & 0x80 )
@@ -113,8 +113,6 @@ spi1_handler()
                 printf("TXE" );
             
             printf(" Rx=[%x]\n", __spi_rxd.load() );
-
-            __spi_lock.clear( std::memory_order_release ); // release lock
         }
 
         if ( SPI->SR & (1 << 5 ) ) { // MODF (mode falt)

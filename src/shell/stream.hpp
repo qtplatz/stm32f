@@ -27,6 +27,7 @@ public:
     stream() : uart_( __uart0 ) {}
     void flush();
 
+    stream& operator << ( const char );    
     stream& operator << ( const char * );
     stream& operator << ( const int8_t );
     stream& operator << ( const uint8_t );
