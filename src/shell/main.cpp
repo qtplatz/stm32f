@@ -6,6 +6,7 @@
  * https://github.com/trebisky/stm32f103
  */
 
+#include "adc.hpp"
 #include "can.hpp"
 #include "command_processor.hpp"
 #include "gpio.hpp"
@@ -33,6 +34,7 @@ static std::atomic_flag __lock_flag;
 stm32f103::uart __uart0;
 stm32f103::spi __spi0;
 stm32f103::can __can0;
+stm32f103::adc __adc0;
 
 extern "C" {
     void enable_interrupt( stm32f103::IRQn_type IRQn );
@@ -42,7 +44,10 @@ extern "C" {
 
     void serial_puts( const char * s );
     void serial_putc( int );
+
     void systick_handler();
+    void adc1_handler();
+
     void * memset( void * ptr, int value, size_t num );
 
     int main();
@@ -140,9 +145,9 @@ main()
         RCC->CFGR |= ( 0b10 << 14 );  // set prescaler to 6
     }
 
-    //atomic_jiffies = 0;
-    //atomic_milliseconds = 0;
-    //atomic_seconds = 0;
+    atomic_jiffies = 0;
+    atomic_milliseconds = 0;
+    atomic_seconds = 0;
 
     {
         stm32f103::gpio_mode gpio_mode;
@@ -193,8 +198,8 @@ main()
 
     init_systick( 7200, true ); // 100us tick
 
-    __spi0.init( stm32f103::SPI1_BASE );
-    __can0.init( stm32f103::CAN1_BASE );
+    __can0.init( stm32f103::CAN1_BASE );  // experimental, not working yet
+    __spi0.init( stm32f103::SPI1_BASE );  // experimental, not working yet -- strange, no data out on MOSI line
 
     // CAN is experimental, not working yet.
     CanMsg msg;
@@ -274,3 +279,8 @@ systick_handler()
     }
 }
 
+void
+adc1_handler()
+{
+    stm32f103::adc::interrupt_handler( &__adc0 );
+}

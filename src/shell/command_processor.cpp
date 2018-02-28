@@ -5,6 +5,7 @@
 //
 
 #include "command_processor.hpp"
+#include "adc.hpp"
 #include "gpio.hpp"
 #include "gpio_mode.hpp"
 #include "printf.h"
@@ -16,6 +17,8 @@
 #include <functional>
 
 extern stm32f103::spi __spi0;
+extern stm32f103::adc __adc0;
+
 extern std::atomic< uint32_t > atomic_jiffies;
 extern void mdelay( uint32_t ms );
 
@@ -117,6 +120,35 @@ gpio_test( size_t argc, const char ** argv )
     }
 }
 
+
+void
+adc_test( size_t argc, const char ** argv )
+{
+    size_t count = 1;
+
+    if ( argc >= 2 ) {
+        count = strtod( argv[ 1 ] );
+        if ( count == 0 )
+            count = 1;
+    }
+
+    if ( !__adc0 ) {
+        stream() << "adc0 not initialized." << std::endl;
+        __adc0.init( stm32f103::ADC1_BASE );
+        stream() << "adc reset & calibration: status = " << ( __adc0.cr2() & 0x0c ) << std::endl;
+    }
+
+    for ( size_t i = 0; i < count; ++i ) {
+        if ( __adc0.start_conversion() ) { // software trigger
+            uint32_t d = __adc0.data(); // can't read twince
+            stream() << "[" << int(i) << "] adc data= 0x" << d
+                     << "\t" << int(d) << "(mV)"
+                     << std::endl;
+        }
+    }
+}
+
+
 command_processor::command_processor()
 {
 }
@@ -132,6 +164,7 @@ static const premitive command_table [] = {
     { "spi", spi_test,     " [number]" }
     , { "alt", alt_test,   " spi [remap]" }
     , { "gpio", gpio_test, " spi -- (toggles A4-A7 as GPIO)" }
+    , { "adc", adc_test,   "" }
 };
 
 bool

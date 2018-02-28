@@ -62,15 +62,16 @@ namespace stm32f103 {
     spi&
     spi::operator << ( uint16_t d )
     {
-        while( __spi_lock.test_and_set( std::memory_order_acquire ) ) // acquire lock
-            ;
         while( __spi_rxd.load() == 0 )
             ;
-        auto rxd = __spi_rxd.load() & 0xffff;
 
+        while( __spi_lock.test_and_set( std::memory_order_acquire ) ) // acquire lock
+            ;
+        
+        auto rxd = __spi_rxd.load() & 0xffff;
         __spi_rxd = 0;
 
-        __spi_lock.clear(); // release lock
+        __spi_lock.clear( std::memory_order_release ); // release lock
 
         spi_->DATA = d;
         
@@ -94,6 +95,7 @@ spi1_handler()
         if ( SPI->SR ) {
             while( __spi_lock.test_and_set( std::memory_order_acquire ) ) // acquire lock
                 ;            
+
             printf("SPI IRQ: " );
             if ( SPI->SR & 0x80 )
                 printf("BSY,");
@@ -112,7 +114,7 @@ spi1_handler()
             
             printf(" Rx=[%x]\n", __spi_rxd.load() );
 
-            __spi_lock.clear();
+            __spi_lock.clear( std::memory_order_release ); // release lock
         }
 
         if ( SPI->SR & (1 << 5 ) ) { // MODF (mode falt)

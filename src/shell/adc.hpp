@@ -4,23 +4,36 @@
 // Contact: toshi.hondo@qtplatz.com
 //
 
+#include <atomic>
 #include <cstdint>
 #include <cstddef>
 
 namespace stm32f103 {
 
-    class adc {
+    struct ADC;
+    enum PERIPHERAL_BASE : uint32_t;
 
+    class adc {
         adc( const adc& ) = delete;
         adc& operator = ( const adc& ) = delete;
+        volatile ADC * adc_;
+        std::atomic_flag lock_;
+        std::atomic_bool flag_;
+        std::atomic< uint16_t > data_;
     public:
         adc();
         ~adc();
-        void init();
+        void init( PERIPHERAL_BASE );
+        operator bool () const { return adc_; }
 
-        static adc * instance();
+        bool start_conversion(); // software trigger
+
+        uint32_t cr2() const;
         
-        static void inq_handler( adc * _this );
+        uint16_t data();
+
+        void handle_interrupt();
+        static void interrupt_handler( adc * _this );
     };
     
 }
