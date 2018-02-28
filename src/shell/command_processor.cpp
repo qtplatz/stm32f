@@ -30,6 +30,15 @@ strcmp( const char * a, const char * b )
     return *reinterpret_cast< const unsigned char *>(a) - *reinterpret_cast< const unsigned char *>(b);
 }
 
+size_t
+strlen( const char * s )
+{
+    const char * p = s;
+    while ( *p )
+        ++p;
+    return size_t( p - s );
+}
+
 int
 strtod( const char * s )
 {
@@ -100,23 +109,36 @@ gpio_test( size_t argc, const char ** argv )
     using namespace stm32f103;
     
     if ( argc >= 2 ) {
-        if ( strcmp( argv[1], "spi" ) == 0 ) {
-            gpio_mode()( PA4, GPIO_CNF_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_2M );
-            gpio_mode()( PA5, GPIO_CNF_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_2M );
-            gpio_mode()( PA6, GPIO_CNF_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_2M );
-            gpio_mode()( PA7, GPIO_CNF_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_2M );
-            for ( int i = 0; i < 0xfffff; ++i ) {
-                stm32f103::gpio< decltype( stm32f103::PA4 ) >( stm32f103::PA4 ) = bool( i & 01 );
-                stm32f103::gpio< decltype( stm32f103::PA5 ) >( stm32f103::PA5 ) = bool( i & 01 );
-                stm32f103::gpio< decltype( stm32f103::PA6 ) >( stm32f103::PA6 ) = bool( i & 01 );
-                stm32f103::gpio< decltype( stm32f103::PA7 ) >( stm32f103::PA7 ) = bool( i & 01 );
-                auto tp = atomic_jiffies.load();
-                while ( tp == atomic_jiffies.load() ) // 100us
-                    ;
+        const char * pin = argv[1];
+        int no = 0;
+        if (( pin[0] == 'P' && ( 'A' <= pin[1] && pin[1] <= 'C' ) ) && ( pin[2] >= '0' && pin[2] <= '9' ) ) {
+            no = pin[2] - '0';
+            if ( pin[3] >= '0' && pin[3] <= '9' )
+                no = no * 10 + pin[3] - '0';
+
+            switch( pin[1] ) {
+            case 'A':
+                gpio_mode()( static_cast< GPIOA_PIN >(no), GPIO_CNF_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_50M );
+                for ( int i = 0; i < 0xfffff; ++i )
+                    gpio< GPIOA_PIN >( static_cast< GPIOA_PIN >( no ) ) = bool( i & 01 );
+                break;
+            case 'B':
+                gpio_mode()( static_cast< GPIOB_PIN >(no), GPIO_CNF_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_50M );
+                for ( int i = 0; i < 0xfffff; ++i )
+                    gpio< GPIOB_PIN >( static_cast< GPIOB_PIN >( no ) ) = bool( i & 01 );
+                break;                
+            case 'C':
+                gpio_mode()( static_cast< GPIOC_PIN >(no), GPIO_CNF_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_50M );
+                for ( int i = 0; i < 0xfffff; ++i )
+                    gpio< GPIOC_PIN >( static_cast< GPIOC_PIN >( no ) ) = bool( i & 01 );
+                break;                                
             }
+            
+        } else {
+            stream() << "gpio 2nd argment format mismatch" << std::endl;
         }
     } else {
-        stream() << "gpio spi" << std::endl;
+        stream() << "gpio <pin#>" << std::endl;
     }
 }
 
@@ -306,7 +328,7 @@ public:
 static const premitive command_table [] = {
     { "spi",    spi_test,   " [number]" }
     , { "alt",  alt_test,   " spi [remap]" }
-    , { "gpio", gpio_test,  " spi -- (toggles A4-A7 as GPIO)" }
+    , { "gpio", gpio_test,  " pin# (toggle PA# as GPIO, where # is 0..12)" }
     , { "adc",  adc_test,   "" }
     , { "ctor", ctor_test,  "" }
     , { "rcc",  rcc_test,   "" }
