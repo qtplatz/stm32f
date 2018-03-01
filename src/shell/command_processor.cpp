@@ -63,20 +63,21 @@ spi_test( size_t argc, const char ** argv )
         using namespace stm32f103;
         stream() << argv[0] << " not initialized. -- initializing..." << std::endl;
         if ( strcmp( argv[0], "spi2" ) == 0 ) {
-            stream() << "Enable APB1 peripheral clock bit 14" << std::endl;
+
             if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) )
                 RCC->APB1ENR |= 1 << 14;    // SPI2
 
-            stream() << "GPIO PB12 for ~ss" << std::endl;
-            gpio_mode()( stm32f103::PB12, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // ~SS
-            stream() << "GPIO PB13 for sclk" << std::endl;
+            // SPI
+            // (see RM0008, p166, Table 25)
+            //gpio_mode()( stm32f103::PB12, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // ~SS
+            gpio_mode()( stm32f103::PB12, stm32f103::GPIO_CNF_OUTPUT_PUSH_PULL,     stm32f103::GPIO_MODE_OUTPUT_50M ); // ~SS
+            
             gpio_mode()( stm32f103::PB13, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // SCLK
-            stream() << "GPIO PB14 for miso" << std::endl;
             gpio_mode()( stm32f103::PB14, stm32f103::GPIO_CNF_INPUT_FLOATING,       stm32f103::GPIO_MODE_INPUT );      // MISO
-            stream() << "GPIO PB15 for mosi" << std::endl;
             gpio_mode()( stm32f103::PB15, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // MOSI
-            stream() << "spi2 initializing..." << std::endl;
-            spix.init( stm32f103::SPI2_BASE );
+            spix.init( stm32f103::SPI2_BASE, 'B', 12 );
+        } else {
+            // spi1 should be initialized in main();
         }
     }
     
@@ -182,9 +183,15 @@ adc_test( size_t argc, const char ** argv )
     }
 
     if ( !__adc0 ) {
+        using namespace stm32f103;
+        
         stream() << "adc0 not initialized." << std::endl;
+        
+        // it must be initalized in main though, just in case
+        gpio_mode()( stm32f103::PA0, GPIO_CNF_INPUT_ANALOG, GPIO_MODE_INPUT ); // ADC1 (0,0)
+        
         __adc0.init( stm32f103::ADC1_BASE );
-        stream() << "adc reset & calibration: status = " << ( __adc0.cr2() & 0x0c ) << std::endl;
+        stream() << "adc reset & calibration: status " << (( __adc0.cr2() & 0x0c ) == 0 ? " PASS" : " FAIL" )  << std::endl;
     }
 
     for ( size_t i = 0; i < count; ++i ) {

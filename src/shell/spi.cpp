@@ -1,5 +1,6 @@
 // Copyright (C) 2018 MS-Cheminformatics LLC
 
+#include "gpio.hpp"
 #include "spi.hpp"
 #include "stm32f103.hpp"
 #include "stream.hpp"
@@ -44,15 +45,18 @@ namespace stm32f103 {
     constexpr uint32_t cr2 = SSOE | (3 << 5); // SS output enable, Rx buffer not empty interrupt, Error interrupt
     
     void
-    spi::init( stm32f103::SPI_BASE base )
+    spi::init( stm32f103::SPI_BASE base, uint8_t gpio, uint32_t ss_n )
     {
         lock_.clear();
         rxd_ = 0;
+
+        gpio_ = gpio;
+        ss_n_ = ss_n;
         
         if ( auto SPI = reinterpret_cast< volatile stm32f103::SPI * >( base ) ) {
             spi_ = SPI;
             SPI->CR2 = cr2;
-            SPI->CR1 = cr1 | SPE;
+            SPI->CR1 = cr1 | SPE | ( gpio_ ? SSM | SSI : 0 );
             switch( base ) {
             case SPI1_BASE:
                 enable_interrupt( stm32f103::SPI1_IRQn );
@@ -64,6 +68,21 @@ namespace stm32f103 {
                 enable_interrupt( stm32f103::SPI3_IRQn );
                 break;
             }
+        }
+
+        if ( gpio_ )
+            (*this) = true;  // ~SS -> H
+    }
+
+    void
+    spi::operator = ( bool flag ) {
+        switch( gpio_ ) {
+        case 'A':
+            stm32f103::gpio< GPIOA_PIN >( static_cast< GPIOA_PIN >( ss_n_ ) ) = flag;
+            break;
+        case 'B':
+            stm32f103::gpio< GPIOB_PIN >( static_cast< GPIOB_PIN >( ss_n_ ) ) = flag;
+            break;
         }
     }
 
@@ -80,11 +99,13 @@ namespace stm32f103 {
 
         lock_.clear( std::memory_order_release ); // release lock
 
+        (*this) = false;
         spi_->DATA = d;
-        
-        printf("Tx data: %x, Rx data: %x, CR1=%x, SR=%x\n", d, rxd, spi_->CR1, spi_->SR );
+        spi_->CR1 |= SPE | ( gpio_ ? SSM | SSI : 0 ); // enable
 
-        spi_->CR1 |= SPE; // enable
+        //while( spi_->SR & 02 ) // wait while TX buffer not empty
+        //    ;
+        printf("Tx data: %x, Rx data: %x, CR1=%x, SR=%x\n", d, rxd, spi_->CR1, spi_->SR );
     }
 
     void
@@ -94,8 +115,9 @@ namespace stm32f103 {
             if ( spi_->SR & 01 ) { // RX not empty
                 rxd_ = spi_->DATA | 0x80000000;
                 spi_->CR1 &= ~SPE; // disable
+                (*this) = true;
             }
-
+//#if 0
             if ( spi_->SR ) {
                 scoped_spinlock<> lock( lock_ );
 
@@ -114,10 +136,9 @@ namespace stm32f103 {
                     printf("CHSIDE,");
                 if ( spi_->SR & 02 )
                     printf("TXE" );
-            
                 printf(" Rx=[%x]\n", rxd_.load() );
             }
-
+//#endif
             if ( spi_->SR & (1 << 5 ) ) { // MODF (mode falt)
                 spi_->CR1 = stm32f103::cr1;
             }
