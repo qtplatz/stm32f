@@ -116,6 +116,22 @@ stream::operator << ( const uint64_t d )
     return *this;
 }
 
+#if __GNUC__ >= 7
+stream&
+stream::operator << ( const int d )
+{
+    stream_t()( uart_, static_cast< const uint32_t > (d) );
+    return *this;
+}
+
+stream&
+stream::operator << ( const size_t d )
+{
+    stream_t()( uart_, static_cast< const uint32_t > (d) );
+    return *this;
+}
+#endif
+
 void
 stream::flush()
 {

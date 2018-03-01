@@ -7,6 +7,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 
 class stream;
 
@@ -27,7 +28,7 @@ public:
     stream() : uart_( __uart0 ) {}
     void flush();
 
-    stream& operator << ( const char );    
+    stream& operator << ( const char );
     stream& operator << ( const char * );
     stream& operator << ( const int8_t );
     stream& operator << ( const uint8_t );
@@ -37,5 +38,9 @@ public:
     stream& operator << ( const uint32_t );
     stream& operator << ( const int64_t );
     stream& operator << ( const uint64_t );
+#if __GNUC__ >= 7
+    stream& operator << ( const int );    
+    stream& operator << ( const size_t );
+#endif
 };
 

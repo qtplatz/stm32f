@@ -41,8 +41,8 @@ namespace stm32f103 {
     constexpr uint32_t fclk = 06; // 1/256 ( ~= 0.8us)
     // constexpr uint32_t cr1 = BIDIMODE | DFF | SSM | SSI | SPE | ((fclk & 7) << 3) | MSTR; // BIDIMODE|16bit|SPI enable|MSTR
     // constexpr uint32_t cr1 = BIDIMODE | SSM | SSI | ((fclk & 7) << 3) | MSTR; // BIDIMODE|16bit|SPI enable|MSTR
-    constexpr uint32_t cr1 = BIDIMODE | DFF | ((fclk & 7) << 3) | MSTR; // BIDIMODE|16bit|SPI enable|MSTR
-    constexpr uint32_t cr2 = SSOE | (3 << 5); // SS output enable, Rx buffer not empty interrupt, Error interrupt
+    constexpr uint32_t _cr1 = BIDIMODE | DFF | ((fclk & 7) << 3) | CPOL | CPHA | MSTR; // BIDIMODE|16bit|SPI enable|MSTR
+    constexpr uint32_t _cr2 = SSOE | (3 << 5); // SS output enable, Rx buffer not empty interrupt, Error interrupt
     
     void
     spi::init( stm32f103::SPI_BASE base, uint8_t gpio, uint32_t ss_n )
@@ -55,8 +55,8 @@ namespace stm32f103 {
         
         if ( auto SPI = reinterpret_cast< volatile stm32f103::SPI * >( base ) ) {
             spi_ = SPI;
-            SPI->CR2 = cr2;
-            SPI->CR1 = cr1 | SPE | ( gpio_ ? SSM | SSI : 0 );
+            SPI->CR2 = _cr2;
+            SPI->CR1 = _cr1 | SPE | ( gpio_ ? SSM | SSI : 0 );
             switch( base ) {
             case SPI1_BASE:
                 enable_interrupt( stm32f103::SPI1_IRQn );
@@ -117,7 +117,7 @@ namespace stm32f103 {
                 spi_->CR1 &= ~SPE; // disable
                 (*this) = true;
             }
-//#if 0
+#if 0
             if ( spi_->SR ) {
                 scoped_spinlock<> lock( lock_ );
 
@@ -138,9 +138,9 @@ namespace stm32f103 {
                     printf("TXE" );
                 printf(" Rx=[%x]\n", rxd_.load() );
             }
-//#endif
+#endif
             if ( spi_->SR & (1 << 5 ) ) { // MODF (mode falt)
-                spi_->CR1 = stm32f103::cr1;
+                spi_->CR1 = stm32f103::_cr1;
             }
         }
     }

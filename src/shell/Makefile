@@ -1,5 +1,11 @@
 # Makefile for interrupt demo
 
+ifneq ( $(worldcard /usr/arm-none-eabi/.*), )
+	CROSSCOMPILE = "/usr/arm-none-eabi/bin/arm-none-eabi-"
+else
+	CROSSCOMPILE = "arm-linux-gnueabihf-"
+endif
+
 CROSSCOMPILE = arm-linux-gnueabihf-
 AS   = $(CROSSCOMPILE)as
 LD   = $(CROSSCOMPILE)ld.bfd
