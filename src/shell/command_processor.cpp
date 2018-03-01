@@ -227,7 +227,7 @@ static const char * __apb1enr__ [] = {
 };
 
 void
-rcc_test( size_t argc, const char ** argv )
+rcc_status( size_t argc, const char ** argv )
 {
     if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
         stream() << "APB2, APB1 peripheral clock enable register (p112-116, RM0008, Rev 17) " << std::endl;
@@ -359,7 +359,7 @@ static const premitive command_table [] = {
     , { "gpio", gpio_test,      " pin# (toggle PA# as GPIO, where # is 0..12)" }
     , { "adc",  adc_test,       " replicates (1)" }
     , { "ctor", ctor_test,      "" }
-    , { "rcc",  rcc_test,       " RCC clock enable register list" }
+    , { "rcc",  rcc_status,       " RCC clock enable register list" }
     , { "disable", rcc_enable,  " reg1 [reg2...] Disable clock for specified peripheral." }
     , { "enable", rcc_enable,   " reg1 [reg2...] Enable clock for specified peripheral." }
     , { "afio", afio_test,      " AFIO MAPR list" }
@@ -390,6 +390,10 @@ command_processor::operator()( size_t argc, const char ** argv ) const
             stream() << "command processor -- help" << std::endl;
             for ( auto& cmd: command_table )
                 stream() << "\t" << cmd.arg0_ << cmd.help_ << std::endl;
+
+            stream() << "----------------- RCC -----------------" << std::endl;
+            static const char * rcc_argv[] = { "rcc", 0 };
+            rcc_status( 1, rcc_argv );
         }
     }
     stream() << std::endl;
