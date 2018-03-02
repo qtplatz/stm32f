@@ -3,13 +3,18 @@
 # ARM-Cross compiler download from:
 # https://developer.arm.com/open-source/gnu-toolchain/gnu-rm/downloads
 #
-ifneq ( $(worldcard /usr/arm-none-eabi/.*), )
-	CROSSCOMPILE = "/usr/arm-none-eabi/bin/arm-none-eabi-"
+ifeq (${OS},Windows_NT)
+	CROSSCOMPILE := "arm-none-eabi-"
 else
-	CROSSCOMPILE = "arm-linux-gnueabihf-"
+	GCCARM := $(firstword $(wildcard /usr/gcc-arm-none-*))
 endif
 
-CROSSCOMPILE = arm-linux-gnueabihf-
+ifeq ( ${GCCARM},"")
+	CROSSCOMPILE = "arm-linux-gnueabihf-"
+else
+	CROSSCOMPILE = ${GCCARM}/bin/arm-none-eabi-
+endif
+
 AS   = $(CROSSCOMPILE)as
 LD   = $(CROSSCOMPILE)ld.bfd
 DUMP = $(CROSSCOMPILE)objdump -d
@@ -76,3 +81,8 @@ install:
 
 flash: shell.elf
 	openocd ${OCDCFG} -c 
+
+echo:
+	@echo "GCCARM: " ${GCCARM}
+	@echo "CROSSCOMPILE: " ${CROSSCOMPILE}
+	@echo "OS: " ${OS}
