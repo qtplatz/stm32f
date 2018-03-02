@@ -1,5 +1,8 @@
 # Makefile for interrupt demo
 
+# ARM-Cross compiler download from:
+# https://developer.arm.com/open-source/gnu-toolchain/gnu-rm/downloads
+#
 ifneq ( $(worldcard /usr/arm-none-eabi/.*), )
 	CROSSCOMPILE = "/usr/arm-none-eabi/bin/arm-none-eabi-"
 else
