@@ -18,31 +18,29 @@ namespace stm32f103 {
 
     // p702 SPI
     // p742 RM0008
-    enum SPI_CR1 { BIDIMODE   = (01 << 15) // Bidirectional data mode enable
-           , BIDIOE   = (01 << 14) // 2-line unidirectional data mode|1-line bidirectional data mode
-           , CRCEN    = (01 << 13) // Hardware CRC calculation enable
-           , CRCNEXT  = (01 << 12) // CRC transfer next
-           , DFF      = (01 << 11) // 0: 8bit data frame format, 1: 16-bit data frame format
-           , RXONLY   = (01 << 10) // Receive only (0: Full duplex, 1: Output disabled)
-           , SSM      = (01 <<  9) // Software slave management (0: disabled, 1: enabled)
-           , SSI      = (01 <<  8) // Internal slave select
-           , LSBFIRST = (01 <<  7) // LSB first
-           , SPE      = (01 <<  6) // SPI enable
-           , BR       = (07 <<  3) // Baud rate control
-           , MSTR     = (01 <<  2) // Master configuration
-           , CPOL     = (01 <<  1)
-           , CPHA     = 0x0001
+    enum SPI_CR1 {
+        BIDIMODE   = (01 << 15) // Bidirectional data mode enable
+        , BIDIOE   = (01 << 14) // 2-line unidirectional data mode|1-line bidirectional data mode
+        , CRCEN    = (01 << 13) // Hardware CRC calculation enable
+        , CRCNEXT  = (01 << 12) // CRC transfer next
+        , DFF      = (01 << 11) // 0: 8bit data frame format, 1: 16-bit data frame format
+        , RXONLY   = (01 << 10) // Receive only (0: Full duplex, 1: Output disabled)
+        , SSM      = (01 <<  9) // Software slave management (0: disabled, 1: enabled)
+        , SSI      = (01 <<  8) // Internal slave select
+        , LSBFIRST = (01 <<  7) // LSB first
+        , SPE      = (01 <<  6) // SPI enable
+        , BR       = (07 <<  3) // Baud rate control
+        , MSTR     = (01 <<  2) // Master configuration
+        , CPOL     = (01 <<  1)
+        , CPHA     = 0x0001
     };
 
     enum SPI_CR2 {
         SSOE         = (01 << 2) // SS output enable
     };
 
-    constexpr uint32_t fclk = 06; // 1/256 ( ~= 0.8us)
-    // constexpr uint32_t cr1 = BIDIMODE | DFF | SSM | SSI | SPE | ((fclk & 7) << 3) | MSTR; // BIDIMODE|16bit|SPI enable|MSTR
-    // constexpr uint32_t cr1 = BIDIMODE | SSM | SSI | ((fclk & 7) << 3) | MSTR; // BIDIMODE|16bit|SPI enable|MSTR
+    constexpr uint32_t fclk = 04;
     constexpr uint32_t _cr1 = BIDIMODE | DFF | ((fclk & 7) << 3) | CPOL | CPHA | MSTR; // BIDIMODE|16bit|SPI enable|MSTR
-    constexpr uint32_t _cr2 = SSOE | (3 << 5); // SS output enable, Rx buffer not empty interrupt, Error interrupt
     
     void
     spi::init( stm32f103::SPI_BASE base, uint8_t gpio, uint32_t ss_n )
@@ -55,8 +53,8 @@ namespace stm32f103 {
         
         if ( auto SPI = reinterpret_cast< volatile stm32f103::SPI * >( base ) ) {
             spi_ = SPI;
-            SPI->CR2 = _cr2;
-            SPI->CR1 = _cr1 | SPE | ( gpio_ ? SSM | SSI : 0 );
+            SPI->CR2 = SSOE | (3 << 5); // SS output enable, IRQ {Rx buffer not empty, Error}
+            SPI->CR1 = _cr1 | SPE | ( gpio_ ? ( SSM | SSI ) : 0 );
             switch( base ) {
             case SPI1_BASE:
                 enable_interrupt( stm32f103::SPI1_IRQn );
@@ -87,25 +85,37 @@ namespace stm32f103 {
     }
 
     spi&
-    spi::operator << ( uint16_t d )
+    spi::operator >> ( uint16_t& d )
     {
-        while( rxd_.load() == 0 )
+        (*this) = false;       // ~SS -> L
+
+        spi_->CR1 |= SSI;
+        
+        spi_->CR1 &= ~BIDIOE;   // Set read only mode
+
+        while( ! rxd_ )
             ;
-        auto rxd = rxd_.load() & 0xffff;
+
+        spi_->CR1 &= ~SSI;
         {
             scoped_spinlock<> lock( lock_ );
+            d = rxd_.load() & 0xffff;
             rxd_ = 0;
         }
+        return * this;
+    }    
 
-        lock_.clear( std::memory_order_release ); // release lock
-
-        (*this) = false;
+    spi&
+    spi::operator << ( uint16_t d )
+    {
+        uint32_t wait = 0xffffff;
+        
+        rxd_ = d;
         spi_->DATA = d;
-        spi_->CR1 |= SPE | ( gpio_ ? SSM | SSI : 0 ); // enable
-
-        //while( spi_->SR & 02 ) // wait while TX buffer not empty
-        //    ;
-        printf("Tx data: %x, Rx data: %x, CR1=%x, SR=%x\n", d, rxd, spi_->CR1, spi_->SR );
+        spi_->CR1 |= SPE | BIDIOE;
+        // spi_->CR2 |= 1 << 7; // Tx empty irq
+        
+        printf("Tx data: %x, CR1=%x, SR=%x\n", d, spi_->CR1, spi_->SR );
     }
 
     void
@@ -114,31 +124,39 @@ namespace stm32f103 {
         if ( spi_ ) {
             if ( spi_->SR & 01 ) { // RX not empty
                 rxd_ = spi_->DATA | 0x80000000;
-                spi_->CR1 &= ~SPE; // disable
-                (*this) = true;
+                (*this) = true;        // ~SS = 'H'
+                spi_->CR1 |= BIDIOE;   // switch to write-only mode
             }
-#if 0
-            if ( spi_->SR ) {
+            
+            if ( spi_->SR & 02 ) { // Tx empty
+                if ( txd_ ) {
+                    (*this) = false;  // ~SS = 'L'
+                    spi_->DATA = txd_.load();
+                    txd_ = 0;
+                } else {
+                    spi_->CR2 &= ~(1 << 7); // Tx empty irq disable
+                }
+            }
+
+            if ( spi_->SR & 0xfc ) {
                 scoped_spinlock<> lock( lock_ );
 
-                printf("SPI IRQ: " );
+                stream() << "SPI IRQ: ";
                 if ( spi_->SR & 0x80 )
-                    printf("BSY,");
+                    stream() << ("BSY,");
                 if ( spi_->SR & 0x40 )
-                    printf("OVR,");
+                    stream() << ("OVR,");
                 if ( spi_->SR & 0x20 )
-                    printf("MODF,");
+                    stream() << ("MODF,");
                 if ( spi_->SR & 0x10 )
-                    printf("CRCERR,");
+                    stream() << ("CRCERR,");
                 if ( spi_->SR & 0x08 )
-                    printf("UDR,");
+                    stream() << ("UDR,");
                 if ( spi_->SR & 04 )
-                    printf("CHSIDE,");
-                if ( spi_->SR & 02 )
-                    printf("TXE" );
-                printf(" Rx=[%x]\n", rxd_.load() );
+                    stream() << ("CHSIDE,");
+                stream() << std::endl;
             }
-#endif
+
             if ( spi_->SR & (1 << 5 ) ) { // MODF (mode falt)
                 spi_->CR1 = stm32f103::_cr1;
             }

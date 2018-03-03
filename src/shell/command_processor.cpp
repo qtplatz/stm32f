@@ -15,6 +15,7 @@
 #include "stm32f103.hpp"
 #include <atomic>
 #include <algorithm>
+#include <cctype>
 #include <functional>
 
 extern stm32f103::i2c __i2c0, __i2c1;
@@ -116,17 +117,32 @@ spi_test( size_t argc, const char ** argv )
     
     // spi num
     size_t count = 1024;
+    bool spi_read( false );
 
-    if ( argc >= 2 ) {
-        count = strtod( argv[ 1 ] );
-        if ( count == 0 )
-            count = 1;
+    while ( --argc ) {
+        ++argv;
+        if ( std::isdigit( *argv[ 0 ] ) ) {
+            count = strtod( argv[ 1 ] );
+            if ( count == 0 )
+                count = 1;
+        } else if ( *argv[0] == 'r' ) {
+            spi_read = true;
+        }
     }
 
-    while ( count-- ) {
-        uint32_t d = atomic_jiffies.load();
-        spix << uint16_t( d & 0xffff );
-        mdelay( 100 );
+    if ( spi_read ) {
+        uint16_t rxd;
+        while ( count-- ) {
+            spix >> rxd;
+            stream() << "spi read: " << rxd << std::endl;
+            mdelay( 100 );
+        }
+    } else {
+        while ( count-- ) {
+            uint32_t d = atomic_jiffies.load();
+            spix << uint16_t( d & 0xffff );
+            mdelay( 100 );
+        }
     }
 }
 

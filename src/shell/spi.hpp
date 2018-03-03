@@ -14,6 +14,7 @@ namespace stm32f103 {
         volatile SPI * spi_;
         std::atomic_flag lock_;
         std::atomic< uint32_t > rxd_;
+        std::atomic< uint32_t > txd_;
         
         // workaround -- Initially, I thought GPIO and SPI controls are fully independent,
         // bit this peripheral seems exepecting a ~ss line control by software using GPIO.
@@ -25,6 +26,7 @@ namespace stm32f103 {
         inline operator bool () const { return spi_; };
         
         spi& operator << ( uint16_t );
+        spi& operator >> ( uint16_t& );
         
         void operator = ( bool flag ); // SS control
 
