@@ -57,10 +57,20 @@ namespace stm32f103 {  // as known as Blue Pill
 #else
     enum SPI_BASE
 #endif
-    {
-        SPI1_BASE	    = 0x40013000  // p742, RM0008, Rev 17
+    { // p51, Table 3
+        SPI1_BASE	    = 0x40013000 
         , SPI2_BASE     = 0x40003800
         , SPI3_BASE	    = 0x40003c00
+    };
+
+#ifdef __cplusplus    
+    enum I2C_BASE : uint32_t
+#else
+    enum I2C_BASE
+#endif
+    {  // p51, Table 3
+        I2C1_BASE	    = 0x40005400  // 0x4000 5400 - 0x4000 57FF, 
+        , I2C2_BASE	    = 0x40005800  // 0x4000 5800 - 0x4000 5BFF
     };
 
     enum GPIO_CNF {
@@ -79,16 +89,6 @@ namespace stm32f103 {  // as known as Blue Pill
         , GPIO_MODE_OUTPUT_2M  = 2
         , GPIO_MODE_OUTPUT_50M  = 3
     };
-
-    typedef struct GPIO {
-        uint32_t CRL;      /* GPIO port configuration register low,      Address offset: 0x00 */
-        uint32_t CRH;      /* GPIO port configuration register high,     Address offset: 0x04 */
-        uint32_t IDR;      /* GPIO port input data register,             Address offset: 0x08 */
-        uint32_t ODR;      /* GPIO port output data register,            Address offset: 0x0C */
-        uint32_t BSRR;     /* GPIO port bit set/reset register,          Address offset: 0x10 */
-        uint32_t BRR;      /* GPIO port bit reset register,              Address offset: 0x14 */
-        uint32_t LCKR;     /* GPIO port configuration lock register,     Address offset: 0x18 */
-    } GPIO_type;
 
     typedef struct ADC {
         uint32_t SR;        /* Address offset: 0x00 */
@@ -113,33 +113,6 @@ namespace stm32f103 {  // as known as Blue Pill
         uint32_t DR;        /* Address offset: 0x4C */
     } ADC_type;
 
-    typedef struct  RCC {
-        uint32_t CR;       /* RCC clock control register,                Address offset: 0x00 */
-        uint32_t CFGR;     /* RCC clock configuration register,          Address offset: 0x04 */
-        uint32_t CIR;      /* RCC clock interrupt register,              Address offset: 0x08 */
-        uint32_t APB2RSTR; /* RCC APB2 peripheral reset register,        Address offset: 0x0C */
-        uint32_t APB1RSTR; /* RCC APB1 peripheral reset register,        Address offset: 0x10 */
-        uint32_t AHBENR;   /* RCC AHB peripheral clock enable register,  Address offset: 0x14 */
-        uint32_t APB2ENR;  /* RCC APB2 peripheral clock enable register, Address offset: 0x18 */
-        uint32_t APB1ENR;  /* RCC APB1 peripheral clock enable register, Address offset: 0x1C */
-        uint32_t BDCR;     /* RCC backup domain control register,        Address offset: 0x20 */
-        uint32_t CSR;      /* RCC control/status register,               Address offset: 0x24 */
-        uint32_t AHBRSTR;  /* RCC AHB peripheral clock reset register,   Address offset: 0x28 */
-        uint32_t CFGR2;    /* RCC clock configuration register 2,        Address offset: 0x2C */
-    } RCC_type;
-    
-    typedef struct FLASH {
-        uint32_t ACR;
-        uint32_t KEYR;
-        uint32_t OPTKEYR;
-        uint32_t SR;
-        uint32_t CR;
-        uint32_t AR;
-        uint32_t RESERVED;
-        uint32_t OBR;
-        uint32_t WRPR;
-    } FLASH_type;
-
     typedef struct AFIO {
         uint32_t EVCR;      /* Address offset: 0x00 */
         uint32_t MAPR;      /* Address offset: 0x04 */
@@ -149,47 +122,6 @@ namespace stm32f103 {  // as known as Blue Pill
         uint32_t EXTICR4;   /* Address offset: 0x14 */
         uint32_t MAPR2;     /* Address offset: 0x18 */
     } AFIO_type;
-
-    typedef struct NVIC {
-        uint32_t   ISER[8];     /* Address offset: 0x000 - 0x01C */
-        uint32_t  RES0[24];     /* Address offset: 0x020 - 0x07C */
-        uint32_t   ICER[8];     /* Address offset: 0x080 - 0x09C */
-        uint32_t  RES1[24];     /* Address offset: 0x0A0 - 0x0FC */
-        uint32_t   ISPR[8];     /* Address offset: 0x100 - 0x11C */
-        uint32_t  RES2[24];     /* Address offset: 0x120 - 0x17C */
-        uint32_t   ICPR[8];     /* Address offset: 0x180 - 0x19C */
-        uint32_t  RES3[24];     /* Address offset: 0x1A0 - 0x1FC */
-        uint32_t   IABR[8];     /* Address offset: 0x200 - 0x21C */
-        uint32_t  RES4[56];     /* Address offset: 0x220 - 0x2FC */
-        uint8_t   IPR[240];     /* Address offset: 0x300 - 0x3EC */
-        uint32_t RES5[644];     /* Address offset: 0x3F0 - 0xEFC */
-        uint32_t       STIR;    /* Address offset:         0xF00 */
-    } NVIC_type;
-
-    typedef struct USART {
-        uint32_t SR;       /* Address offset: 0x00 */
-        uint32_t DR;       /* Address offset: 0x04 */
-        uint32_t BRR;      /* Address offset: 0x08 */
-        uint32_t CR1;      /* Address offset: 0x0C */
-        uint32_t CR2;      /* Address offset: 0x10 */
-        uint32_t CR3;      /* Address offset: 0x14 */
-        uint32_t GTPR;     /* Address offset: 0x18 */
-    } USART_type;
-
-    typedef struct STK {
-        uint32_t CSR;      /* SYSTICK control and status register,       Address offset: 0x00 */
-        uint32_t RVR;      /* SYSTICK reload value register,             Address offset: 0x04 */
-        uint32_t CVR;      /* SYSTICK current value register,            Address offset: 0x08 */
-        uint32_t CALIB;    /* SYSTICK calibration value register,        Address offset: 0x0C */
-    } STK_type;
-
-    // each I/O port registers have to be accessed as 32bit words. (reference manual pp158/1133)    
-    typedef struct SPI {
-        uint32_t CR1;	// 0
-        uint32_t CR2;	// 4
-        uint32_t SR;   // 8
-        uint32_t DATA; // c
-    } SPI_type;
 
     // p674, RM0008, p695 Table 181
     struct CAN_TxMailBox {
@@ -208,6 +140,7 @@ namespace stm32f103 {  // as known as Blue Pill
         uint32_t FR1;
         uint32_t FR2;
     };
+
     typedef struct CAN {
         uint32_t MCR;
         uint32_t MSR;
@@ -232,7 +165,92 @@ namespace stm32f103 {  // as known as Blue Pill
         uint32_t Reserved5[ 8 ];
         struct CAN_FilterRegister filterRegister[ 14 ];
     } CAN_type;
+
+    typedef struct FLASH {
+        uint32_t ACR;
+        uint32_t KEYR;
+        uint32_t OPTKEYR;
+        uint32_t SR;
+        uint32_t CR;
+        uint32_t AR;
+        uint32_t RESERVED;
+        uint32_t OBR;
+        uint32_t WRPR;
+    } FLASH_type;
+
+    typedef struct GPIO {
+        uint32_t CRL;      /* GPIO port configuration register low,      Address offset: 0x00 */
+        uint32_t CRH;      /* GPIO port configuration register high,     Address offset: 0x04 */
+        uint32_t IDR;      /* GPIO port input data register,             Address offset: 0x08 */
+        uint32_t ODR;      /* GPIO port output data register,            Address offset: 0x0C */
+        uint32_t BSRR;     /* GPIO port bit set/reset register,          Address offset: 0x10 */
+        uint32_t BRR;      /* GPIO port bit reset register,              Address offset: 0x14 */
+        uint32_t LCKR;     /* GPIO port configuration lock register,     Address offset: 0x18 */
+    } GPIO_type;
+
+    typedef struct NVIC {
+        uint32_t   ISER[8];     /* Address offset: 0x000 - 0x01C */
+        uint32_t  RES0[24];     /* Address offset: 0x020 - 0x07C */
+        uint32_t   ICER[8];     /* Address offset: 0x080 - 0x09C */
+        uint32_t  RES1[24];     /* Address offset: 0x0A0 - 0x0FC */
+        uint32_t   ISPR[8];     /* Address offset: 0x100 - 0x11C */
+        uint32_t  RES2[24];     /* Address offset: 0x120 - 0x17C */
+        uint32_t   ICPR[8];     /* Address offset: 0x180 - 0x19C */
+        uint32_t  RES3[24];     /* Address offset: 0x1A0 - 0x1FC */
+        uint32_t   IABR[8];     /* Address offset: 0x200 - 0x21C */
+        uint32_t  RES4[56];     /* Address offset: 0x220 - 0x2FC */
+        uint8_t   IPR[240];     /* Address offset: 0x300 - 0x3EC */
+        uint32_t RES5[644];     /* Address offset: 0x3F0 - 0xEFC */
+        uint32_t       STIR;    /* Address offset:         0xF00 */
+    } NVIC_type;
+
+    typedef struct  RCC {
+        uint32_t CR;       /* RCC clock control register,                Address offset: 0x00 */
+        uint32_t CFGR;     /* RCC clock configuration register,          Address offset: 0x04 */
+        uint32_t CIR;      /* RCC clock interrupt register,              Address offset: 0x08 */
+        uint32_t APB2RSTR; /* RCC APB2 peripheral reset register,        Address offset: 0x0C */
+        uint32_t APB1RSTR; /* RCC APB1 peripheral reset register,        Address offset: 0x10 */
+        uint32_t AHBENR;   /* RCC AHB peripheral clock enable register,  Address offset: 0x14 */
+        uint32_t APB2ENR;  /* RCC APB2 peripheral clock enable register, Address offset: 0x18 */
+        uint32_t APB1ENR;  /* RCC APB1 peripheral clock enable register, Address offset: 0x1C */
+        uint32_t BDCR;     /* RCC backup domain control register,        Address offset: 0x20 */
+        uint32_t CSR;      /* RCC control/status register,               Address offset: 0x24 */
+        uint32_t AHBRSTR;  /* RCC AHB peripheral clock reset register,   Address offset: 0x28 */
+        uint32_t CFGR2;    /* RCC clock configuration register 2,        Address offset: 0x2C */
+    } RCC_type;
     
+    typedef struct STK {
+        uint32_t CSR;      /* SYSTICK control and status register,       Address offset: 0x00 */
+        uint32_t RVR;      /* SYSTICK reload value register,             Address offset: 0x04 */
+        uint32_t CVR;      /* SYSTICK current value register,            Address offset: 0x08 */
+        uint32_t CALIB;    /* SYSTICK calibration value register,        Address offset: 0x0C */
+    } STK_type;
+
+
+    // each I/O port registers have to be accessed as 32bit words. (reference manual pp158/1133)
+    // p751 register map
+    typedef struct SPI {
+        uint32_t CR1;	    // 0
+        uint32_t CR2;	    // 4
+        uint32_t SR;        // 8
+        uint32_t DATA;      // c
+        uint32_t CRCPR;
+        uint32_t RXCRCR;
+        uint32_t TXCRCR;
+        uint32_t I2SCFGR;   // 0x1c {b11 (0=SPI, 1=I2S)}
+        uint32_t SPI_I2PR;
+    } SPI_type;
+
+    typedef struct USART {
+        uint32_t SR;       /* Address offset: 0x00 */
+        uint32_t DR;       /* Address offset: 0x04 */
+        uint32_t BRR;      /* Address offset: 0x08 */
+        uint32_t CR1;      /* Address offset: 0x0C */
+        uint32_t CR2;      /* Address offset: 0x10 */
+        uint32_t CR3;      /* Address offset: 0x14 */
+        uint32_t GTPR;     /* Address offset: 0x18 */
+    } USART_type;
+
     /*
      * STM32F107 Interrupt Number Definition
      */
