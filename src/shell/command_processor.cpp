@@ -9,6 +9,7 @@
 #include "gpio.hpp"
 #include "gpio_mode.hpp"
 #include "printf.h"
+#include "i2c.hpp"
 #include "spi.hpp"
 #include "stream.hpp"
 #include "stm32f103.hpp"
@@ -16,6 +17,7 @@
 #include <algorithm>
 #include <functional>
 
+extern stm32f103::i2c __i2c0, __i2c1;
 extern stm32f103::spi __spi0, __spi1;
 extern stm32f103::adc __adc0;
 
@@ -52,6 +54,37 @@ strtod( const char * s )
         ++s;
     }
     return num * sign;
+}
+
+void
+i2c_test( size_t argc, const char ** argv )
+{
+    stm32f103::I2C_BASE addr = ( strcmp( argv[0], "i2c") == 0 ) ? stm32f103::I2C1_BASE : stm32f103::I2C2_BASE;
+
+    auto& i2cx = ( addr == stm32f103::I2C1_BASE ) ? __i2c0 : __i2c1;
+
+    if ( ! i2cx ) {
+        using namespace stm32f103;
+
+        stream() << argv[0] << " not initialized. -- initializing..." << std::endl;
+        
+        if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
+            // (see RM0008, p180, Table 55)
+            // I2C ALT function  REMAP=0 { SCL,SDA } = { PB6, PB7 }, REMAP=1 { PB8, PB9 }
+
+            // GPIO config in p167, Table 27
+            gpio_mode()( stm32f103::PB6, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,     stm32f103::GPIO_MODE_OUTPUT_50M ); // SCL (clock)
+            gpio_mode()( stm32f103::PB6, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,     stm32f103::GPIO_MODE_OUTPUT_50M ); // SCL (clock)
+            
+        } else {
+            gpio_mode()( stm32f103::PB10, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,     stm32f103::GPIO_MODE_OUTPUT_50M ); // SCL (clock)
+            gpio_mode()( stm32f103::PB11, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,     stm32f103::GPIO_MODE_OUTPUT_50M ); // SCL (clock)
+        }
+        i2cx.init( addr );
+    }
+
+    for ( int i = 0; i < 256; ++i )
+        i2cx << uint16_t(i);
 }
 
 void
@@ -370,6 +403,8 @@ static const premitive command_table [] = {
     , { "disable", rcc_enable,  " reg1 [reg2...] Disable clock for specified peripheral." }
     , { "enable", rcc_enable,   " reg1 [reg2...] Enable clock for specified peripheral." }
     , { "afio", afio_test,      " AFIO MAPR list" }
+    , { "i2c",  i2c_test,        " I2C-1 test" }
+    , { "i2c2", i2c_test,        " I2C-2 test" }
 };
 
 bool
