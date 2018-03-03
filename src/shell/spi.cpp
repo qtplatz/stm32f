@@ -50,11 +50,18 @@ namespace stm32f103 {
 
         gpio_ = gpio;
         ss_n_ = ss_n;
+
+        stream() << "spi::init gpio = " << char( gpio ) << ", ss_n=" << int( ss_n ) << std::endl;
         
         if ( auto SPI = reinterpret_cast< volatile stm32f103::SPI * >( base ) ) {
             spi_ = SPI;
-            SPI->CR2 = SSOE | (3 << 5); // SS output enable, IRQ {Rx buffer not empty, Error}
-            SPI->CR1 = _cr1 | SPE | ( gpio_ ? ( SSM | SSI ) : 0 );
+            if ( gpio ) {
+                SPI->CR1 = _cr1 | SPE | SSM | SSI;
+                SPI->CR2 = (3 << 5);        // SS output disable, IRQ {Rx buffer not empty, Error}
+            } else {
+                SPI->CR1 = _cr1 | SPE;
+                SPI->CR2 = SSOE | (3 << 5); // SS output enable, IRQ {Rx buffer not empty, Error}
+            }
             switch( base ) {
             case SPI1_BASE:
                 enable_interrupt( stm32f103::SPI1_IRQn );
@@ -67,9 +74,7 @@ namespace stm32f103 {
                 break;
             }
         }
-
-        if ( gpio_ )
-            (*this) = true;  // ~SS -> H
+        (*this) = true;  // ~SS -> H
     }
 
     void
@@ -109,13 +114,14 @@ namespace stm32f103 {
     spi::operator << ( uint16_t d )
     {
         uint32_t wait = 0xffffff;
-        
-        rxd_ = d;
-        spi_->DATA = d;
+
+        while ( txd_ )
+            ;
+        txd_ = d;
+        //(*this) = false;
+        // spi_->DATA = d;
+        spi_->CR2 |= (1 << 7);  // Tx empty irq
         spi_->CR1 |= SPE | BIDIOE;
-        // spi_->CR2 |= 1 << 7; // Tx empty irq
-        
-        printf("Tx data: %x, CR1=%x, SR=%x\n", d, spi_->CR1, spi_->SR );
     }
 
     void
@@ -135,24 +141,25 @@ namespace stm32f103 {
                     txd_ = 0;
                 } else {
                     spi_->CR2 &= ~(1 << 7); // Tx empty irq disable
+                    (*this) = true;        // ~SS = 'H'                    
                 }
             }
 
-            if ( spi_->SR & 0xfc ) {
+            if ( auto flags = ( spi_->SR & 0x7c ) ) { // ignore BSY, RX not empty, TX empty
                 scoped_spinlock<> lock( lock_ );
 
-                stream() << "SPI IRQ: ";
-                if ( spi_->SR & 0x80 )
+                stream() << "SPI IRQ: " << flags;
+                if ( flags & 0x80 )
                     stream() << ("BSY,");
-                if ( spi_->SR & 0x40 )
+                if ( flags & 0x40 )
                     stream() << ("OVR,");
-                if ( spi_->SR & 0x20 )
+                if ( flags & 0x20 )
                     stream() << ("MODF,");
-                if ( spi_->SR & 0x10 )
+                if ( flags & 0x10 )
                     stream() << ("CRCERR,");
-                if ( spi_->SR & 0x08 )
+                if ( flags & 0x08 )
                     stream() << ("UDR,");
-                if ( spi_->SR & 04 )
+                if ( flags & 04 )
                     stream() << ("CHSIDE,");
                 stream() << std::endl;
             }

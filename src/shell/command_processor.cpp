@@ -98,20 +98,23 @@ spi_test( size_t argc, const char ** argv )
         stream() << argv[0] << " not initialized. -- initializing..." << std::endl;
         if ( strcmp( argv[0], "spi2" ) == 0 ) {
 
-            if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) )
-                RCC->APB1ENR |= 1 << 14;    // SPI2
-
             // SPI
             // (see RM0008, p166, Table 25)
-            //gpio_mode()( stm32f103::PB12, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // ~SS
             gpio_mode()( stm32f103::PB12, stm32f103::GPIO_CNF_OUTPUT_PUSH_PULL,     stm32f103::GPIO_MODE_OUTPUT_50M ); // ~SS
             
             gpio_mode()( stm32f103::PB13, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // SCLK
             gpio_mode()( stm32f103::PB14, stm32f103::GPIO_CNF_INPUT_FLOATING,       stm32f103::GPIO_MODE_INPUT );      // MISO
             gpio_mode()( stm32f103::PB15, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // MOSI
+
             spix.init( stm32f103::SPI2_BASE, 'B', 12 );
+            
         } else {
-            // spi1 should be initialized in main();
+            gpio_mode()( stm32f103::PA4, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // ~SS
+            gpio_mode()( stm32f103::PA5, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // SCLK
+            gpio_mode()( stm32f103::PA6, stm32f103::GPIO_CNF_INPUT_FLOATING,       stm32f103::GPIO_MODE_INPUT );      // MISO
+            gpio_mode()( stm32f103::PA7, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // MOSI
+
+            spix.init( stm32f103::SPI1_BASE );
         }
     }
     
@@ -141,6 +144,7 @@ spi_test( size_t argc, const char ** argv )
         while ( count-- ) {
             uint32_t d = atomic_jiffies.load();
             spix << uint16_t( d & 0xffff );
+            stream() << "spi write: " << d << std::endl;
             mdelay( 100 );
         }
     }

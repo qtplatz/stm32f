@@ -151,6 +151,8 @@ main()
 
         RCC->APB2ENR |= (01 << 12);   // SPI1 enable;
 
+        RCC->APB1ENR |= 1 << 14;      // SPI2 (based on PCLK1, not equal to SPI1)
+
         // RCC->APB2ENR |= (1 << 13); // TIM8
         
         RCC->APB2ENR |= (01 << 14);   // UART1 enable;
