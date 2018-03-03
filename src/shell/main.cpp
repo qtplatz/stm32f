@@ -11,6 +11,8 @@
 #include "command_processor.hpp"
 #include "gpio.hpp"
 #include "gpio_mode.hpp"
+#include "i2c.hpp"
+#include "rcc.hpp"
 #include "spi.hpp"
 #include "stream.hpp"
 #include "tokenizer.hpp"
@@ -24,6 +26,9 @@
 extern uint64_t jiffies;  // 100us
 extern uint32_t _sbss, _ebss;
 
+uint32_t __system_clock;
+uint32_t __pclk1, __pclk2;
+
 std::atomic< uint32_t > atomic_jiffies;          //  100us  (4.97 days)
 std::atomic< uint32_t > atomic_milliseconds;     // 1000us  (49.71 days)
 std::atomic< uint32_t > atomic_250_milliseconds;
@@ -31,11 +36,11 @@ std::atomic< uint32_t > atomic_seconds;          // 1s      (136.1925 years)
 
 static std::atomic_flag __lock_flag;
 
-stm32f103::uart __uart0;
-stm32f103::spi __spi0;
-stm32f103::spi __spi1;
-stm32f103::can __can0;
 stm32f103::adc __adc0;
+stm32f103::can __can0;
+stm32f103::i2c __i2c0, __i2c1;
+stm32f103::spi __spi0, __spi1;
+stm32f103::uart __uart0;
 
 extern "C" {
     void enable_interrupt( stm32f103::IRQn_type IRQn );
@@ -47,7 +52,14 @@ extern "C" {
     void serial_putc( int );
 
     void systick_handler();
+
     void adc1_handler();
+
+    void i2c1_event_handler();
+    void i2c1_error_handler();
+    void i2c2_event_handler();
+    void i2c2_error_handler();    
+
     void spi1_handler();
     void spi2_handler();
 
@@ -104,12 +116,24 @@ main()
         // RM0008 p98- 
         if ( auto FLASH = reinterpret_cast< volatile stm32f103::FLASH * >( stm32f103::FLASH_BASE ) )
             FLASH->ACR = 0x0010 | 0x0002; // FLASH_PREFETCH (enable prefetch buffer)| FLASH_WAIT2(for 48 < sysclk <= 72MHz);
-        
-        RCC->CFGR = ( 7 << 18 ) | ( 1 << 16 ) | ( 4 << 8 );           // pll input clock(9), PLLSRC=HSE, PPRE1=4
+
+        RCC->CFGR = ( 7 << 18 ) | ( 1 << 16 ) | ( 4 << 8 );           // PLLMUL(input x9), PLLSRC(HSE), PPRE1(HCLK/4)
         RCC->CR   = ( 1 << 24 ) | ( 1 << 16 ) | (0b10000 << 3) | 1;   // PLLON, HSEON, HSITRIM(0b10000), HSION
         while ( ! RCC->CR & ( 1 << 17 ) )                             // Wait until HSE settles down (HSE RDY)
             ;
         RCC->CFGR |= 0x02;                      // SW(0b10, pll selected as system clock)
+
+        // pclk1 (APB low speed clock) should be 720000 / 2  := 32000000Hz
+        // pclk2 (APB high-speed clock) is HCLK not divided, := 72000000Hz
+        // HSE := high speed clock signal
+        // HSI := internal 8MHz RC Oscillator clock
+        __system_clock = 72000000;
+        __pclk2 = __system_clock;
+        __pclk1 = __system_clock / 2;
+
+        // ADC prescaler
+        RCC->CFGR &= ~( 0b11 << 14 );
+        RCC->CFGR |= ( 0b10 << 14 );  // set prescaler to 6
         // <--
         ///////////////////////////////////////////////////////
     }
@@ -132,20 +156,12 @@ main()
         RCC->APB2ENR |= (01 << 14);   // UART1 enable;
 
         // 7.3.8 p114 (APB1 peripheral clock enable register)
-        // RCC->APB1ENR |= 0b111111;   // TIM 2..7
-        // RCC->APB1ENR |= 07 << 6;    // TIM 12,13,14
-        // RCC->APB1ENR |= 1 << 11;    // WWD GEN
-        // RCC->APB1ENR |= 1 << 14;    // SPI2
-        // RCC->APB1ENR |= 1 << 15;    // SPI3
-        // RCC->APB1ENR |= 0x0f << 17; // USART 2..5
-        // RCC->APB1ENR |= 03 << 21;   // I2C 1,2
-        // RCC->APB1ENR |= 01 << 23;   // USB
-
         RCC->APB1ENR |= (1 << 25); // CAN clock enable
 
-        // ADC prescaler
-        RCC->CFGR &= ~( 0b11 << 14 );
-        RCC->CFGR |= ( 0b10 << 14 );  // set prescaler to 6
+        // I2C clock enable
+        RCC->APB1ENR |= (1 << 21); // I2C 1 clock enable
+        RCC->APB1ENR |= (1 << 22); // I2C 2 clock enable
+
     }
 
     atomic_jiffies = 0;
@@ -162,13 +178,9 @@ main()
 
         // ADC  (0)
         gpio_mode( stm32f103::PA0, stm32f103::GPIO_CNF_INPUT_ANALOG,         stm32f103::GPIO_MODE_INPUT ); // ADC1 (0,0)
-        //gpio_mode( stm32f103::PA1, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_INPUT ); // ADC2 (0,0)
-        //gpio_mode( stm32f103::PA2, stm32f103::GPIO_CNF_INPUT_FLOATING,       stm32f103::GPIO_MODE_INPUT ); // ADC3 (0,0)
-        //gpio_mode( stm32f103::PA3, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_INPUT ); // ADC4 (0,0)
         
         // SPI
         // (see RM0008, p166, Table 25)
-        //gpio_mode( stm32f103::PA4, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // ~SS
         gpio_mode( stm32f103::PA4, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // ~SS
         gpio_mode( stm32f103::PA5, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // SCLK
         gpio_mode( stm32f103::PA6, stm32f103::GPIO_CNF_INPUT_FLOATING,       stm32f103::GPIO_MODE_INPUT );      // MISO
@@ -186,16 +198,23 @@ main()
     
     if ( auto AFIO = reinterpret_cast< volatile stm32f103::AFIO * >( stm32f103::AFIO_BASE ) ) {
         AFIO->MAPR &= ~1;            // clear SPI1 remap
-        AFIO->MAPR &= ~(0b11 << 13); // clear CAN remap (RX = PA11, TX = PA12)
+        AFIO->MAPR &= ~02;           // clear I2C 1 remap 
+        AFIO->MAPR &= ~(03 << 13);   // clear CAN remap (RX = PA11, TX = PA12) 9.3.3, 9.3.4, p175
         stream() << "\tAFIO MAPR: 0x" << AFIO->MAPR << std::endl;
     }
 
     {
         int size = reinterpret_cast< const char * >(&_ebss) - reinterpret_cast< const char * >(&_sbss);
+        __system_clock = stm32f103::rcc().system_frequency();
+        __pclk1 = stm32f103::rcc().pclk1(); // 72MHz
+        __pclk2 = stm32f103::rcc().pclk1(); // 36MHz
         stream() << "\t**********************************************" << std::endl;
         stream() << "\t***** BSS = 0x" << uint32_t(&_sbss) << " -- 0x" << uint32_t(&_ebss) << "\t *****" << std::endl;
         stream() << "\t***** " << size << " octsts of bss segment is in use. ***" << std::endl;
         stream() << "\t***** Current stack pointer = " << uint32_t(&size) << "\t *****" << std::endl;
+        stream() << "\t***** SYSCLK = " << int32_t( __system_clock ) << "Hz" << std::endl;
+        stream() << "\t***** PCLK1  = " << int32_t( __pclk1 ) << "Hz" << std::endl;
+        stream() << "\t***** PCLK2  = " << int32_t( __pclk2 ) << "Hz" << std::endl;
         stream() << "\t**********************************************" << std::endl;
     }
 
@@ -298,4 +317,24 @@ void
 spi2_handler()
 {
     stm32f103::spi::interrupt_handler( &__spi1 );
+}
+
+void
+i2c1_event_handler()
+{
+}
+
+void
+i2c1_error_handler()
+{
+}
+
+void
+i2c2_event_handler()
+{
+}
+
+void
+i2c2_error_handler()
+{
 }
