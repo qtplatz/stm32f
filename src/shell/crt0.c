@@ -21,6 +21,10 @@ void __can1_tx_handler(void);
 void __can1_rx0_handler(void);
 void __can1_rx1_handler(void);
 void __can1_sce_handler(void);
+void __i2c1_event_handler(void);
+void __i2c1_error_handler(void);
+void __i2c2_event_handler(void);
+void __i2c2_error_handler(void);
 void __spi1_handler(void);
 void __spi2_handler(void);
 void __usart1_handler(void);
@@ -83,10 +87,10 @@ void ( * const vector_table [] )() __attribute__ ((section(".vect"))) = {
 	0,                              /* 0x0B0 TIM2                            */
 	0,                              /* 0x0B4 TIM3                            */
 	0,                              /* 0x0B8 TIM4                            */
-	0,                              /* 0x0BC I2C1 event                      */
-	0,                              /* 0x0C0 I2C1 error                      */
-	0,                              /* 0x0C4 I2C2 event                      */
-	0,                              /* 0x0C8 I2C2 error                      */
+	__i2c1_event_handler,           /* 0x0BC I2C1 event                      */
+	__i2c1_error_handler,           /* 0x0C0 I2C1 error                      */
+	__i2c2_event_handler,           /* 0x0C4 I2C2 event                      */
+	__i2c2_event_handler,           /* 0x0C8 I2C2 error                      */
 	__spi1_handler,                 /* 0x0CC SPI1                            */
 	__spi2_handler,                 /* 0x0D0 SPI2                            */
 	__usart1_handler,               /* 0x0D4 USART1                          */
@@ -167,6 +171,29 @@ __can1_rx1_handler(void)
 void
 __can1_sce_handler(void)
 {
+}
+
+void
+__i2c1_event_handler()
+{
+    i2c1_event_handler();
+}
+void
+__i2c1_error_handler()
+{
+    i2c1_error_handler();    
+}
+
+void
+__i2c2_event_handler()
+{
+    i2c2_event_handler();    
+}
+
+void
+__i2c2_error_handler()
+{
+    i2c2_error_handler();    
 }
 
 void
