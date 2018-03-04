@@ -9,6 +9,7 @@
 #include "adc.hpp"
 #include "can.hpp"
 #include "command_processor.hpp"
+#include "dma.hpp"
 #include "gpio.hpp"
 #include "gpio_mode.hpp"
 #include "i2c.hpp"
@@ -41,6 +42,7 @@ stm32f103::can __can0;
 stm32f103::i2c __i2c0, __i2c1;
 stm32f103::spi __spi0, __spi1;
 stm32f103::uart __uart0;
+stm32f103::dma __dma0;
 
 extern void uart1_handler();
 
@@ -154,6 +156,9 @@ main()
         RCC->CFGR &= ~( 0b11 << 14 );
         RCC->CFGR |= ( 0b10 << 14 );  // set prescaler to 6
         // <--
+
+        // DMA
+        RCC->AHBENR |= 0x01; // DMA1 enable
         ///////////////////////////////////////////////////////
     }
 
@@ -188,6 +193,8 @@ main()
     atomic_jiffies = 0;
     atomic_milliseconds = 0;
     atomic_seconds = 0;
+
+    __dma0.init( stm32f103::DMA1_BASE );
 
     {
         stm32f103::gpio_mode gpio_mode;

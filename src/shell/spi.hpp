@@ -10,6 +10,8 @@ namespace stm32f103 {
     enum SPI_BASE : uint32_t;
     struct SPI;
 
+    class dma;
+
     class spi {
         volatile SPI * spi_;
         std::atomic_flag lock_;
@@ -22,8 +24,14 @@ namespace stm32f103 {
         uint8_t gpio_;  // A|B|none
         uint32_t ss_n_;  // PA4|PB
         uint32_t cr1_;
+        dma * dma_;
+        uint32_t dma_channel_;
     public:
         void init( SPI_BASE, uint8_t gpio = 0, uint32_t ss_n = 0 );
+        void slave_init( SPI_BASE );
+
+        void init( SPI_BASE, dma& );
+
         inline operator bool () const { return spi_; };
         
         spi& operator << ( uint16_t );

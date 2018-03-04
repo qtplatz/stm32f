@@ -91,7 +91,7 @@ i2c_test( size_t argc, const char ** argv )
 void
 spi_test( size_t argc, const char ** argv )
 {
-    auto id = ( strcmp( argv[0], "spi") == 0 ) ? 0 : 1;
+    auto id = ( strcmp( argv[0], "spi") == 0 ) ? 0 : ( strcmp( argv[0], "spi2" ) == 0 ) ? 1 : (-1);
     auto& spix = ( id == 0 ) ? __spi0 : __spi1;
 
     // spi num
@@ -114,10 +114,9 @@ spi_test( size_t argc, const char ** argv )
 
     if ( ! spix ) {
         using namespace stm32f103;
-        stream() << argv[0] << " not initialized. -- initializing..." << std::endl;
-        if ( strcmp( argv[0], "spi2" ) == 0 ) {
 
-            // SPI
+        if ( id == 1 ) {
+            // SPI 2
             // (see RM0008, p166, Table 25)
             gpio_mode()( stm32f103::PB12, stm32f103::GPIO_CNF_OUTPUT_PUSH_PULL,     stm32f103::GPIO_MODE_OUTPUT_50M ); // ~SS
             
@@ -131,15 +130,23 @@ spi_test( size_t argc, const char ** argv )
                 spix.init( stm32f103::SPI2_BASE );
             
         } else {
+            // SPI 1
             gpio_mode()( stm32f103::PA4, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // ~SS
             gpio_mode()( stm32f103::PA5, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // SCLK
             gpio_mode()( stm32f103::PA6, stm32f103::GPIO_CNF_INPUT_FLOATING,       stm32f103::GPIO_MODE_INPUT );      // MISO
             gpio_mode()( stm32f103::PA7, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // MOSI
 
             if ( spi_ss_soft )
-                spix.init( stm32f103::SPI1_BASE, 'A', 4 );
+                __spi0.init( stm32f103::SPI1_BASE, 'A', 4 );
             else
-                spix.init( stm32f103::SPI1_BASE );
+                __spi0.init( stm32f103::SPI1_BASE );
+
+            gpio_mode()( stm32f103::PB12, stm32f103::GPIO_CNF_INPUT_FLOATING,       stm32f103::GPIO_MODE_INPUT ); // ~SS
+            gpio_mode()( stm32f103::PB13, stm32f103::GPIO_CNF_INPUT_FLOATING,       stm32f103::GPIO_MODE_INPUT ); // SCLK
+            gpio_mode()( stm32f103::PB14, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // MISO
+            gpio_mode()( stm32f103::PB15, stm32f103::GPIO_CNF_INPUT_FLOATING,       stm32f103::GPIO_MODE_INPUT ); // MOSI
+
+            __spi1.slave_init( stm32f103::SPI2_BASE );
         }
     }
     

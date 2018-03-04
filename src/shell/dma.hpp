@@ -4,6 +4,7 @@
 // Contact: toshi.hondo@qtplatz.com
 //
 
+#pragma once
 
 #include <atomic>
 #include <cstdint>
@@ -41,9 +42,14 @@ namespace stm32f103 {
         dma();
         
         void init( DMA_BASE );
-        inline operator bool () const { return dma_; };
+
+        void init_channel( uint32_t channel
+                           , uint32_t direction          // CCR bit4
+                           , const uint8_t * source_addr
+                           , uint8_t * destination_addr
+                           , uint32_t transfer_size );
         
-        dma& operator << ( uint16_t );
+        inline operator bool () const { return dma_; };
         
         void handle_interrupt();
         static void interrupt_handler( dma * );
