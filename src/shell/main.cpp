@@ -14,10 +14,10 @@
 #include "i2c.hpp"
 #include "rcc.hpp"
 #include "spi.hpp"
+#include "stm32f103.hpp"
 #include "stream.hpp"
 #include "tokenizer.hpp"
 #include "uart.hpp"
-#include "stm32f103.hpp"
 #include <array>
 #include <atomic>
 #include <utility>
@@ -42,6 +42,8 @@ stm32f103::i2c __i2c0, __i2c1;
 stm32f103::spi __spi0, __spi1;
 stm32f103::uart __uart0;
 
+extern void uart1_handler();
+
 extern "C" {
     void enable_interrupt( stm32f103::IRQn_type IRQn );
     void disable_interrupt( stm32f103::IRQn_type IRQn );
@@ -53,17 +55,34 @@ extern "C" {
 
     void systick_handler();
 
-    void adc1_handler();
-
-    void i2c1_event_handler();
-    void i2c1_error_handler();
-    void i2c2_event_handler();
-    void i2c2_error_handler();    
-
-    void spi1_handler();
-    void spi2_handler();
-
     void * memset( void * ptr, int value, size_t num );
+
+    void __dma1_ch1_handler( void );
+    void __dma1_ch2_handler( void );
+    void __dma1_ch3_handler( void );
+    void __dma1_ch4_handler( void );
+    void __dma1_ch5_handler( void );
+    void __dma1_ch6_handler( void );
+    void __dma1_ch7_handler( void );
+    void __dma2_ch1_handler( void );
+    void __dma2_ch2_handler( void );
+    void __dma2_ch3_handler( void );
+    void __dma2_ch4_handler( void );
+    void __dma2_ch5_handler( void );
+
+    void __adc1_handler( void );
+    void __can1_tx_handler( void );
+    void __can1_rx0_handler( void );
+    void __can1_rx1_handler( void );
+    void __can1_sce_handler( void );
+    void __i2c1_event_handler( void );
+    void __i2c1_error_handler( void );
+    void __i2c2_event_handler( void );
+    void __i2c2_error_handler( void );
+    void __spi1_handler( void );
+    void __spi2_handler( void );
+    void __usart1_handler( void );
+    void __systick_handler( void );
 
     int main();
 }
@@ -302,39 +321,137 @@ systick_handler()
 }
 
 void
-adc1_handler()
+__adc1_handler(void)
 {
     stm32f103::adc::interrupt_handler( &__adc0 );
 }
 
 void
-spi1_handler()
+__can1_tx_handler(void)
 {
-    stm32f103::spi::interrupt_handler( &__spi0 );
+    __can0.handle_tx_interrupt();
 }
 
 void
-spi2_handler()
+__can1_rx0_handler(void)
 {
-    stm32f103::spi::interrupt_handler( &__spi1 );
+    __can0.handle_rx0_interrupt();
 }
 
 void
-i2c1_event_handler()
+__can1_rx1_handler(void)
 {
 }
-
+    
 void
-i2c1_error_handler()
-{
-}
-
-void
-i2c2_event_handler()
+__can1_sce_handler(void)
 {
 }
 
 void
-i2c2_error_handler()
+__i2c1_event_handler()
+{
+    // i2c1_event_handler();
+}
+void
+__i2c1_error_handler()
+{
+    // i2c1_error_handler();    
+}
+
+void
+__i2c2_event_handler()
+{
+    // i2c2_event_handler();    
+}
+
+void
+__i2c2_error_handler()
+{
+    // i2c2_error_handler();    
+}
+
+void
+__spi1_handler(void)
+{
+    stm32f103::spi::interrupt_handler( &__spi0 );    
+}
+
+void
+__spi2_handler(void)
+{
+    stm32f103::spi::interrupt_handler( &__spi1 );    
+}
+
+void
+__usart1_handler(void)
+{
+    stm32f103::uart::interrupt_handler( &__uart0 );    
+}
+
+void
+__systick_handler( void )
+{
+    ++jiffies;
+    systick_handler();
+}
+
+void
+__dma1_ch1_handler( void )
+{
+}
+
+void
+__dma1_ch2_handler( void )
+{
+}
+
+void
+__dma1_ch3_handler( void )
+{
+}
+
+void
+__dma1_ch4_handler( void )
+{
+}
+
+void
+__dma1_ch5_handler( void )
+{
+}
+
+void
+__dma1_ch6_handler( void )
+{
+}
+
+void
+__dma1_ch7_handler( void )
+{
+}
+
+void
+__dma2_ch1_handler( void )
+{
+}
+
+void
+__dma2_ch2_handler( void )
+{
+}
+
+void
+__dma2_ch3_handler( void )
+{
+}
+
+void
+__dma2_ch4_handler( void )
+{
+}
+
+void
+__dma2_ch5_handler( void )
 {
 }

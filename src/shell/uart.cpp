@@ -150,9 +150,23 @@ uart::gets( char * s, size_t size )
     return size_t( p - s );
 }
 
+// void
+// uart1_handler()
+// {
+//     auto usart = reinterpret_cast< stm32f103::USART * >( stm32f103::USART1_BASE );
+//     __input_char = usart->DR & 0xff;
+// }
+
 void
-uart1_handler()
+uart::handle_interrupt()
 {
-    auto usart = reinterpret_cast< stm32f103::USART * >( stm32f103::USART1_BASE );
-    __input_char = usart->DR & 0xff;
+    __input_char = usart_->DR & 0xff;
 }
+
+// static
+void
+uart::interrupt_handler( uart * _this )
+{
+    _this->handle_interrupt();
+}
+

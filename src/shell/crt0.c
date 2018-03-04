@@ -14,22 +14,33 @@ uint64_t jiffies;
 // Function declarations. Add your functions here
 void enable_interrupt(IRQn_type IRQn);
 void disable_interrupt(IRQn_type IRQn);
-void set_system_clock_to_25Mhz(void);
-void set_system_clock_to_72Mhz(void);
-void __adc1_handler(void);
-void __can1_tx_handler(void);
-void __can1_rx0_handler(void);
-void __can1_rx1_handler(void);
-void __can1_sce_handler(void);
-void __i2c1_event_handler(void);
-void __i2c1_error_handler(void);
-void __i2c2_event_handler(void);
-void __i2c2_error_handler(void);
-void __spi1_handler(void);
-void __spi2_handler(void);
-void __usart1_handler(void);
-void __systick_handler(void);
 void __main(void);
+
+extern void __adc1_handler(void);
+extern void __can1_tx_handler(void);
+extern void __can1_rx0_handler(void);
+extern void __can1_rx1_handler(void);
+extern void __can1_sce_handler(void);
+extern void __i2c1_event_handler(void);
+extern void __i2c1_error_handler(void);
+extern void __i2c2_event_handler(void);
+extern void __i2c2_error_handler(void);
+extern void __spi1_handler(void);
+extern void __spi2_handler(void);
+extern void __usart1_handler(void);
+extern void __systick_handler(void);
+extern void __dma1_ch1_handler( void );
+extern void __dma1_ch2_handler( void );
+extern void __dma1_ch3_handler( void );
+extern void __dma1_ch4_handler( void );
+extern void __dma1_ch5_handler( void );
+extern void __dma1_ch6_handler( void );
+extern void __dma1_ch7_handler( void );
+extern void __dma2_ch1_handler( void );
+extern void __dma2_ch2_handler( void );
+extern void __dma2_ch3_handler( void );
+extern void __dma2_ch4_handler( void );
+extern void __dma2_ch5_handler( void );
 
 /*************************************************
 * Vector Table
@@ -67,13 +78,13 @@ void ( * const vector_table [] )() __attribute__ ((section(".vect"))) = {
 	0,                              /* 0x060 EXTI Line2                      */
 	0,                              /* 0x064 EXTI Line3                      */
 	0,                              /* 0x068 EXTI Line4                      */
-	0,                              /* 0x06C DMA1_Ch1                        */
-	0,                              /* 0x070 DMA1_Ch2                        */
-	0,                              /* 0x074 DMA1_Ch3                        */
-	0,                              /* 0x078 DMA1_Ch4                        */
-	0,                              /* 0x07C DMA1_Ch5                        */
-	0,                              /* 0x080 DMA1_Ch6                        */
-	0,                              /* 0x084 DMA1_Ch7                        */
+	__dma1_ch1_handler,             /* 0x06C DMA1_Ch1                        */
+	__dma1_ch2_handler,             /* 0x070 DMA1_Ch2                        */
+	__dma1_ch3_handler,             /* 0x074 DMA1_Ch3                        */
+	__dma1_ch4_handler,             /* 0x078 DMA1_Ch4                        */
+	__dma1_ch5_handler,             /* 0x07C DMA1_Ch5                        */
+	__dma1_ch6_handler,             /* 0x080 DMA1_Ch6                        */
+	__dma1_ch7_handler,             /* 0x084 DMA1_Ch7                        */
 	__adc1_handler,                 /* 0x088 ADC1 and ADC2 global            */
 	__can1_tx_handler,              /* 0x08C CAN1_TX                         */
 	__can1_rx0_handler,             /* 0x090 CAN1_RX0                        */
@@ -112,11 +123,11 @@ void ( * const vector_table [] )() __attribute__ ((section(".vect"))) = {
 	0,                              /* 60  USART5                          */
 	0,                              /* 61  TIM6                            */
 	0,                              /* 62  TIM7                            */
-	0,                              /* 63  DMA2_Ch1                        */
-	0,                              /* 64  DMA2_Ch2                        */
-	0,                              /* 65  DMA2_Ch3                        */
-	0,                              /* 66  DMA2_Ch4                        */
-	0,                              /* 67  DMA2_Ch5                        */
+	__dma2_ch1_handler,             /* 63  DMA2_Ch1                        */
+	__dma2_ch2_handler,             /* 64  DMA2_Ch2                        */
+	__dma2_ch3_handler,             /* 65  DMA2_Ch3                        */
+	__dma2_ch4_handler,             /* 66  DMA2_Ch4                        */
+	__dma2_ch5_handler,             /* 67  DMA2_Ch5                        */
 	0,                              /* 68  Ethernet                        */
 	0,                              /* 69  Ethernet wakeup                 */
 	0,                              /* 70  CAN2_TX                         */
@@ -146,84 +157,9 @@ disable_interrupt(IRQn_type IRQn)
 }
 
 void
-__adc1_handler(void)
-{
-    adc1_handler();
-}
-
-void
-__can1_tx_handler(void)
-{
-    can1_tx_handler();
-}
-
-void
-__can1_rx0_handler(void)
-{
-    can1_rx0_handler();
-}
-
-void
-__can1_rx1_handler(void)
-{
-}
-    
-void
-__can1_sce_handler(void)
-{
-}
-
-void
-__i2c1_event_handler()
-{
-    i2c1_event_handler();
-}
-void
-__i2c1_error_handler()
-{
-    i2c1_error_handler();    
-}
-
-void
-__i2c2_event_handler()
-{
-    i2c2_event_handler();    
-}
-
-void
-__i2c2_error_handler()
-{
-    i2c2_error_handler();    
-}
-
-void
-__spi1_handler(void)
-{
-    spi1_handler();
-}
-
-void
-__spi2_handler(void)
-{
-    spi2_handler();
-}
-
-void
-__usart1_handler(void)
-{
-    uart1_handler();
-}
-
-void
-__systick_handler( void )
-{
-    ++jiffies;
-    systick_handler();
-}
-
-void
 __main(void)
 {
     jiffies = 0;
     main();
 }
+

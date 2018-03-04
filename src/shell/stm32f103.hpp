@@ -73,6 +73,16 @@ namespace stm32f103 {  // as known as Blue Pill
         , I2C2_BASE	    = 0x40005800  // 0x4000 5800 - 0x4000 5BFF
     };
 
+#ifdef __cplusplus    
+    enum DMA_BASE : uint32_t
+#else
+    enum DMA_BASE
+#endif
+    {  // p49, Table 3
+        DMA1_BASE	    = 0x40020000  // 0x4002 0000 - 0x4002 03FF
+        , DMA2_BASE	    = 0x40020400  // 0x4002 0400 - 0x4002 07FF
+    };
+    
     enum GPIO_CNF {
         GPIO_CNF_OUTPUT_PUSH_PULL = 0
         , GPIO_CNF_OUTPUT_ODRAIN  = 1

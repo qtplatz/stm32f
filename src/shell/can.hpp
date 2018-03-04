@@ -116,7 +116,10 @@ namespace stm32f103 {
         CanMsg * read( CAN_FIFO fifo, CanMsg* msg );
         CanMsg * rx_queue_get();
         static void rx_read( CAN *, CAN_FIFO fifo );
-        static void rx_release( CAN *, CAN_FIFO fifo );        
+        static void rx_release( CAN *, CAN_FIFO fifo );
+
+        void handle_tx_interrupt();
+        void handle_rx0_interrupt();
     };
 
 }

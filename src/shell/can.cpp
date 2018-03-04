@@ -499,7 +499,7 @@ can::rx_read( CAN * can, CAN_FIFO fifo )
 
 
 void
-can1_rx0_handler()
+can::handle_rx0_interrupt()
 {
     stream() << "can::rx0_handler" << std::endl;
     
@@ -514,7 +514,7 @@ can1_rx0_handler()
 }
 
 void
-can1_tx_handler()
+can::handle_tx_interrupt()
 {
     stream() << "can::tx_handler" << std::endl;
 

@@ -21,6 +21,7 @@ namespace stm32f103 {
         // I've designed GPIO control based on c++ type dispatch, but not for SPI.
         uint8_t gpio_;  // A|B|none
         uint32_t ss_n_;  // PA4|PB
+        uint32_t cr1_;
     public:
         void init( SPI_BASE, uint8_t gpio = 0, uint32_t ss_n = 0 );
         inline operator bool () const { return spi_; };

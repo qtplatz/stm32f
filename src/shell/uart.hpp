@@ -29,6 +29,10 @@ namespace stm32f103 {
 
         void putc( int );
 
+        void handle_interrupt();
+        static void interrupt_handler( uart * );
+
+        // printf & console interface
         static int getc();
         static size_t gets( char * p, size_t size );
     };

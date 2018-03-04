@@ -56,15 +56,18 @@ namespace stm32f103 {
         gpio_ = gpio;
         ss_n_ = ss_n;
 
+        scoped_spinlock<> lock( lock_ );
         stream() << "spi::init gpio = " << char( gpio ) << ", ss_n=" << int( ss_n ) << std::endl;
         
         if ( auto SPI = reinterpret_cast< volatile stm32f103::SPI * >( base ) ) {
             spi_ = SPI;
             if ( gpio ) {
-                SPI->CR1 = _cr1 | SPE | SSM | SSI;
+                cr1_ = _cr1 | SPE | SSM | SSI;
+                SPI->CR1 = cr1_;
                 SPI->CR2 = (3 << 5);        // SS output disable, IRQ {Rx buffer not empty, Error}
             } else {
-                SPI->CR1 = _cr1 | SPE | SSM;
+                cr1_ = _cr1 | SPE | SSM;
+                SPI->CR1 = cr1_;
                 SPI->CR2 = SSOE | (3 << 5); // SS output enable, IRQ {Rx buffer not empty, Error}
             }
             
@@ -85,6 +88,10 @@ namespace stm32f103 {
 
     void
     spi::operator = ( bool flag ) {
+        // if ( ~flag )
+        //     spi_->CR1 &= ~SSI;
+        // else
+#if 0
         switch( gpio_ ) {
         case 'A':
             stm32f103::gpio< GPIOA_PIN >( static_cast< GPIOA_PIN >( ss_n_ ) ) = flag;
@@ -93,6 +100,7 @@ namespace stm32f103 {
             stm32f103::gpio< GPIOB_PIN >( static_cast< GPIOB_PIN >( ss_n_ ) ) = flag;
             break;
         }
+#endif
     }
 
     spi&
@@ -100,14 +108,13 @@ namespace stm32f103 {
     {
         (*this) = false;       // ~SS -> L
 
-        spi_->CR1 |= SSI;
+        cr1_ &= ~BIDIOE; // read only
         
-        spi_->CR1 &= ~BIDIOE;   // Set read only mode
-
+        spi_->CR1 = cr1_;
+        
         while( ! rxd_ )
             ;
 
-        spi_->CR1 &= ~SSI;
         {
             scoped_spinlock<> lock( lock_ );
             d = rxd_.load() & 0xffff;
@@ -124,12 +131,15 @@ namespace stm32f103 {
         while ( --wait && txd_ )
             ;
 
-        if ( wait == 0 )
+        if ( wait == 0 ) {
+            scoped_spinlock<> lock( lock_ );
             stream() << "spi tx timeout" << std::endl;
-        
+        }
+
         txd_ = d;
-        spi_->CR2 |= (1 << 7);     // Tx empty irq
         spi_->CR1 |= SPE | BIDIOE; // SPI enable, output only mode
+        cr1_ = spi_->CR1;
+        spi_->CR2 |= (1 << 7);     // Tx empty irq
     }
 
     void
@@ -156,7 +166,7 @@ namespace stm32f103 {
             if ( auto flags = ( spi_->SR & 0x7c ) ) { // ignore BSY, RX not empty, TX empty
                 scoped_spinlock<> lock( lock_ );
 
-                stream() << "SPI IRQ: " << flags;
+                stream() << "SPI IRQ: [" << flags << "]";
                 if ( flags & 0x80 )
                     stream() << ("BSY,");
                 if ( flags & 0x40 )
@@ -173,7 +183,7 @@ namespace stm32f103 {
             }
 
             if ( spi_->SR & (1 << 5 ) ) { // MODF (mode falt)
-                spi_->CR1 = stm32f103::_cr1;
+                spi_->CR1 = cr1_;
             }
         }
     }
