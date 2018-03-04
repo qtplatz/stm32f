@@ -206,7 +206,7 @@ spi::handle_interrupt()
             // spi_->CR1 |= BIDIOE;   // switch to write-only mode
             scoped_spinlock<> lock( lock_ );
             if ( spi_ == reinterpret_cast< volatile stm32f103::SPI * >( SPI2_BASE ) )
-                stream() << "SPI2 got irq: " << rxd_.load() << std::endl;
+                stream() << "SPI2 got : " << ( rxd_.load() & 0xffff ) << std::endl;
         }
             
         if ( spi_->SR & 02 ) { // Tx empty

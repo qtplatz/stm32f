@@ -160,8 +160,8 @@ spi_test( size_t argc, const char ** argv )
     } else {
         while ( count-- ) {
             uint32_t d = atomic_jiffies.load();
+            stream() << "spi write: " << ( d & 0xffff ) << std::endl;
             spix << uint16_t( d & 0xffff );
-            stream() << "spi write: " << d << std::endl;
             mdelay( 10 );
         }
     }
