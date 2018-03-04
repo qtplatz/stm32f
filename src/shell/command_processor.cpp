@@ -91,7 +91,26 @@ i2c_test( size_t argc, const char ** argv )
 void
 spi_test( size_t argc, const char ** argv )
 {
-    auto& spix = ( strcmp( argv[0], "spi") == 0 ) ? __spi0 : __spi1;
+    auto id = ( strcmp( argv[0], "spi") == 0 ) ? 0 : 1;
+    auto& spix = ( id == 0 ) ? __spi0 : __spi1;
+
+    // spi num
+    size_t count = 1024;
+    bool spi_read( false );
+    bool spi_ss_soft = false;
+
+    while ( --argc ) {
+        ++argv;
+        if ( std::isdigit( *argv[ 0 ] ) ) {
+            count = strtod( argv[ 0 ] );
+            if ( count == 0 )
+                count = 1;
+        } else if ( *argv[0] == 's' ) {
+            spi_ss_soft = true;
+        } else if ( *argv[0] == 'r' ) {
+            spi_read = true;
+        }
+    }
 
     if ( ! spix ) {
         using namespace stm32f103;
@@ -106,7 +125,10 @@ spi_test( size_t argc, const char ** argv )
             gpio_mode()( stm32f103::PB14, stm32f103::GPIO_CNF_INPUT_FLOATING,       stm32f103::GPIO_MODE_INPUT );      // MISO
             gpio_mode()( stm32f103::PB15, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // MOSI
 
-            spix.init( stm32f103::SPI2_BASE, 'B', 12 );
+            if ( spi_ss_soft )
+                spix.init( stm32f103::SPI2_BASE, 'B', 12 );
+            else
+                spix.init( stm32f103::SPI2_BASE );
             
         } else {
             gpio_mode()( stm32f103::PA4, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // ~SS
@@ -114,38 +136,26 @@ spi_test( size_t argc, const char ** argv )
             gpio_mode()( stm32f103::PA6, stm32f103::GPIO_CNF_INPUT_FLOATING,       stm32f103::GPIO_MODE_INPUT );      // MISO
             gpio_mode()( stm32f103::PA7, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // MOSI
 
-            spix.init( stm32f103::SPI1_BASE );
+            if ( spi_ss_soft )
+                spix.init( stm32f103::SPI1_BASE, 'A', 4 );
+            else
+                spix.init( stm32f103::SPI1_BASE );
         }
     }
     
-    // spi num
-    size_t count = 1024;
-    bool spi_read( false );
-
-    while ( --argc ) {
-        ++argv;
-        if ( std::isdigit( *argv[ 0 ] ) ) {
-            count = strtod( argv[ 1 ] );
-            if ( count == 0 )
-                count = 1;
-        } else if ( *argv[0] == 'r' ) {
-            spi_read = true;
-        }
-    }
-
     if ( spi_read ) {
         uint16_t rxd;
         while ( count-- ) {
             spix >> rxd;
             stream() << "spi read: " << rxd << std::endl;
-            mdelay( 100 );
+            mdelay( 10 );
         }
     } else {
         while ( count-- ) {
             uint32_t d = atomic_jiffies.load();
             spix << uint16_t( d & 0xffff );
             stream() << "spi write: " << d << std::endl;
-            mdelay( 100 );
+            mdelay( 10 );
         }
     }
 }

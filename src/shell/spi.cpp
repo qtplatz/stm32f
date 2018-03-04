@@ -40,7 +40,12 @@ namespace stm32f103 {
     };
 
     constexpr uint32_t fclk = 04;
-    constexpr uint32_t _cr1 = BIDIMODE | DFF | ((fclk & 7) << 3) | CPOL | CPHA | MSTR; // BIDIMODE|16bit|SPI enable|MSTR
+    constexpr uint32_t _cr1 = ((fclk & 7) << 3)          // clock
+                                             | BIDIMODE  // Full duplex
+                                             | DFF       // 16bit
+                                             | CPOL      // polarity
+                                             | CPHA      // phase
+                                             | MSTR;     // master mode
     
     void
     spi::init( stm32f103::SPI_BASE base, uint8_t gpio, uint32_t ss_n )
@@ -59,9 +64,10 @@ namespace stm32f103 {
                 SPI->CR1 = _cr1 | SPE | SSM | SSI;
                 SPI->CR2 = (3 << 5);        // SS output disable, IRQ {Rx buffer not empty, Error}
             } else {
-                SPI->CR1 = _cr1 | SPE;
+                SPI->CR1 = _cr1 | SPE | SSM;
                 SPI->CR2 = SSOE | (3 << 5); // SS output enable, IRQ {Rx buffer not empty, Error}
             }
+            
             switch( base ) {
             case SPI1_BASE:
                 enable_interrupt( stm32f103::SPI1_IRQn );
@@ -115,13 +121,15 @@ namespace stm32f103 {
     {
         uint32_t wait = 0xffffff;
 
-        while ( txd_ )
+        while ( --wait && txd_ )
             ;
+
+        if ( wait == 0 )
+            stream() << "spi tx timeout" << std::endl;
+        
         txd_ = d;
-        //(*this) = false;
-        // spi_->DATA = d;
-        spi_->CR2 |= (1 << 7);  // Tx empty irq
-        spi_->CR1 |= SPE | BIDIOE;
+        spi_->CR2 |= (1 << 7);     // Tx empty irq
+        spi_->CR1 |= SPE | BIDIOE; // SPI enable, output only mode
     }
 
     void

@@ -222,8 +222,8 @@ main()
 
     init_systick( 7200, true ); // 100us tick
 
-    __can0.init( stm32f103::CAN1_BASE );  // experimental, not working yet
-    __spi0.init( stm32f103::SPI1_BASE );  // experimental, not working yet -- strange, no data out on MOSI line
+    //__can0.init( stm32f103::CAN1_BASE );  // experimental, not working yet
+    //__spi0.init( stm32f103::SPI1_BASE );  // experimental, not working yet -- strange, no data out on MOSI line
 
     // CAN is experimental, not working yet.
     CanMsg msg;
@@ -244,8 +244,6 @@ main()
         int x = 0;
         for ( size_t i = 0; i < 3; ++i, ++x ) {
             stream() << "Hello world: " << x<< "\tjiffies: " << atomic_jiffies.load() << std::endl;
-            // __can0.transmit( &msg );
-            __spi0 << uint16_t( ~x );
             mdelay( 500 );
         }
 
