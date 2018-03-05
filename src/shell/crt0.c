@@ -53,21 +53,21 @@ extern void __dma2_ch5_handler( void );
 void ( * const vector_table [] )() __attribute__ ((section(".vect"))) = {
 	(void (*)()) STACKINIT,         /* 0x000 Stack Pointer                   */
 	__main,                         /* 0x004 Reset                           */
-	0,                              /* 0x008 Non maskable interrupt          */
-	0,                              /* 0x00C HardFault                       */
-	0,                              /* 0x010 Memory Management               */
-	0,                              /* 0x014 BusFault                        */
-	0,                              /* 0x018 UsageFault                      */
+	0,                              /* 0x008 Non maskable interrupt          -14 */
+	0,                              /* 0x00C HardFault                       -13 */
+	0,                              /* 0x010 Memory Management               -12 */
+	0,                              /* 0x014 BusFault                        -11 */
+	0,                              /* 0x018 UsageFault                      -10 */
 	0,                              /* 0x01C Reserved                        */
 	0,                              /* 0x020 Reserved                        */
 	0,                              /* 0x024 Reserved                        */
 	0,                              /* 0x028 Reserved                        */
-	0,                              /* 0x02C System service call             */
-	0,                              /* 0x030 Debug Monitor                   */
-	0,                              /* 0x034 Reserved                        */
-	0,                              /* 0x038 PendSV                          */
-	__systick_handler,              /* 0x03C System tick timer               */
-	0,                              /* 0x040 Window watchdog                 */
+	0,                              /* 0x02C System service call             -5 */
+	0,                              /* 0x030 Debug Monitor                   -4 */
+	0,                              /* 0x034 Reserved                        -3 */
+	0,                              /* 0x038 PendSV                          -2 */
+	__systick_handler,              /* 0x03C System tick timer               -1 */
+	0,                              /* 0x040 Window watchdog                  0 */
 	0,                              /* 0x044 PVD through EXTI Line detection */
 	0,                              /* 0x048 Tamper                          */
 	0,                              /* 0x04C RTC global                      */

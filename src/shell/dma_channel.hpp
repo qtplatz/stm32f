@@ -28,6 +28,8 @@ namespace stm32f103 {
         , DMA_SPI1_TX = 3
         //, DMA_SPI2_RX = 4
         //, DMA_SPI2_TX = 5
+        , DMA_I2C1_TX = 6
+        , DMA_I2C1_RX = 7
     };
 
     // p286, bit4

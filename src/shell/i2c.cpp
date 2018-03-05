@@ -5,18 +5,13 @@
 //
 
 #include "i2c.hpp"
+#include "stream.hpp"
+#include "stm32f103.hpp"
 #include <array>
 #include <atomic>
 #include <mutex>
-#include "stm32f103.hpp"
-#include "printf.h"
 
-// I2C_InitStruct->I2C_ClockSpeed = 5000;            /* Initialize the I2C_Mode member */
-// I2C_InitStruct->I2C_Mode = I2C_Mode_I2C;          /* Initialize the I2C_DutyCycle member */
-// I2C_InitStruct->I2C_DutyCycle = I2C_DutyCycle_2;  /* Initialize the I2C_OwnAddress1 member */
-// I2C_InitStruct->I2C_OwnAddress1 = 0;              /* Initialize the I2C_Ack member */
-// I2C_InitStruct->I2C_Ack = I2C_Ack_Disable;        /* Initialize the I2C_AcknowledgedAddress member */
-// I2C_InitStruct->I2C_AcknowledgedAddress = I2C_AcknowledgedAddress_7bit; // 0x4000;
+extern uint32_t __pclk1, __pclk2;
 
 // bits in the status register
 enum I2C_CR1_MASK {
@@ -64,9 +59,11 @@ extern "C" {
     void enable_interrupt( stm32f103::IRQn_type IRQn );
 }
 
+extern stm32f103::i2c __i2c0;
+extern void mdelay( uint32_t );
+
 using namespace stm32f103;
 
-extern i2c __i2c0;
 
 i2c::i2c() : i2c_( 0 )
 {
@@ -78,30 +75,86 @@ i2c::init( stm32f103::I2C_BASE addr )
     lock_.clear();
     rxd_ = 0;
 
-    constexpr uint32_t freq = 4; // 72000000 / ( 5000 * 2 );
-    constexpr uint32_t pclk1 = 72000000 / 4;  // (18000000)
+    // AD5593R address is 0b010000[0|1]
+
+    stream() << "i2c::init(" << addr << ")" << std::endl;
     
-    if ( auto I2C = reinterpret_cast< volatile stm32f103::I2C * >( addr ) ) {
+     if ( auto I2C = reinterpret_cast< volatile stm32f103::I2C * >( addr ) ) {
         i2c_ = I2C;
 
-        
-
         i2c_->CR1 = SWRST; // Software reset
-
-        i2c_->CR2 = freq;
+        i2c_->CR1 = 0; // ~PE;
         
+        uint16_t freq = uint16_t( __pclk1 / 1000000 );
+        i2c_->CR2 = freq;
+        i2c_->CR2 |= ITBUFFN |  ITEVTEN | ITERREN;
+
+        i2c_->OAR1 = 0x20 << 1;
+        i2c_->OAR2 = 0;
+       
+        switch ( addr ) {
+        case I2C1_BASE:
+            enable_interrupt( I2C1_EV_IRQn );
+            enable_interrupt( I2C1_ER_IRQn );
+            break;
+        case I2C2_BASE:
+            enable_interrupt( I2C2_EV_IRQn );
+            enable_interrupt( I2C2_ER_IRQn );            
+            break;
+        }
+
         i2c_->CR1 |= PE; // peripheral enable
-    }
+        stream() << "freq: " << freq << std::endl;        
+     }
+
+     stream() << "CR1  : " << i2c_->CR1 << std::endl;
+     stream() << "CR2  : " << i2c_->CR2 << std::endl;
+     stream() << "OAR1 : " << i2c_->OAR1 << std::endl;
+     stream() << "OAR2 : " << i2c_->OAR2 << std::endl;
+     stream() << "SR1  : " << i2c_->SR1 << std::endl;
+     stream() << "SR2  : " << i2c_->SR2 << std::endl;
+     stream() << "CCR  : " << i2c_->CCR << std::endl;
+     stream() << "TRISE: " << i2c_->TRISE << std::endl;
 }
 
 i2c&
 i2c::operator << ( uint16_t d )
 {
+    size_t count = 3;
+    while ( i2c_->CR1 & START ) {
+        // stream() << "CR1 START CR1: " << i2c_->CR1 << " SR: " << i2c_->SR1 << ", " << i2c_->SR2 << "[" << count << "]" << std::endl;
+        if ( --count == 0 )
+            return *this;
+    }
+    i2c_->CR1 |= START | PE;
     i2c_->DR = d & 0xff;
+    stream() << "i2c write: " << i2c_->DR << " SR:" << i2c_->SR1 << ", " << i2c_->SR2 << std::endl;
     return *this;
 }
 
 void
-i2c1_handler()
+i2c::handle_event_interrupt()
 {
+    stream() << "i2c::handle_event_interrupt()" << std::endl;
 }
+
+void
+i2c::handle_error_interrupt()
+{
+    stream() << "i2c::handle_error_interrupt()" << std::endl;
+}
+
+//static
+void
+i2c::interrupt_event_handler( i2c * _this )
+{
+    _this->handle_event_interrupt();
+}
+
+// static
+void
+i2c::interrupt_error_handler( i2c * _this )
+{
+    _this->handle_error_interrupt();
+}
+

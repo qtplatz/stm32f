@@ -159,6 +159,9 @@ main()
 
         // DMA
         RCC->AHBENR |= 0x01; // DMA1 enable
+
+        // 
+
         ///////////////////////////////////////////////////////
     }
 
@@ -187,7 +190,6 @@ main()
         // I2C clock enable
         RCC->APB1ENR |= (1 << 21); // I2C 1 clock enable
         RCC->APB1ENR |= (1 << 22); // I2C 2 clock enable
-
     }
 
     atomic_jiffies = 0;
@@ -268,10 +270,7 @@ main()
 
     {
         int x = 0;
-        for ( size_t i = 0; i < 3; ++i, ++x ) {
-            stream() << "Hello world: " << x<< "\tjiffies: " << atomic_jiffies.load() << std::endl;
-            mdelay( 500 );
-        }
+        stream() << "\tjiffies: " << atomic_jiffies.load() << std::endl;
 
         std::array< char, 128 > cbuf;
         typedef tokenizer< 8 > tokenizer_type;
@@ -358,24 +357,24 @@ __can1_sce_handler(void)
 void
 __i2c1_event_handler()
 {
-    // i2c1_event_handler();
+    stm32f103::i2c::interrupt_event_handler( &__i2c0 );
 }
 void
 __i2c1_error_handler()
 {
-    // i2c1_error_handler();    
+    stm32f103::i2c::interrupt_error_handler( &__i2c0 );
 }
 
 void
 __i2c2_event_handler()
 {
-    // i2c2_event_handler();    
+    stm32f103::i2c::interrupt_event_handler( &__i2c1 );
 }
 
 void
 __i2c2_error_handler()
 {
-    // i2c2_error_handler();    
+    stm32f103::i2c::interrupt_error_handler( &__i2c1 );
 }
 
 void

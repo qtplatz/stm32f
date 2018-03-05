@@ -46,7 +46,11 @@ dma::init_channel( uint32_t channel
 
 namespace stm32f103 {
     template<> uint32_t dma_channel_t< DMA_ADC1 >::channel() const { return 1; };
+
     template<> uint32_t dma_channel_t< DMA_SPI1_RX >::channel() const { return 2; };
     template<> uint32_t dma_channel_t< DMA_SPI1_TX >::channel() const { return 3; };
+    
+    template<> uint32_t dma_channel_t< DMA_I2C1_TX >::channel() const { return 6; };
+    template<> uint32_t dma_channel_t< DMA_I2C1_RX >::channel() const { return 7; };    
 }
     

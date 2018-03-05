@@ -1,0 +1,48 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+
+    "version": "0.2.0",
+    "configurations": [
+        { 
+            "name": "GDB(shell.elf)"
+            , "type": "cppdbg"
+            , "request": "launch"
+            , "MIMode": "gdb"
+            , "miDebuggerPath": "/usr/arm-none-eabi/bin/arm-none-eabi-gdb"
+            , "targetArchitecture": "arm"
+            , "program": "${workspaceFolder}/src/shell/shell.elf"
+            , "cwd": "${workspaceFolder}/src/shell"
+            , "setupCommands": [
+                { "text": "file '${workspaceFolder}/src/shell/shell.elf'" }
+                , { "text": "target remote localhost:3333" }
+                , { "text": "load '${workspaceFolder}/src/shell/shell.elf'" }
+                , { "text": "monitor reset"  }
+            ]
+            , "externalConsole": false
+            , "logging": {
+                 "engineLogging": true
+            }
+        }
+       , {
+            "name": "(gdb) Launch",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "enter program name, for example ${workspaceFolder}/a.out",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": true,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+    ]
+}

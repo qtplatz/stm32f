@@ -60,29 +60,40 @@ strtod( const char * s )
 void
 i2c_test( size_t argc, const char ** argv )
 {
-    stm32f103::I2C_BASE addr = ( strcmp( argv[0], "i2c") == 0 ) ? stm32f103::I2C1_BASE : stm32f103::I2C2_BASE;
+    int id = ( strcmp( argv[0], "i2c") == 0 ) ? 0 : 1;
+    stm32f103::I2C_BASE addr = ( id == 0 ) ? stm32f103::I2C1_BASE : stm32f103::I2C2_BASE;
 
     auto& i2cx = ( addr == stm32f103::I2C1_BASE ) ? __i2c0 : __i2c1;
 
-    if ( ! i2cx ) {
-        using namespace stm32f103;
+    using namespace stm32f103;
 
-        stream() << argv[0] << " not initialized. -- initializing..." << std::endl;
-        
-        if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
-            // (see RM0008, p180, Table 55)
-            // I2C ALT function  REMAP=0 { SCL,SDA } = { PB6, PB7 }, REMAP=1 { PB8, PB9 }
+    if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
+        // (see RM0008, p180, Table 55)
+        // I2C ALT function  REMAP=0 { SCL,SDA } = { PB6, PB7 }, REMAP=1 { PB8, PB9 }
+        // GPIO config in p167, Table 27
+        if ( id == 0 ) {
+            gpio_mode()( stm32f103::PB6, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,     stm32f103::GPIO_MODE_OUTPUT_50M ); // SCL
+            gpio_mode()( stm32f103::PB7, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,     stm32f103::GPIO_MODE_OUTPUT_50M ); // SDA
 
-            // GPIO config in p167, Table 27
-            gpio_mode()( stm32f103::PB6, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,     stm32f103::GPIO_MODE_OUTPUT_50M ); // SCL (clock)
-            gpio_mode()( stm32f103::PB6, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,     stm32f103::GPIO_MODE_OUTPUT_50M ); // SCL (clock)
-            
         } else {
-            gpio_mode()( stm32f103::PB10, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,     stm32f103::GPIO_MODE_OUTPUT_50M ); // SCL (clock)
-            gpio_mode()( stm32f103::PB11, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,     stm32f103::GPIO_MODE_OUTPUT_50M ); // SCL (clock)
+            gpio_mode()( stm32f103::PB10, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,     stm32f103::GPIO_MODE_OUTPUT_50M ); // SCL
+            gpio_mode()( stm32f103::PB11, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,     stm32f103::GPIO_MODE_OUTPUT_50M ); // SDA
         }
-        i2cx.init( addr );
+        if ( !i2cx ) {
+            if ( id == 0 ) {
+                stream() << "PB6: " << gpio_mode::toString( gpio_mode()( stm32f103::PB6 ) ) << std::endl;
+                stream() << "PB7: " << gpio_mode::toString( gpio_mode()( stm32f103::PB7 ) ) << std::endl;
+            } else {
+                stream() << "PB10: " << gpio_mode::toString( gpio_mode()( stm32f103::PB10 ) ) << std::endl;
+                stream() << "PB11: " << gpio_mode::toString( gpio_mode()( stm32f103::PB11 ) ) << std::endl;                
+            }
+        }
     }
+    
+    if ( !i2cx )
+        i2cx.init( addr );
+    else
+        stream() << "i2c " << addr << std::endl;
 
     for ( int i = 0; i < 256; ++i )
         i2cx << uint16_t(i);
@@ -217,16 +228,19 @@ gpio_test( size_t argc, const char ** argv )
             switch( pin[1] ) {
             case 'A':
                 gpio_mode()( static_cast< GPIOA_PIN >(no), GPIO_CNF_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_50M );
+                stream() << pin << ": " << gpio_mode::toString( gpio_mode()( static_cast< GPIOA_PIN >(no) ) ) << std::endl;
                 for ( size_t i = 0; i < replicates; ++i )
                     gpio< GPIOA_PIN >( static_cast< GPIOA_PIN >( no ) ) = bool( i & 01 );
                 break;
             case 'B':
                 gpio_mode()( static_cast< GPIOB_PIN >(no), GPIO_CNF_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_50M );
+                stream() << pin << ": " << gpio_mode::toString( gpio_mode()( static_cast< GPIOB_PIN >(no) ) ) << std::endl;
                 for ( size_t i = 0; i < replicates; ++i )
                     gpio< GPIOB_PIN >( static_cast< GPIOB_PIN >( no ) ) = bool( i & 01 );
                 break;                
             case 'C':
                 gpio_mode()( static_cast< GPIOC_PIN >(no), GPIO_CNF_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_50M );
+                stream() << pin << ": " << gpio_mode::toString( gpio_mode()( static_cast< GPIOC_PIN >(no) ) ) << std::endl;
                 for ( size_t i = 0; i < replicates; ++i )
                     gpio< GPIOC_PIN >( static_cast< GPIOC_PIN >( no ) ) = bool( i & 01 );
                 break;                                
@@ -236,6 +250,13 @@ gpio_test( size_t argc, const char ** argv )
             stream() << "gpio 2nd argment format mismatch" << std::endl;
         }
     } else {
+        for ( int i = 0; i < 16;  ++i )
+            stream() << "PA" << i << ":\t" << gpio_mode::toString( gpio_mode()( static_cast< GPIOA_PIN >(i) ) ) << std::endl;
+        for ( int i = 0; i < 16;  ++i )
+            stream() << "PB" << i << ":\t" << gpio_mode::toString( gpio_mode()( static_cast< GPIOB_PIN >(i) ) ) << std::endl;
+        for ( int i = 0; i < 16;  ++i )
+            stream() << "PC" << i << ":\t" << gpio_mode::toString( gpio_mode()( static_cast< GPIOC_PIN >(i) ) ) << std::endl;
+        
         stream() << "gpio <pin#>" << std::endl;
     }
 }

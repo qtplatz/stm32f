@@ -46,8 +46,10 @@ namespace stm32f103 {
         
         i2c& operator << ( uint16_t );
         
-        void handle_interrupt();
-        static void interrupt_handler( i2c * );
+        void handle_event_interrupt();
+        void handle_error_interrupt();
+        static void interrupt_event_handler( i2c * );
+        static void interrupt_error_handler( i2c * );
     };
 
 }
