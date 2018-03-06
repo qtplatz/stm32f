@@ -58,6 +58,30 @@ strtod( const char * s )
 }
 
 void
+i2cdetect( size_t argc, const char ** argv )
+{
+    int id = 0;
+    if ( argc > 2 ) {
+        if ( *argv[1] == '1' )
+            id = 1;
+    }
+    stm32f103::I2C_BASE addr = ( id == 0 ) ? stm32f103::I2C1_BASE : stm32f103::I2C2_BASE;    
+    auto& i2cx = ( addr == stm32f103::I2C1_BASE ) ? __i2c0 : __i2c1;
+
+    if ( i2cx ) {
+
+        for ( uint8_t addr = 4; addr < 32; ++addr ) {
+            uint8_t data;
+            if ( i2cx.read( addr, data ) ) {
+                stream() << "got data: " << data << " at address " << addr << std::endl;
+            }
+        }
+    } else {
+        stream() << "i2c not initalized" << std::endl;
+    }
+}
+
+void
 i2c_test( size_t argc, const char ** argv )
 {
     int id = ( strcmp( argv[0], "i2c") == 0 ) ? 0 : 1;
@@ -65,21 +89,23 @@ i2c_test( size_t argc, const char ** argv )
 
     auto& i2cx = ( addr == stm32f103::I2C1_BASE ) ? __i2c0 : __i2c1;
 
-    using namespace stm32f103;
+    if ( !i2cx ) {
+        i2cx.init( addr );
 
-    if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
-        // (see RM0008, p180, Table 55)
-        // I2C ALT function  REMAP=0 { SCL,SDA } = { PB6, PB7 }, REMAP=1 { PB8, PB9 }
-        // GPIO config in p167, Table 27
-        if ( id == 0 ) {
-            gpio_mode()( stm32f103::PB6, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,     stm32f103::GPIO_MODE_OUTPUT_50M ); // SCL
-            gpio_mode()( stm32f103::PB7, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,     stm32f103::GPIO_MODE_OUTPUT_50M ); // SDA
-
-        } else {
-            gpio_mode()( stm32f103::PB10, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,     stm32f103::GPIO_MODE_OUTPUT_50M ); // SCL
-            gpio_mode()( stm32f103::PB11, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,     stm32f103::GPIO_MODE_OUTPUT_50M ); // SDA
-        }
-        if ( !i2cx ) {
+        using namespace stm32f103;
+        
+        if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
+            // (see RM0008, p180, Table 55)
+            // I2C ALT function  REMAP=0 { SCL,SDA } = { PB6, PB7 }, REMAP=1 { PB8, PB9 }
+            // GPIO config in p167, Table 27
+            if ( id == 0 ) {
+                gpio_mode()( stm32f103::PB6, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,  stm32f103::GPIO_MODE_OUTPUT_2M ); // SCL
+                gpio_mode()( stm32f103::PB7, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,  stm32f103::GPIO_MODE_OUTPUT_2M ); // SDA
+            } else {
+                gpio_mode()( stm32f103::PB10, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M ); // SCL
+                gpio_mode()( stm32f103::PB11, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M ); // SDA
+            }
+            
             if ( id == 0 ) {
                 stream() << "PB6: " << gpio_mode::toString( gpio_mode()( stm32f103::PB6 ) ) << std::endl;
                 stream() << "PB7: " << gpio_mode::toString( gpio_mode()( stm32f103::PB7 ) ) << std::endl;
@@ -88,15 +114,37 @@ i2c_test( size_t argc, const char ** argv )
                 stream() << "PB11: " << gpio_mode::toString( gpio_mode()( stm32f103::PB11 ) ) << std::endl;                
             }
         }
+        i2cx.enable();
+        i2cx.print_status();
     }
-    
-    if ( !i2cx )
-        i2cx.init( addr );
-    else
-        stream() << "i2c " << addr << std::endl;
 
-    for ( int i = 0; i < 256; ++i )
-        i2cx << uint16_t(i);
+    if ( argc >= 2 ) {
+        if ( strcmp( argv[1], "stop" ) == 0 ) {
+            i2cx.stop();
+            i2cx.print_status();
+        } else if ( strcmp( argv[1], "start" ) == 0 ) {
+            i2cx.stop();
+            i2cx.print_status();
+        } else if ( strcmp( argv[1], "status" ) == 0 ) {
+            i2cx.print_status();
+        } else if ( strcmp( argv[1], "disable" ) == 0 ) {
+            i2cx.disable();
+            i2cx.print_status();
+        } else if ( strcmp( argv[1], "enable" ) == 0 ) {
+            i2cx.enable();
+            i2cx.print_status();
+        } else if ( strcmp( argv[1], "reset" ) == 0 ) {
+            i2cx.reset();
+            i2cx.print_status();
+        } else if ( strcmp( argv[1], "read" ) == 0 ) {
+            uint8_t data;
+            if ( i2cx.read( 0x10, data ) ) {
+                stream() << "got data: " << data << std::endl;
+            }
+        } else if ( strcmp( argv[1], "write" ) == 0 ) {
+            i2cx.write( 0x10, 'A' );
+        }
+    }
 }
 
 void
@@ -254,7 +302,7 @@ gpio_test( size_t argc, const char ** argv )
             stream() << "PA" << i << ":\t" << gpio_mode::toString( gpio_mode()( static_cast< GPIOA_PIN >(i) ) ) << std::endl;
         for ( int i = 0; i < 16;  ++i )
             stream() << "PB" << i << ":\t" << gpio_mode::toString( gpio_mode()( static_cast< GPIOB_PIN >(i) ) ) << std::endl;
-        for ( int i = 0; i < 16;  ++i )
+        for ( int i = 13; i < 16;  ++i )
             stream() << "PC" << i << ":\t" << gpio_mode::toString( gpio_mode()( static_cast< GPIOC_PIN >(i) ) ) << std::endl;
         
         stream() << "gpio <pin#>" << std::endl;
@@ -463,6 +511,7 @@ static const premitive command_table [] = {
     , { "afio", afio_test,      " AFIO MAPR list" }
     , { "i2c",  i2c_test,        " I2C-1 test" }
     , { "i2c2", i2c_test,        " I2C-2 test" }
+    , { "i2cdetect", i2cdetect,        " i2cdetect [0|1]" }    
 };
 
 bool

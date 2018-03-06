@@ -10,6 +10,8 @@
 
 namespace stm32f103 {
 
+    class dma;
+
     /* Section 26.6.10 I^2C register map, p785 RM0008
      */
     struct I2C {
@@ -42,9 +44,20 @@ namespace stm32f103 {
         i2c();
         
         void init( I2C_BASE );
-        inline operator bool () const { return i2c_; };
+        void init( I2C_BASE, dma& );
         
-        i2c& operator << ( uint16_t );
+        inline operator bool () const { return i2c_; };
+
+        // i2c& operator << ( uint16_t );
+        bool write( uint8_t address, uint8_t data );
+        bool read( uint8_t address, uint8_t& data );
+
+        void print_status() const;
+        bool start();
+        bool stop();
+        bool disable();
+        bool enable();
+        bool reset();
         
         void handle_event_interrupt();
         void handle_error_interrupt();
