@@ -9,6 +9,8 @@
 #include <atomic>
 #include <cstdint>
 
+typedef void (*irq_handler_type)();
+
 // Section 13, p273 Introduction
 
 namespace stm32f103 {
@@ -29,6 +31,9 @@ namespace stm32f103 {
     };
 
     enum DMA_BASE : uint32_t;
+    enum DMA_CHANNEL : uint32_t;
+
+    template< DMA_CHANNEL > class dma_channel;
     
     class dma {
         volatile DMA * dma_;
@@ -42,7 +47,7 @@ namespace stm32f103 {
         dma();
         
         void init( DMA_BASE );
-
+        
         void init_channel( uint32_t channel
                            , uint32_t direction          // CCR bit4
                            , const uint8_t * source_addr

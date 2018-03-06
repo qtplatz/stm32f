@@ -42,15 +42,27 @@ dma::init_channel( uint32_t channel
                    , uint8_t * destination_addr
                    , uint32_t transfer_size )
 {
+    // p277
+// 1. Set the peripheral register address in the DMA_CPARx register. The data will be
+// moved from/ to this address to/ from the memory after the peripheral event.
+// 2. Set the memory address in the DMA_CMARx register. The data will be written to or
+// read from this memory after the peripheral event.
+// 3. Configure the total number of data to be transferred in the DMA_CNDTRx register.
+// After each peripheral event, this value will be decremented.
+// 4. Configure the channel priority using the PL[1:0] bits in the DMA_CCRx register
+// 5. Configure data transfer direction, circular mode, peripheral & memory incremented
+// mode, peripheral & memory data size, and interrupt after half and/or full transfer in the
+// DMA_CCRx register
+// 6. Activate the channel by setting the ENABLE bit in the DMA_CCRx register.    
 }
 
-namespace stm32f103 {
-    template<> uint32_t dma_channel_t< DMA_ADC1 >::channel() const { return 1; };
+// namespace stm32f103 {
+//     template<> uint32_t dma_channel< DMA_ADC1 >::channel() const { return 1; };
 
-    template<> uint32_t dma_channel_t< DMA_SPI1_RX >::channel() const { return 2; };
-    template<> uint32_t dma_channel_t< DMA_SPI1_TX >::channel() const { return 3; };
+//     template<> uint32_t dma_channel< DMA_SPI1_RX >::channel() const { return 2; };
+//     template<> uint32_t dma_channel< DMA_SPI1_TX >::channel() const { return 3; };
     
-    template<> uint32_t dma_channel_t< DMA_I2C1_TX >::channel() const { return 6; };
-    template<> uint32_t dma_channel_t< DMA_I2C1_RX >::channel() const { return 7; };    
-}
+//     template<> uint32_t dma_channel< DMA_I2C1_TX >::channel() const { return 6; };
+//     template<> uint32_t dma_channel< DMA_I2C1_RX >::channel() const { return 7; };    
+// }
     

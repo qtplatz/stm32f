@@ -45,6 +45,8 @@ namespace stm32f103 {
         
         void init( I2C_BASE );
         void init( I2C_BASE, dma& );
+
+        void reset();
         
         inline operator bool () const { return i2c_; };
 
@@ -57,7 +59,6 @@ namespace stm32f103 {
         bool stop();
         bool disable();
         bool enable();
-        bool reset();
         
         void handle_event_interrupt();
         void handle_error_interrupt();

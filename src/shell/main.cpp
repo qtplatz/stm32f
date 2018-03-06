@@ -21,8 +21,10 @@
 #include "uart.hpp"
 #include <array>
 #include <atomic>
-#include <utility>
+#include <algorithm>
 #include <cstddef>
+// #include <functional> this uses exception 
+#include <utility>
 
 extern uint64_t jiffies;  // 100us
 extern uint32_t _sbss, _ebss;
@@ -43,6 +45,8 @@ stm32f103::i2c __i2c0, __i2c1;
 stm32f103::spi __spi0, __spi1;
 stm32f103::uart __uart0;
 stm32f103::dma __dma0;
+
+std::array< void (*)(), 12 > __dma_irq_handlers;
 
 extern void uart1_handler();
 
@@ -126,12 +130,23 @@ init_systick( uint32_t s, bool en )
     }
 }
 
+typedef void (*irq_handler_type)();
+
+void
+register_dma_irq( size_t no, irq_handler_type handler )
+{
+    if ( no < __dma_irq_handlers.size() )
+        __dma_irq_handlers[ no ] = handler;
+}
+
 int
 main()
 {
     // zero clear .bss
     memset( &_sbss, 0, reinterpret_cast< const char * >(&_ebss) - reinterpret_cast< const char * >(&_sbss) );
 
+    std::for_each( __dma_irq_handlers.begin(), __dma_irq_handlers.end(), [](auto& handler){ handler = [](){}; } );
+    
     if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
         // clock/pll setup -->
         // RM0008 p98- 
@@ -405,59 +420,72 @@ __systick_handler( void )
 void
 __dma1_ch1_handler( void )
 {
+    __dma_irq_handlers[ 0 ]();
 }
 
 void
 __dma1_ch2_handler( void )
 {
+    __dma_irq_handlers[ 1 ]();
 }
 
 void
 __dma1_ch3_handler( void )
 {
+    __dma_irq_handlers[ 2 ]();
 }
 
 void
 __dma1_ch4_handler( void )
 {
+    __dma_irq_handlers[ 3 ]();
 }
 
 void
 __dma1_ch5_handler( void )
 {
+    __dma_irq_handlers[ 4 ]();
 }
 
 void
 __dma1_ch6_handler( void )
 {
+    __dma_irq_handlers[ 5 ]();    
 }
 
 void
 __dma1_ch7_handler( void )
 {
+    __dma_irq_handlers[ 6 ]();    
 }
 
 void
 __dma2_ch1_handler( void )
 {
+    __dma_irq_handlers[ 7 ]();
 }
 
 void
 __dma2_ch2_handler( void )
 {
+    __dma_irq_handlers[ 8 ]();        
 }
 
 void
 __dma2_ch3_handler( void )
 {
+    __dma_irq_handlers[ 9 ]();        
 }
 
 void
 __dma2_ch4_handler( void )
 {
+    __dma_irq_handlers[ 10 ]();            
 }
 
 void
 __dma2_ch5_handler( void )
 {
+    __dma_irq_handlers[ 11 ]();                
 }
+

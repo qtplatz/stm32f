@@ -21,7 +21,7 @@
 extern stm32f103::i2c __i2c0, __i2c1;
 extern stm32f103::spi __spi0, __spi1;
 extern stm32f103::adc __adc0;
-
+extern stm32f103::dma __dma0;
 extern std::atomic< uint32_t > atomic_jiffies;
 extern void mdelay( uint32_t ms );
 
@@ -65,15 +65,25 @@ i2cdetect( size_t argc, const char ** argv )
         if ( *argv[1] == '1' )
             id = 1;
     }
+    
     stm32f103::I2C_BASE addr = ( id == 0 ) ? stm32f103::I2C1_BASE : stm32f103::I2C2_BASE;    
     auto& i2cx = ( addr == stm32f103::I2C1_BASE ) ? __i2c0 : __i2c1;
 
     if ( i2cx ) {
 
-        for ( uint8_t addr = 4; addr < 32; ++addr ) {
+        stream() << "\t0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f" << std::endl;
+        stream() << "00:\t         ";
+
+        for ( uint8_t addr = 3; addr <= 0x77; ++addr ) {
+
+            if ( ( addr % 16 ) == 0 )
+                stream() << std::endl << addr << ":\t";
+            
             uint8_t data;
             if ( i2cx.read( addr, data ) ) {
-                stream() << "got data: " << data << " at address " << addr << std::endl;
+                stream() << addr << " ";
+            } else {
+                stream() << "-- ";
             }
         }
     } else {
@@ -90,7 +100,15 @@ i2c_test( size_t argc, const char ** argv )
     auto& i2cx = ( addr == stm32f103::I2C1_BASE ) ? __i2c0 : __i2c1;
 
     if ( !i2cx ) {
-        i2cx.init( addr );
+        bool use_dma( false );
+        typedef const char * char_ptr;
+        char_ptr * ap = argv;
+        auto it = std::find_if( argv, argv + argc, [](auto a){ return strcmp( a, "dma" ) == 0; } );
+        if ( it != ( argv + argc ) ) {
+            i2cx.init( addr, __dma0 );
+        } else {
+            i2cx.init( addr );
+        }
 
         using namespace stm32f103;
         
@@ -106,13 +124,13 @@ i2c_test( size_t argc, const char ** argv )
                 gpio_mode()( stm32f103::PB11, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M ); // SDA
             }
             
-            if ( id == 0 ) {
-                stream() << "PB6: " << gpio_mode::toString( gpio_mode()( stm32f103::PB6 ) ) << std::endl;
-                stream() << "PB7: " << gpio_mode::toString( gpio_mode()( stm32f103::PB7 ) ) << std::endl;
-            } else {
-                stream() << "PB10: " << gpio_mode::toString( gpio_mode()( stm32f103::PB10 ) ) << std::endl;
-                stream() << "PB11: " << gpio_mode::toString( gpio_mode()( stm32f103::PB11 ) ) << std::endl;                
-            }
+            // if ( id == 0 ) {
+            //     stream() << "PB6: " << gpio_mode::toString( gpio_mode()( stm32f103::PB6 ) ) << std::endl;
+            //     stream() << "PB7: " << gpio_mode::toString( gpio_mode()( stm32f103::PB7 ) ) << std::endl;
+            // } else {
+            //     stream() << "PB10: " << gpio_mode::toString( gpio_mode()( stm32f103::PB10 ) ) << std::endl;
+            //     stream() << "PB11: " << gpio_mode::toString( gpio_mode()( stm32f103::PB11 ) ) << std::endl;                
+            // }
         }
         i2cx.enable();
         i2cx.print_status();
@@ -142,7 +160,9 @@ i2c_test( size_t argc, const char ** argv )
                 stream() << "got data: " << data << std::endl;
             }
         } else if ( strcmp( argv[1], "write" ) == 0 ) {
-            i2cx.write( 0x10, 'A' );
+            if ( i2cx.write( 0x10, 'A' ) ) {
+                stream() << "i2c " << uint8_t( 'A' ) << "sent out." << std::endl;
+            }
         }
     }
 }
