@@ -44,7 +44,7 @@ stm32f103::can __can0;
 stm32f103::i2c __i2c0, __i2c1;
 stm32f103::spi __spi0, __spi1;
 stm32f103::uart __uart0;
-stm32f103::dma __dma0;
+stm32f103::dma __dma0, __dma1;
 
 std::array< void (*)(), 12 > __dma_irq_handlers;
 
@@ -212,6 +212,7 @@ main()
     atomic_seconds = 0;
 
     __dma0.init( stm32f103::DMA1_BASE );
+    __dma1.init( stm32f103::DMA2_BASE );
 
     {
         stm32f103::gpio_mode gpio_mode;

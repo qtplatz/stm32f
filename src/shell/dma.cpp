@@ -37,10 +37,10 @@ dma::init( stm32f103::DMA_BASE addr )
 
 void
 dma::init_channel( uint32_t channel
-                   , uint32_t configuration          // CCR
-                   , const uint8_t * source_addr
-                   , uint8_t * destination_addr
-                   , uint32_t transfer_size )
+                   , DMA_DIR direction
+                   , uint32_t peripheral_addr
+                   , uint8_t * buffer_addr
+                   , uint32_t buffer_size )
 {
     // p277
 // 1. Set the peripheral register address in the DMA_CPARx register. The data will be

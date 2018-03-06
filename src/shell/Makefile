@@ -63,7 +63,7 @@ main.o: tokenizer.hpp gpio_mode.hpp stm32f103.hpp
 gpio_mode.o: gpio_mode.hpp stm32f103.hpp
 can.o: can.hpp stm32f103.hpp
 adc.o: adc.hpp stm32f103.hpp
-i2c.o: i2c.hpp stm32f103.hpp
+i2c.o: i2c.hpp stm32f103.hpp dma.hpp dma_channel.hpp
 rcc.o: rcc.hpp
 dma.o: dma.hpp dma_channel.hpp
 

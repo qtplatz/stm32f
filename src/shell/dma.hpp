@@ -8,6 +8,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <cstddef>
 
 typedef void (*irq_handler_type)();
 
@@ -32,9 +33,8 @@ namespace stm32f103 {
 
     enum DMA_BASE : uint32_t;
     enum DMA_CHANNEL : uint32_t;
+    enum DMA_DIR : uint32_t;
 
-    template< DMA_CHANNEL > class dma_channel;
-    
     class dma {
         volatile DMA * dma_;
 
@@ -47,12 +47,15 @@ namespace stm32f103 {
         dma();
         
         void init( DMA_BASE );
+
+        template< typename Visitor > void accept( Visitor& t ) {
+        }
         
         void init_channel( uint32_t channel
-                           , uint32_t direction          // CCR bit4
-                           , const uint8_t * source_addr
-                           , uint8_t * destination_addr
-                           , uint32_t transfer_size );
+                           , DMA_DIR direction          // CCR bit4
+                           , uint32_t peripheral_addr
+                           , uint8_t * buffer_addr
+                           , uint32_t buffer_size );
         
         inline operator bool () const { return dma_; };
         

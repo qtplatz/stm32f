@@ -188,44 +188,24 @@ namespace stm32f103 {
 
 namespace stm32f103 {
 
-    template< size_t size >
-    struct alignas( 32 ) dma_buffer {
-        uint8_t data[size];
-    };
-
-    template<> class dma_channel<DMA_I2C1_TX> {
-    public:
-        dma_channel() {
-            stream() << "CTOR dma i2c tx" << std::endl;
-            stream() << "this: " << uint32_t(this) << std::endl;
-            stream() << "tx_: " << uint32_t(&tx_) << std::endl;
-        }
-        static constexpr uint32_t peripheral_address = I2C1_BASE;
-        dma_buffer< 32 > tx_;
-    };
-
-    template<> class dma_channel<DMA_I2C1_RX> {
-    public:
-        dma_channel() {
-            stream() << "CTOR dma i2c rx" << std::endl;
-            stream() << "this: " << uint32_t(this) << std::endl;
-            stream() << "rx_: " << uint32_t(&rx_) << std::endl;            
-        }        
-        static constexpr DMA_DIR dma_dir = DMA_ReadFromMemory;
-        static constexpr uint32_t peripheral_address = I2C1_BASE;
-        dma_buffer< 32 > rx_;
-    };
+    
 }
 
 
 using namespace stm32f103;
 using namespace stm32f103::i2cdebug;
 
-static uint8_t __i2c1_tx_dma[ sizeof( dma_channel< DMA_I2C1_TX > ) ];
-static uint8_t __i2c1_rx_dma[ sizeof( dma_channel< DMA_I2C1_RX > ) ];
+static uint8_t __i2c1_tx_dma[ sizeof( dma_channel_t< DMA_I2C1_TX > ) ];
+static uint8_t __i2c1_rx_dma[ sizeof( dma_channel_t< DMA_I2C1_RX > ) ];
+static uint8_t __i2c2_tx_dma[ sizeof( dma_channel_t< DMA_I2C2_TX > ) ];
+static uint8_t __i2c2_rx_dma[ sizeof( dma_channel_t< DMA_I2C2_RX > ) ];
 
-static dma_channel< DMA_I2C1_TX > * __dma_i2c1_tx;
-static dma_channel< DMA_I2C1_RX > * __dma_i2c1_rx;
+static dma_channel_t< DMA_I2C1_TX > * __dma_i2c1_tx;
+static dma_channel_t< DMA_I2C1_RX > * __dma_i2c1_rx;
+static dma_channel_t< DMA_I2C2_TX > * __dma_i2c2_tx;
+static dma_channel_t< DMA_I2C2_RX > * __dma_i2c2_rx;
+
+extern stm32f103::dma __dma0;
 
 constexpr uint32_t i2c_clock_speed = 100'000; //'; //100kHz
 
@@ -237,15 +217,22 @@ void
 i2c::init( stm32f103::I2C_BASE addr, dma& dma )
 {
     init( addr );
-    i2c_->CR2 |= DMAEN;  // DMA enable
+
+    i2c_->CR2 |= DMAEN;  // DMA enabled when TxE = 1 || RxNE = 1
 
     stream() << "*********************** init with dma **********************" << std::endl;
 
     if ( addr == I2C1_BASE ) {
-        __dma_i2c1_tx = new (&__i2c1_tx_dma) dma_channel< DMA_I2C1_TX >();
-        __dma_i2c1_rx = new (&__i2c1_rx_dma) dma_channel< DMA_I2C1_RX >();
+        __dma_i2c1_tx = new (&__i2c1_tx_dma) dma_channel_t< DMA_I2C1_TX >();
+        __dma_i2c1_rx = new (&__i2c1_rx_dma) dma_channel_t< DMA_I2C1_RX >();
+        
+        //dma.init_channel( DMA_I2C1_TX, __dma_i2c1_tx->peripheral_address, __dma_i2c1_tx->buffer.data, sizeof( __dma_i2c1_tx->buffer.data ) );
+        //dma.init_channel( DMA_I2C1_RX, __dma_i2c1_rx->peripheral_address, __dma_i2c1_rx->buffer.data, sizeof( __dma_i2c1_rx->buffer.data ) );
     } else if ( addr == I2C2_BASE ) {
-        // todo
+        __dma_i2c2_tx = new (&__i2c2_tx_dma) dma_channel_t< DMA_I2C2_TX >();
+        __dma_i2c2_rx = new (&__i2c2_rx_dma) dma_channel_t< DMA_I2C2_RX >();
+        //dma.init_channel( DMA_I2C2_TX, __dma_i2c2_tx->peripheral_address, __dma_i2c2_tx->buffer.data, sizeof( __dma_i2c2_tx->buffer.data ) );
+        //dma.init_channel( DMA_I2C2_RX, __dma_i2c2_rx->peripheral_address, __dma_i2c2_rx->buffer.data, sizeof( __dma_i2c2_rx->buffer.data ) );        
     }
 }
 
@@ -254,8 +241,6 @@ i2c::init( stm32f103::I2C_BASE addr )
 {
     lock_.clear();
     rxd_ = 0;
-
-    // AD5593R address is 0b010000[0|1]
 
     if ( auto I2C = reinterpret_cast< volatile stm32f103::I2C * >( addr ) ) {
         i2c_ = I2C;
@@ -331,13 +316,12 @@ i2c::enable()
 void
 i2c::print_status() const
 {
-    stream() << "OAR1 : [" << i2c_->OAR1 << "]\town address: " << int(i2c_->OAR1 >> 1) << std::endl;
-    stream() << "CCR  : [" << i2c_->CCR << "]\t" << int( i2c_->CCR & 0x7ff ) << "\t";
-    stream() << "TRISE: [" << i2c_->TRISE << "]\t" << int( i2c_->TRISE ) << "\t<- "
-             << ((i2c_->TRISE&0x3f)-1)/(i2c_->CR2&0x3f) << "us" << std::endl;
+    stream() << "OAR1 : 0x" << i2c_->OAR1 << "\tOwn address: " << int(i2c_->OAR1 >> 1) << std::endl;
+    stream() << "CCR  : {" << int( i2c_->CCR & 0x7ff ) << "}\t";
+    stream() << "TRISE: {" << int( i2c_->TRISE ) << "(" << ((i2c_->TRISE&0x3f)-1)/(i2c_->CR2&0x3f) << "us)}" << std::endl;
     
-    stream() << "CR1&2: [" << i2c_->CR1 << "]\t" << CR1_to_string( i2c_->CR1 ) << "\t" << CR2_to_string( i2c_->CR2 ) << std::endl;
-    stream() << status32_to_string( i2c_status( *i2c_ )() ) << std::endl;
+    stream() << "CR1,2: [" << i2c_->CR1 << "," << i2c_->CR2 << "]\t" << CR1_to_string( i2c_->CR1 ) << "\t" << CR2_to_string( i2c_->CR2 ) << std::endl;
+    stream() << "SR1,2: " << status32_to_string( i2c_status( *i2c_ )() ) << std::endl;
 
     int count = 10;
     while( --count && ( i2c_->SR2 & BUSY ) )
@@ -356,8 +340,6 @@ i2c::read( uint8_t address, uint8_t& data )
 
     constexpr uint32_t error_condition = SMB_ALART | TIME_OUT | PEC_ERR | OVR | AF | ARLO | BERR;
     
-    //i2c_->CR1 |= PE;
-
     size_t retry = 3;
 
     do {
