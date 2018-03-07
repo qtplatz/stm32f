@@ -77,11 +77,8 @@ namespace stm32f103 {
         static constexpr uint32_t value = ADC1_BASE;
         static constexpr uint32_t dma_ccr = DMA_ReadFromPeripheral;
     };
+
     template<> struct peripheral_address< DMA_I2C1_RX > {
-        static constexpr uint32_t value = I2C1_BASE;
-        static constexpr uint32_t dma_ccr = PL_VeryHigh | MINC;  // memory inc enable, 8bit, 8bit, dir = 'from peripheral'
-    };
-    template<> struct peripheral_address< DMA_I2C2_RX > {
         static constexpr uint32_t value = I2C1_BASE;
         static constexpr uint32_t dma_ccr = PL_VeryHigh | MINC;  // memory inc enable, 8bit, 8bit, dir = 'from peripheral'
     };
@@ -89,8 +86,13 @@ namespace stm32f103 {
         static constexpr uint32_t value = I2C1_BASE;
         static constexpr uint32_t dma_ccr = PL_High | DMA_ReadFromMemory | MINC;
     };
+    
+    template<> struct peripheral_address< DMA_I2C2_RX > {
+        static constexpr uint32_t value = I2C2_BASE;
+        static constexpr uint32_t dma_ccr = PL_VeryHigh | MINC;  // memory inc enable, 8bit, 8bit, dir = 'from peripheral'
+    };
     template<> struct peripheral_address< DMA_I2C2_TX > {
-        static constexpr uint32_t value = I2C1_BASE;
+        static constexpr uint32_t value = I2C2_BASE;
         static constexpr uint32_t dma_ccr = PL_High | DMA_ReadFromMemory | MINC;
     };
 
@@ -119,9 +121,17 @@ namespace stm32f103 {
             dma::init_channel( dma, channel, peripheral_address, buffer.data, sizeof(buffer.data), dma_ccr );
         }
 
-        void setEnabled( bool enable ) {
+        void enable( bool enable ) {
             dma_.setEnabled( channel, enable );
         }
+
+        bool transfer_complete() const {
+            return dma_.transfer_complete( channel );
+        }
+        
+        void transfer_complate_clear()  {
+            return dma_.transfer_complete_clear( channel );
+        }        
         
         static constexpr uint32_t dma_ccr = peripheral_address< channel >::dma_ccr;
         static constexpr uint32_t peripheral_address = peripheral_address< channel >::value;

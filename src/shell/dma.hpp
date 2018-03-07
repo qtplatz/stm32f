@@ -60,6 +60,9 @@ namespace stm32f103 {
         inline operator bool () const { return dma_; };
 
         void setEnabled( uint32_t, bool );
+
+        bool transfer_complete( uint32_t channel ) const;
+        void transfer_complete_clear( uint32_t channel );
         
         void handle_interrupt();
         static void interrupt_handler( dma * );

@@ -24,11 +24,11 @@ namespace stm32f103 {
 
 namespace stm32f103 {
     // DMA_ISRx = [27:24][23:20]..[3:0]; // 4bit/word
-    enum DMA_ISRx {
-        TEIF  = 1 << 3        
-        , HTIF  = 1 << 2
-        , TCIF  = 1 << 1
-        , GIF   = 1
+    enum DMA_ISRx {       // interrupt status register
+        TEIF  = 1 << 3        // transfer error flag
+        , HTIF  = 1 << 2      // half transfer flag
+        , TCIF  = 1 << 1      // transfer complete flag
+        , GIF   = 1           // global interrupt flag
     };
 
     enum DMA_IFCRx {  // 4bit/word
@@ -120,4 +120,16 @@ dma::setEnabled( uint32_t channel_number, bool enable )
         dmaChannel( channel_number ).CCR |= EN;
     else
         dmaChannel( channel_number ).CCR &= ~EN;
+}
+
+bool
+dma::transfer_complete( uint32_t channel ) const
+{
+    return dma_->ISR & ( TCIF << ( channel * 4 ) );
+}
+
+void
+dma::transfer_complete_clear( uint32_t channel )
+{
+    dma_->ISR |= ( TCIF << ( channel * 4 ) );
 }

@@ -99,67 +99,87 @@ i2c_test( size_t argc, const char ** argv )
 
     auto& i2cx = ( addr == stm32f103::I2C1_BASE ) ? __i2c0 : __i2c1;
 
-    if ( !i2cx ) {
+    bool use_dma( false );
+    auto it = std::find_if( argv, argv + argc, [](auto a){ return strcmp( a, "dma" ) == 0; } );
+    use_dma = it != ( argv + argc );
 
-        bool use_dma( false );
-        typedef const char * char_ptr;
-        char_ptr * ap = argv;
-        auto it = std::find_if( argv, argv + argc, [](auto a){ return strcmp( a, "dma" ) == 0; } );
-        use_dma = it != ( argv + argc );
+    using namespace stm32f103;
 
-        using namespace stm32f103;
-        
-        if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
-            // (see RM0008, p180, Table 55)
-            // I2C ALT function  REMAP=0 { SCL,SDA } = { PB6, PB7 }, REMAP=1 { PB8, PB9 }
-            // GPIO config in p167, Table 27
-            if ( id == 0 || use_dma ) {
-                gpio_mode()( stm32f103::PB6, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,  stm32f103::GPIO_MODE_OUTPUT_2M ); // SCL
-                gpio_mode()( stm32f103::PB7, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,  stm32f103::GPIO_MODE_OUTPUT_2M ); // SDA
-            }
-            if ( id == 1 || use_dma ) {
-                gpio_mode()( stm32f103::PB10, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M ); // SCL
-                gpio_mode()( stm32f103::PB11, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M ); // SDA
-            }
+    // (see RM0008, p180, Table 55)
+    // I2C ALT function  REMAP=0 { SCL,SDA } = { PB6, PB7 }, REMAP=1 { PB8, PB9 }
+    // GPIO config in p167, Table 27
+    if ( use_dma || ( id == 0 ) ) {
+        if ( ! __i2c0 ) {
+            gpio_mode()( stm32f103::PB6, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,  stm32f103::GPIO_MODE_OUTPUT_2M ); // SCL
+            gpio_mode()( stm32f103::PB7, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,  stm32f103::GPIO_MODE_OUTPUT_2M ); // SDA
+            __i2c0.init( stm32f103::I2C1_BASE );
         }
-        
-        if ( it != ( argv + argc ) ) {
-            i2cx.init( stm32f103::I2C1_BASE, __dma0, false );  // Tx
-            i2cx.init( stm32f103::I2C2_BASE, __dma0, true );   // Rx
-        } else {
-            i2cx.init( addr );
-        }
-        
-        i2cx.enable();
-        i2cx.print_status();
     }
+    if ( use_dma || ( id == 1 ) ) {
+        if ( ! __i2c1 ) {
+            gpio_mode()( stm32f103::PB10, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M ); // SCL
+            gpio_mode()( stm32f103::PB11, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M ); // SDA
+            __i2c1.init( stm32f103::I2C2_BASE );
+        }
+    }
+    if ( use_dma ) {
+        __i2c0.attach( __dma0, i2c::DMA_Tx );  // Tx
+        __i2c1.attach( __dma0, i2c::DMA_Rx );   // Rx
+    }
+    
+    uint8_t i2caddr = 0x10; // DA5593R
 
-    if ( argc >= 2 ) {
-        if ( strcmp( argv[1], "stop" ) == 0 ) {
+    while ( --argc ) {
+        ++argv;
+
+        if ( strcmp( argv[0], "stop" ) == 0 ) {
             i2cx.stop();
+        } else if ( strcmp( argv[0], "start" ) == 0 ) {
+            i2cx.start();
+        } else if ( strcmp( argv[0], "status" ) == 0 ) {
             i2cx.print_status();
-        } else if ( strcmp( argv[1], "start" ) == 0 ) {
-            i2cx.stop();
-            i2cx.print_status();
-        } else if ( strcmp( argv[1], "status" ) == 0 ) {
-            i2cx.print_status();
-        } else if ( strcmp( argv[1], "disable" ) == 0 ) {
+        } else if ( strcmp( argv[0], "disable" ) == 0 ) {
             i2cx.disable();
-            i2cx.print_status();
-        } else if ( strcmp( argv[1], "enable" ) == 0 ) {
+        } else if ( strcmp( argv[0], "enable" ) == 0 ) {
             i2cx.enable();
-            i2cx.print_status();
-        } else if ( strcmp( argv[1], "reset" ) == 0 ) {
+        } else if ( strcmp( argv[0], "reset" ) == 0 ) {
             i2cx.reset();
-            i2cx.print_status();
-        } else if ( strcmp( argv[1], "read" ) == 0 ) {
+        } else if ( strcmp( argv[0], "addr" ) == 0 ) {
+            if ( argc ) {
+                --argc;
+                ++argv;
+                i2caddr = strtod( argv[ 0 ] );
+            }
+        } else if ( strcmp( argv[0], "read" ) == 0 ) {
             uint8_t data;
-            if ( i2cx.read( 0x10, data ) ) {
+            i2cx.enable();
+            if ( i2cx.read( i2caddr, data ) ) {
                 stream() << "got data: " << data << std::endl;
             }
-        } else if ( strcmp( argv[1], "write" ) == 0 ) {
-            if ( i2cx.write( 0x10, 'A' ) ) {
+        } else if ( strcmp( argv[0], "write" ) == 0 ) {
+            i2cx.enable();
+            if ( i2cx.write( i2caddr, 'A' ) ) {
                 stream() << "i2c " << uint8_t( 'A' ) << "sent out." << std::endl;
+            }
+        } else if ( strcmp( argv[ 0 ], "dma" ) == 0 ) {
+
+            stream() << "--------------- dma transfer ----------------" << std::endl;
+            
+            const int8_t i2caddr = 0x04;
+            const uint8_t * rp;
+            constexpr static const uint8_t * txd = reinterpret_cast< const uint8_t *>("abcdefghijklmnop0123456789ABCDEF");
+            if ( __i2c0.dma_transfer(i2caddr, txd, 32 ) ) {
+                stream() << "\t--------------- dma transfer ------> dma_receive" << std::endl;
+                if ( auto size = __i2c1.dma_receive( i2caddr, rp ) ) {
+                    mdelay( 100 );
+                    stream() << "dma receive size: " << size << std::endl;
+                    if ( rp ) {
+                        for ( size_t i = 0; i < size; ++i ) {
+                            stream() << *rp++ << ", ";
+                        }
+                        stream() << std::endl;
+                    }
+                }
             }
         }
     }

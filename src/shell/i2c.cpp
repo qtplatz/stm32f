@@ -106,6 +106,7 @@ namespace stm32f103 {
         inline bool operator()(volatile I2C& i2c ) const { i2c.CR1 |= STOP;  return true;  }
     };
 
+    // master start
     struct i2c_start {
         volatile I2C& i2c;
         i2c_start( volatile I2C& t ) : i2c( t ) {}
@@ -151,6 +152,7 @@ namespace stm32f103 {
         return true;
     }
 
+    // master transmit
     struct i2c_transmit {
         inline bool operator()( volatile I2C& i2c, uint8_t data ) {
             constexpr size_t byte_transferred = (( TRA | BUSY | MSL ) << 16) | TxE | BTF; // /*0x00070084*/
@@ -165,6 +167,7 @@ namespace stm32f103 {
         }
     };
 
+    // master receive
     struct i2c_receive {
         inline bool operator()( volatile I2C& i2c, uint8_t& data ) {
             constexpr size_t byte_received = (( BUSY | MSL ) << 16) | RxNE;
@@ -184,13 +187,10 @@ namespace stm32f103 {
     
     template< bool > struct i2c_enable { inline bool operator()( volatile I2C& i2c ) {  i2c.CR1 |= PE;  return true;  } };
     template<> bool inline i2c_enable< false >::operator()( volatile I2C& i2c )  {  i2c.CR1 &= ~PE; return true;  }
+
+    template< bool > struct i2c_dma_enable { inline bool operator()( volatile I2C& i2c ) {  i2c.CR2 |= DMAEN;  return true;  } };
+    template<> bool inline i2c_dma_enable< false >::operator()( volatile I2C& i2c )  {  i2c.CR2 &= ~DMAEN; return true;  }    
 }
-
-namespace stm32f103 {
-
-    
-}
-
 
 using namespace stm32f103;
 using namespace stm32f103::i2cdebug;
@@ -214,26 +214,25 @@ i2c::i2c() : i2c_( 0 )
 }
 
 void
-i2c::init( stm32f103::I2C_BASE addr, dma& dma, bool isReceiving )
+i2c::attach( dma& dma, DMA_Direction dir )
 {
-    init( addr );
+    uint32_t addr = reinterpret_cast< uint32_t >(const_cast< I2C * >(i2c_));
 
-    i2c_->CR2 |= DMAEN;  // DMA enabled when TxE = 1 || RxNE = 1
-
-    stream() << "*********************** init with dma **********************" << std::endl;
+    stream() << "*********************** attach " << addr
+             << " with dma (" << (dir == DMA_Tx ? "Tx" : ( dir == DMA_Rx ? "Rx" : "Both"))
+             << ") **********************"
+             << std::endl;
 
     if ( addr == I2C1_BASE ) {
-        if ( isReceiving ) {
+        if ( dir == DMA_Rx || dir == DMA_Both )
             __dma_i2c1_rx = new (&__i2c1_rx_dma) dma_channel_t< DMA_I2C1_RX >( dma );            
-        } else {
+        if ( dir == DMA_Tx || dir == DMA_Both )
             __dma_i2c1_tx = new (&__i2c1_tx_dma) dma_channel_t< DMA_I2C1_TX >( dma );
-        }
     } else if ( addr == I2C2_BASE ) {
-        if ( isReceiving ) {
+        if ( dir == DMA_Rx || dir == DMA_Both )        
             __dma_i2c2_rx = new (&__i2c2_rx_dma) dma_channel_t< DMA_I2C2_RX >( dma );
-        } else {
+        if ( dir == DMA_Tx || dir == DMA_Both )
             __dma_i2c2_tx = new (&__i2c2_tx_dma) dma_channel_t< DMA_I2C2_TX >( dma );            
-        }
     }
 }
 
@@ -242,6 +241,7 @@ i2c::init( stm32f103::I2C_BASE addr )
 {
     lock_.clear();
     rxd_ = 0;
+    own_addr_ = ( addr == I2C1_BASE ) ? 0x03 : 0x04;
 
     if ( auto I2C = reinterpret_cast< volatile stm32f103::I2C * >( addr ) ) {
         i2c_ = I2C;
@@ -263,6 +263,19 @@ i2c::init( stm32f103::I2C_BASE addr )
 }
 
 void
+i2c::setOwnAddr( uint8_t addr )
+{
+    own_addr_ = addr;
+    i2c_->OAR1 = own_addr_ << 1;
+}
+
+uint8_t
+i2c::ownAddr() const
+{
+    return uint8_t( i2c_->OAR1 >> 1 );
+}
+
+void
 i2c::reset()
 {
     i2c_enable< false >()( *i2c_ );
@@ -275,13 +288,12 @@ i2c::reset()
 
     uint16_t freqrange = uint16_t( __pclk1 / 1000'000 /*'*/ ); // souce clk in MHz
     //uint16_t cr2 = freqrange; // | ITBUFFN |  ITEVTEN | ITERREN;
-    uint16_t cr2 = freqrange; // | ITERREN;// | ITEVTEN;
+    uint16_t cr2 = freqrange; //| ITERREN;// | ITEVTEN;
     i2c_->CR2 |= cr2;
     
     // p784, 
     i2c_->TRISE = freqrange + 1;
-    
-    i2c_->OAR1 = 0x03 << 1;
+    i2c_->OAR1 = own_addr_ << 1;
     i2c_->OAR2 = 0;
     
     uint16_t ccr = __pclk1 / (i2c_clock_speed * 2);  // ratio make it 5us for 10us interval clock
@@ -425,7 +437,7 @@ i2c::write( uint8_t address, uint8_t data )
 
     if ( st.busy() ) {
         stream() << "I2C is busy -- check SDA line, must be high" << std::endl;
-        return *this;
+        return false;
     }
 
     if ( i2c_start( *i2c_ )() ) {
@@ -452,6 +464,117 @@ i2c::write( uint8_t address, uint8_t data )
     }
     
     return false;
+}
+
+namespace stm32f103 {
+
+    struct dma_master_transfer {
+        volatile I2C& i2c;
+        dma_master_transfer( volatile I2C& _i2c ) : i2c( _i2c ) {}
+
+        template< typename T >
+        bool operator()( T& dma_channel, uint8_t address, const uint8_t * data, size_t size ) const {
+
+            for ( size_t i = 0; i < size && i < sizeof( dma_channel.buffer.data ); ++i )
+                dma_channel.buffer.data[ i ] = data[ i ];
+            
+            if ( i2c_start( i2c )() ) { // generate start condition (master start)
+                stream() << "i2c_start - success: " << status32_to_string( i2c_status( i2c )() ) << std::endl;
+                
+                if ( i2c_address< Transmitter >()( i2c, address ) ) {
+                    i2c_dma_enable< true >()( i2c );
+                    dma_channel.enable( true );
+                    size_t count = 0x7fff;
+                    while ( --count && !dma_channel.transfer_complete() )
+                        ;
+                    return count != 0;
+                } else {
+                    stream() << "i2c::dma_master_transfer -- address phase failed: " << status32_to_string( i2c_status( i2c )() ) << std::endl;
+                }
+            } else {
+                stream() << "i2c::dma_master_transfer() -- can't generate start condition" << std::endl;
+            }
+            return false;
+        }
+    };
+
+    struct dma_slave_receive {
+        volatile I2C& i2c;
+        dma_slave_receive( volatile I2C& _i2c ) : i2c( _i2c ) {}
+        template< typename T>
+        size_t operator()( T& dma_channel, const uint8_t *& data ) const {
+            data = dma_channel.buffer.data;
+            i2c_dma_enable< true >()( i2c );
+            dma_channel.enable( true );
+            return sizeof( dma_channel.buffer.data );
+        }
+    };
+        
+}
+
+bool
+i2c::dma_transfer( uint8_t address, const uint8_t * data, size_t size )
+{
+    stream() << "i2c::dma_transfer(" << uint32_t( i2c_ ) << ")" << std::endl;
+
+    i2c_status st( *i2c_ );
+    i2c_->CR1 |= PE;
+    size_t count = 100;
+    while ( st.busy() && --count )
+        ;
+    if ( st.busy() ) {
+        stream() << "I2C is busy" << std::endl;
+        return false;
+    }
+    
+    auto base_addr = reinterpret_cast< uint32_t >( const_cast< I2C * >(i2c_) );
+
+    if ( base_addr == I2C1_BASE && __dma_i2c1_tx != nullptr ) {
+
+        return dma_master_transfer( *i2c_ )( *__dma_i2c1_tx, address, data, size );
+        
+    } else if ( base_addr == I2C2_BASE && __dma_i2c2_tx != nullptr ) {
+
+        return dma_master_transfer( *i2c_ )( *__dma_i2c2_tx, address, data, size );
+    }
+
+    return false;
+}
+
+size_t
+i2c::dma_receive( uint8_t address, const uint8_t *& data )
+{
+    auto base_addr = reinterpret_cast< uint32_t >( const_cast< I2C * >(i2c_) );
+
+    stream() << "i2c::dma_receiver address=" << base_addr
+             << "\ti2c1 rx dma: " << (uint32_t)__dma_i2c1_rx
+             << "\ti2c2 rx dma: " << (uint32_t)__dma_i2c2_rx 
+             << std::endl;
+
+    data = nullptr;
+
+    i2c_status st( *i2c_ );
+    i2c_->CR1 |= PE;
+
+    // slave receive
+    size_t count = 100;
+    while ( --count && !st.is_equal( (BUSY << 16)|ADDR ) )  // 0x00020002, busy and addr (slave receiver address matched)
+        mdelay(1);
+    stream() << "i2c::dma_receive: " << status32_to_string(st()) << std::endl;
+    count = 100;
+    while ( --count && !st.is_equal( (BUSY|MSL|TRA) << 16 | TxE ) )
+        ;
+    stream() << "i2c::dma_receive: " << status32_to_string(st()) << std::endl;    
+    
+    if ( base_addr == I2C1_BASE && __dma_i2c1_rx != nullptr ) {
+
+        return dma_slave_receive( *i2c_ )( *__dma_i2c1_rx, data );
+        
+    } else if ( base_addr == I2C2_BASE && __dma_i2c2_rx != nullptr ) {
+
+        return dma_slave_receive( *i2c_ )( *__dma_i2c2_rx, data );
+    }
+    return 0;
 }
 
 void

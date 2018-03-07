@@ -36,15 +36,19 @@ namespace stm32f103 {
         volatile I2C * i2c_;
         std::atomic_flag lock_;
         std::atomic< uint32_t > rxd_;
+        uint8_t own_addr_;
 
         i2c( const i2c& ) = delete;
         i2c& operator = ( const i2c& ) = delete;
 
     public:
         i2c();
+
+        enum DMA_Direction { DMA_None, DMA_Tx, DMA_Rx, DMA_Both };
         
         void init( I2C_BASE );
-        void init( I2C_BASE, dma&, bool isReceiving );
+
+        void attach( dma&, DMA_Direction );
 
         void reset();
         
@@ -54,6 +58,9 @@ namespace stm32f103 {
         bool write( uint8_t address, uint8_t data );
         bool read( uint8_t address, uint8_t& data );
 
+        bool dma_transfer( uint8_t address, const uint8_t *, size_t );
+        size_t dma_receive( uint8_t address, const uint8_t *& );
+        
         void print_status() const;
         bool start();
         bool stop();
@@ -62,6 +69,10 @@ namespace stm32f103 {
 
         bool dmaEnable( bool );
         bool hasDMA( bool receiving ) const;
+
+
+        void setOwnAddr( uint8_t );
+        uint8_t ownAddr() const;
         
         void handle_event_interrupt();
         void handle_error_interrupt();
