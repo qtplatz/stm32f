@@ -24,8 +24,13 @@ extern "C" {
     void enable_interrupt( stm32f103::IRQn_type IRQn );
 }
 
+extern stm32f103::dma __dma0;
+
 // bits in the status register
 namespace stm32f103 {
+
+    constexpr uint32_t i2c_clock_speed = 100'000; //'; //100kHz
+    
     enum I2C_CR1_MASK {
         SWRST          = 1 << 15  // Software reset (0 := not under reset, 0 := under reset state
         , RES0         = 1 << 14  //
@@ -82,6 +87,8 @@ namespace stm32f103 {
         , SB            = 1          // Start bit (master mode); 1: start condition generated
     };
 
+    constexpr uint32_t error_condition = SMB_ALART | TIME_OUT | PEC_ERR | OVR | AF | ARLO | BERR;
+    
     struct i2c_status {
         volatile I2C& i2c;
         i2c_status( volatile I2C& t ) : i2c( t ) {}
@@ -130,6 +137,21 @@ namespace stm32f103 {
         }
     };
 
+    struct scoped_i2c_start {
+        volatile I2C& i2c;
+        bool success;
+        scoped_i2c_start( volatile I2C& t ) : i2c( t ), success( false ) {}
+        ~scoped_i2c_start() {
+            if ( success )
+                i2c_stop()( i2c );
+        }
+        
+        bool operator()() {
+            success = i2c_start( i2c )();
+            return success;
+        }
+    };
+
     enum I2C_DIRECTION { Transmitter, Receiver };
 
     template< I2C_DIRECTION >    
@@ -153,8 +175,11 @@ namespace stm32f103 {
     }
 
     // master transmit
-    struct i2c_transmit {
-        inline bool operator()( volatile I2C& i2c, uint8_t data ) {
+    struct i2c_transmitter {
+        volatile I2C& i2c;
+        i2c_transmitter( volatile I2C& t ) : i2c( t ) {}
+
+        inline bool operator()( uint8_t data ) {
             constexpr size_t byte_transferred = (( TRA | BUSY | MSL ) << 16) | TxE | BTF; // /*0x00070084*/
 
             i2c.DR = data;
@@ -168,14 +193,17 @@ namespace stm32f103 {
     };
 
     // master receive
-    struct i2c_receive {
-        inline bool operator()( volatile I2C& i2c, uint8_t& data ) {
+    struct i2c_receiver {
+        volatile I2C& i2c;
+        i2c_receiver( volatile I2C& t ) : i2c( t ) {}
+        
+        inline bool operator()( uint8_t& data ) {
             constexpr size_t byte_received = (( BUSY | MSL ) << 16) | RxNE;
-            size_t count = 100;
+            size_t count = 0x7fff;
             i2c_status st( i2c );
 
             while ( !st.is_equal( byte_received ) && --count )
-                mdelay(1);
+                ;
 
             if ( st.is_equal( byte_received ) ) {
                 data = i2c.DR;
@@ -184,12 +212,61 @@ namespace stm32f103 {
             return false;
         }
     };
-    
+
     template< bool > struct i2c_enable { inline bool operator()( volatile I2C& i2c ) {  i2c.CR1 |= PE;  return true;  } };
     template<> bool inline i2c_enable< false >::operator()( volatile I2C& i2c )  {  i2c.CR1 &= ~PE; return true;  }
 
     template< bool > struct i2c_dma_enable { inline bool operator()( volatile I2C& i2c ) {  i2c.CR2 |= DMAEN;  return true;  } };
-    template<> bool inline i2c_dma_enable< false >::operator()( volatile I2C& i2c )  {  i2c.CR2 &= ~DMAEN; return true;  }    
+    template<> bool inline i2c_dma_enable< false >::operator()( volatile I2C& i2c )  {  i2c.CR2 &= ~DMAEN; return true;  }
+
+    struct i2c_reset {
+        bool operator()( volatile I2C& i2c, uint8_t own_addr ) {
+            if ( own_addr == 0 )
+                own_addr = i2c.OAR1 >> 1;
+            
+            i2c_enable< false >()( i2c );
+            i2c.CR1 |= SWRST;
+            while ( i2c.SR1 && i2c.SR2 )
+                ;
+            i2c.CR1 &= ~SWRST;
+            i2c_enable< false >()( i2c );
+            
+            uint16_t freqrange = uint16_t( __pclk1 / 1000'000 /*'*/ ); // souce clk in MHz
+            uint16_t cr2 = freqrange;
+            i2c.CR2 |= cr2;
+            
+            // p784, 
+            i2c.TRISE = freqrange + 1;
+            i2c.OAR1 = own_addr << 1;
+            i2c.OAR2 = 0;
+            
+            uint16_t ccr = __pclk1 / ( i2c_clock_speed * 2 );  // ratio make it 5us for 10us interval clock
+            i2c.CCR = ccr;  // Sm mode
+        }
+    };
+
+    struct i2c_ready_wait {
+        volatile I2C& i2c;
+        uint8_t own_addr_;
+        i2c_ready_wait( volatile I2C& t, uint8_t own_addr ) : i2c( t ), own_addr_( own_addr ) {}
+        
+        bool operator()( bool reset = false ) const {
+            i2c_status st( i2c );
+            size_t retry = 3;
+            do {
+                size_t count = 3000;
+                while ( ( st.busy() || ( st() & error_condition ) ) && --count ) {
+                    if ( ( i2c.SR1 & error_condition ) && ( i2c.SR2 & (BUSY| MSL) ) )
+                        i2c_reset()( i2c, own_addr_ );
+                }
+            } while ( st.busy() && --retry );
+            if ( st.busy() && reset ) {
+                stream() << "i2c_ready_wait -- busy -- resetting..." << std::endl;
+                i2c_reset()( i2c, own_addr_ );
+            }
+            return !st.busy();
+        }
+    };
 }
 
 using namespace stm32f103;
@@ -204,10 +281,6 @@ static dma_channel_t< DMA_I2C1_TX > * __dma_i2c1_tx;
 static dma_channel_t< DMA_I2C1_RX > * __dma_i2c1_rx;
 static dma_channel_t< DMA_I2C2_TX > * __dma_i2c2_tx;
 static dma_channel_t< DMA_I2C2_RX > * __dma_i2c2_rx;
-
-extern stm32f103::dma __dma0;
-
-constexpr uint32_t i2c_clock_speed = 100'000; //'; //100kHz
 
 i2c::i2c() : i2c_( 0 )
 {
@@ -263,14 +336,14 @@ i2c::init( stm32f103::I2C_BASE addr )
 }
 
 void
-i2c::setOwnAddr( uint8_t addr )
+i2c::set_own_addr( uint8_t addr )
 {
     own_addr_ = addr;
     i2c_->OAR1 = own_addr_ << 1;
 }
 
 uint8_t
-i2c::ownAddr() const
+i2c::own_addr() const
 {
     return uint8_t( i2c_->OAR1 >> 1 );
 }
@@ -278,26 +351,7 @@ i2c::ownAddr() const
 void
 i2c::reset()
 {
-    i2c_enable< false >()( *i2c_ );
-    i2c_->CR1 |= SWRST;
-    while ( i2c_->SR1 && i2c_->SR2 )
-        ;
-    i2c_->CR1 &= ~SWRST;
-    
-    i2c_enable< false >()( *i2c_ );
-
-    uint16_t freqrange = uint16_t( __pclk1 / 1000'000 /*'*/ ); // souce clk in MHz
-    //uint16_t cr2 = freqrange; // | ITBUFFN |  ITEVTEN | ITERREN;
-    uint16_t cr2 = freqrange; //| ITERREN;// | ITEVTEN;
-    i2c_->CR2 |= cr2;
-    
-    // p784, 
-    i2c_->TRISE = freqrange + 1;
-    i2c_->OAR1 = own_addr_ << 1;
-    i2c_->OAR2 = 0;
-    
-    uint16_t ccr = __pclk1 / (i2c_clock_speed * 2);  // ratio make it 5us for 10us interval clock
-    i2c_->CCR = ccr;  // Sm mode
+    i2c_reset()( *i2c_, own_addr_ );
 }
 
 bool
@@ -337,7 +391,7 @@ i2c::dmaEnable( bool enable )
 }
 
 bool
-i2c::hasDMA( bool receiving ) const
+i2c::has_dma( bool receiving ) const
 {
     if ( reinterpret_cast< uint32_t >(const_cast< I2C * >(i2c_)) == I2C1_BASE ) {
         if ( receiving )
@@ -371,98 +425,51 @@ i2c::print_status() const
         stream() << "I2C keep busy -- check SDA line, it must be high" << std::endl;
 }
 
-    
+
 bool
-i2c::read( uint8_t address, uint8_t& data )
+i2c::read( uint8_t address, uint8_t * data, size_t size )
 {
-    i2c_status st( *i2c_ );
     i2c_enable< true >()( *i2c_ );
 
-    constexpr uint32_t error_condition = SMB_ALART | TIME_OUT | PEC_ERR | OVR | AF | ARLO | BERR;
-    
-    size_t retry = 3;
-
-    do {
-        size_t count = 30;
-        while ( ( st.busy() || ( st() & error_condition ) ) && --count ) {
-            if ( ( i2c_->SR1 & error_condition ) && ( i2c_->SR2 & (BUSY| MSL) ) ) {
-                reset();
-            }
-        }
-    } while ( st.busy() && --retry );
-
-    if ( st.busy() ) {
-        stream() << "I2C is busy -- check SDA line, must be high" << std::endl;
+    if ( ! i2c_ready_wait( *i2c_, own_addr_ )() ) {
+        stream() << __FUNCTION__ << " i2c_ready_wait failed\n";
         return false;
     }
 
-    // Direction Transmitter = 0, Receiver = 1
-    if ( i2c_start( *i2c_ )() ) {
-
-        if ( i2c_address< Receiver >()( *i2c_, address ) ) {
-            
-            if ( i2c_receive()( *i2c_, data ) ) {
-                if ( i2c_stop()( *i2c_ ) ) {
-                    return true;
-                } else {
-                    stream() << "i2c::stop failed. " << status32_to_string( st.status() ) << std::endl;
-                }
-            } else {
-                if ( i2c_->SR1 & (error_condition | BUSY | MSL) ) {
-                    reset();
-                    return false;
-                } else 
-                    stream() << "i2c::receive -- failed. " << status32_to_string( st.status() ) << std::endl;
-            }
-        } else {
-            stream() << "i2c::address -- failed. " << status32_to_string( st.status() ) << std::endl;
+    scoped_i2c_start start( *i2c_ );
+    if ( start() ) {                                         // generate start condition
+        if ( i2c_address< Receiver >()( *i2c_, address ) ) { // address phase
+            i2c_receiver read( *i2c_ );
+            auto rp = data;
+            while( size && read( *rp++ ) )
+                --size;
+            return size == 0;
         }
-    } else {
-        stream() << "i2c::start -- command failed. " << status32_to_string( st.status() ) << std::endl;
     }
-    
     return false;
 }
 
 bool
-i2c::write( uint8_t address, uint8_t data )
+i2c::write( uint8_t address, const uint8_t * data, size_t size )
 {
-    i2c_status st( *i2c_ );
+    i2c_enable< true >()( *i2c_ );
 
-    i2c_->CR1 |= PE;
-
-    size_t count = 100;
-    while ( st.busy() && --count )
-        ;
-
-    if ( st.busy() ) {
-        stream() << "I2C is busy -- check SDA line, must be high" << std::endl;
+    if ( ! i2c_ready_wait( *i2c_, own_addr_ )() ) {
+        stream() << __FUNCTION__ << " i2c_ready_wait failed\n";
         return false;
     }
 
-    if ( i2c_start( *i2c_ )() ) {
+    scoped_i2c_start start( *i2c_ );
 
-        if ( i2c_address< Transmitter >()( *i2c_, address ) ) {
-            
-            if ( i2c_transmit()( *i2c_, data ) ) {
+    if ( start() ) {    
+        if ( i2c_address< Transmitter >()( *i2c_, address ) ) { // address phase
+            i2c_transmitter write( *i2c_ );
 
-                if ( i2c_stop()( *i2c_ ) ) {
-                    return true;
-                } else {
-                    stream() << "i2c::stop failed. " << status32_to_string( st.status() ) << std::endl;
-                }
-
-            } else {
-                stream() << "i2c::transmit -- failed. " << status32_to_string( st.status() ) << std::endl;
-            }
-        } else {
-            stream() << "i2c::address -- failed. " << status32_to_string( st.status() ) << std::endl;
+            while ( size && write( *data++ ) )
+                --size;
+            return size == 0;
         }
-
-    } else {
-        stream() << "i2c::start -- command failed. " << status32_to_string( st.status() ) << std::endl;
     }
-    
     return false;
 }
 

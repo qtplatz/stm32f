@@ -55,7 +55,7 @@ LDFLAGS = -nostdlib -nostartfiles
 OCDCFG = -f /usr/share/openocd/scripts/interface/stlink-v2.cfg -f /usr/share/openocd/scripts/target/stm32f1x.cfg
 
 OBJS = crt0.o main.o prf.o spi.o uart.o stream.o command_processor.o can.o gpio.o gpio_mode.o atexit.o adc.o memset.o i2c.o \
-	rcc.o dma.o i2cdebug.o
+	rcc.o dma.o i2cdebug.o ad5593.o
 
 all: shell.elf shell.dump shell.bin
 
@@ -66,6 +66,7 @@ adc.o: adc.hpp stm32f103.hpp
 i2c.o: i2c.hpp stm32f103.hpp dma.hpp dma_channel.hpp
 rcc.o: rcc.hpp
 dma.o: dma.hpp dma_channel.hpp
+ad5593.o: ad5593.hpp
 
 shell.dump:	shell.elf
 	$(DUMP) shell.elf >shell.dump

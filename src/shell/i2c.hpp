@@ -54,9 +54,10 @@ namespace stm32f103 {
         
         inline operator bool () const { return i2c_; };
 
-        // i2c& operator << ( uint16_t );
-        bool write( uint8_t address, uint8_t data );
-        bool read( uint8_t address, uint8_t& data );
+        // bool write( uint8_t address, uint8_t data );
+        bool write( uint8_t address, const uint8_t * data, size_t );
+        // bool read( uint8_t address, uint8_t& data );
+        bool read( uint8_t address, uint8_t * data, size_t );
 
         bool dma_transfer( uint8_t address, const uint8_t *, size_t );
         size_t dma_receive( uint8_t address, const uint8_t *& );
@@ -68,11 +69,11 @@ namespace stm32f103 {
         bool enable();
 
         bool dmaEnable( bool );
-        bool hasDMA( bool receiving ) const;
+        bool has_dma( bool receiving ) const;
 
 
-        void setOwnAddr( uint8_t );
-        uint8_t ownAddr() const;
+        void set_own_addr( uint8_t );
+        uint8_t own_addr() const;
         
         void handle_event_interrupt();
         void handle_error_interrupt();

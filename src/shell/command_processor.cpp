@@ -5,6 +5,7 @@
 //
 
 #include "command_processor.hpp"
+#include "ad5593.hpp"
 #include "adc.hpp"
 #include "gpio.hpp"
 #include "gpio_mode.hpp"
@@ -80,7 +81,7 @@ i2cdetect( size_t argc, const char ** argv )
                 stream() << std::endl << addr << ":\t";
             
             uint8_t data;
-            if ( i2cx.read( addr, data ) ) {
+            if ( i2cx.read( addr, &data, 1 ) ) {
                 stream() << addr << " ";
             } else {
                 stream() << "-- ";
@@ -153,13 +154,15 @@ i2c_test( size_t argc, const char ** argv )
         } else if ( strcmp( argv[0], "read" ) == 0 ) {
             uint8_t data;
             i2cx.enable();
-            if ( i2cx.read( i2caddr, data ) ) {
+            if ( i2cx.read( i2caddr, &data, 1 ) ) {
                 stream() << "got data: " << data << std::endl;
             }
         } else if ( strcmp( argv[0], "write" ) == 0 ) {
             i2cx.enable();
-            if ( i2cx.write( i2caddr, 'A' ) ) {
-                stream() << "i2c " << uint8_t( 'A' ) << "sent out." << std::endl;
+            //if ( i2cx.write( i2caddr, 'A' ) ) {
+            uint8_t data = 'a';
+            if ( i2cx.write( i2caddr, &data, 1 ) ) {
+                stream() << "i2c " << data << " sent out." << std::endl;
             }
         } else if ( strcmp( argv[ 0 ], "dma" ) == 0 ) {
 
@@ -381,21 +384,35 @@ adc_test( size_t argc, const char ** argv )
     }
 }
 
-class ctor {
-public:
-    ctor() {
-        stream() << "ctor constracted" << std::endl;
-    };
-    ~ctor() {
-        stream() << "~ctor destracted" << std::endl;
-    };
-};
-
 void
-ctor_test( size_t argc, const char ** argv )
+ad5593_test( size_t argc, const char ** argv )
 {
-    ctor x;
+    if ( !__i2c0 ) {
+        const char * argv [] = { "i2c", nullptr };
+        i2c_test( 1, argv );
+    }
+
+    ad5593::ad5593dev ad5593( &__i2c0, 0x10 );
+#if 0
+    for ( size_t pin = 0; pin < 8; ++pin ) {
+        auto value = ad5593::io( ad5593, pin, ad5593::ADC ).get();
+        stream() << "\tpin" << pin << "\t" << value;
+    }
+    stream() << std::endl;
+#endif
+
+    double volts = 1.0;
+    double Vref = 3.3;
+    
+    uint16_t value = uint16_t( 0.5 + volts * 4096 / Vref );
+    for ( size_t pin = 0; pin < 8; ++pin ) {
+        auto io = ad5593::io( ad5593, pin, ad5593::DAC_AND_ADC );
+        io.set( value );
+        uint16_t readValue = io.get();
+        stream() << "[" << pin << "] set=" << value << ", act=" << readValue << std::endl;
+    }
 }
+
 
 static const char * __apb2enr__ [] = {
     "AFIO",    nullptr, "IOPA",  "IOPB",  "IOPC",  "IOPD",  "IOPE",  "IOPF"
@@ -542,14 +559,14 @@ static const premitive command_table [] = {
     , { "alt",  alt_test,       " spi [remap]" }
     , { "gpio", gpio_test,      " pin# (toggle PA# as GPIO, where # is 0..12)" }
     , { "adc",  adc_test,       " replicates (1)" }
-    , { "ctor", ctor_test,      "" }
-    , { "rcc",  rcc_status,       " RCC clock enable register list" }
+    , { "rcc",  rcc_status,     " RCC clock enable register list" }
     , { "disable", rcc_enable,  " reg1 [reg2...] Disable clock for specified peripheral." }
     , { "enable", rcc_enable,   " reg1 [reg2...] Enable clock for specified peripheral." }
     , { "afio", afio_test,      " AFIO MAPR list" }
-    , { "i2c",  i2c_test,        " I2C-1 test" }
-    , { "i2c2", i2c_test,        " I2C-2 test" }
-    , { "i2cdetect", i2cdetect,        " i2cdetect [0|1]" }    
+    , { "i2c",  i2c_test,       " I2C-1 test" }
+    , { "i2c2", i2c_test,       " I2C-2 test" }
+    , { "i2cdetect", i2cdetect, " i2cdetect [0|1]" }
+    , { "ad5593", ad5593_test,  " ad5593" }
 };
 
 bool
