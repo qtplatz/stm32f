@@ -105,6 +105,7 @@ i2c_test( size_t argc, const char ** argv )
         typedef const char * char_ptr;
         char_ptr * ap = argv;
         auto it = std::find_if( argv, argv + argc, [](auto a){ return strcmp( a, "dma" ) == 0; } );
+        use_dma = it != ( argv + argc );
 
         using namespace stm32f103;
         
@@ -112,16 +113,19 @@ i2c_test( size_t argc, const char ** argv )
             // (see RM0008, p180, Table 55)
             // I2C ALT function  REMAP=0 { SCL,SDA } = { PB6, PB7 }, REMAP=1 { PB8, PB9 }
             // GPIO config in p167, Table 27
-            if ( id == 0 ) {
+            if ( id == 0 || use_dma ) {
                 gpio_mode()( stm32f103::PB6, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,  stm32f103::GPIO_MODE_OUTPUT_2M ); // SCL
                 gpio_mode()( stm32f103::PB7, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,  stm32f103::GPIO_MODE_OUTPUT_2M ); // SDA
-            } else {
+            }
+            if ( id == 1 || use_dma ) {
                 gpio_mode()( stm32f103::PB10, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M ); // SCL
                 gpio_mode()( stm32f103::PB11, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M ); // SDA
             }
         }
+        
         if ( it != ( argv + argc ) ) {
-            i2cx.init( addr, __dma0 );
+            i2cx.init( stm32f103::I2C1_BASE, __dma0, false );  // Tx
+            i2cx.init( stm32f103::I2C2_BASE, __dma0, true );   // Rx
         } else {
             i2cx.init( addr );
         }

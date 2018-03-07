@@ -44,7 +44,7 @@ namespace stm32f103 {
         i2c();
         
         void init( I2C_BASE );
-        void init( I2C_BASE, dma& );
+        void init( I2C_BASE, dma&, bool isReceiving );
 
         void reset();
         
@@ -59,6 +59,9 @@ namespace stm32f103 {
         bool stop();
         bool disable();
         bool enable();
+
+        bool dmaEnable( bool );
+        bool hasDMA( bool receiving ) const;
         
         void handle_event_interrupt();
         void handle_error_interrupt();

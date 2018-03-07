@@ -48,16 +48,18 @@ namespace stm32f103 {
         
         void init( DMA_BASE );
 
-        template< typename Visitor > void accept( Visitor& t ) {
-        }
-        
-        void init_channel( uint32_t channel
-                           , DMA_DIR direction          // CCR bit4
-                           , uint32_t peripheral_addr
-                           , uint8_t * buffer_addr
-                           , uint32_t buffer_size );
-        
+        volatile DMAChannel& dmaChannel( uint32_t );
+
+        static bool init_channel( dma& dma
+                                  , DMA_CHANNEL channel_number
+                                  , uint32_t peripheral_base_addr
+                                  , uint8_t * buffer_addr
+                                  , uint32_t buffer_size
+                                  , uint32_t dma_ccr );
+
         inline operator bool () const { return dma_; };
+
+        void setEnabled( uint32_t, bool );
         
         void handle_interrupt();
         static void interrupt_handler( dma * );

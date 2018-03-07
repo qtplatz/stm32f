@@ -47,24 +47,51 @@ namespace stm32f103 {
         , DMA_PL_VERYHIGH = 0x03
     };
 
+    enum DMA_CCRx : uint32_t {
+        MEM2MEM     = 1 << 14    // 0x4000
+        , PL_MASK     = 3 << 12  // 0x3000
+        , PL_Low      = 0        
+        , PL_Medium   = 01 << 12 // 0x1000
+        , PL_High     = 02 << 12 // 0x2000 
+        , PL_VeryHigh = 03 << 12 // 0x3000
+        , MSIZE_MASK  = 03 << 10 // 0x0c00 Memory size 0:8bit, 1:16bit, 2:32bit
+        , PSIZE_MASK  = 03 << 8  // 0x0300 Peripheral size 0:8bit, 1:16bit, 2:32bit
+        , MINC        = 1 << 7   // 0x0080 Memory increment mode, 0:disabled, 1:enabled
+        , PINC        = 1 << 6   // 0x0040 Peripheral increment mode, 0:disabled, 1:enabled
+        , CIRC        = 1 << 5   // 0x0020 Circular mode, 0:disabled 1:enabled
+        , DIR         = 1 << 4   // 0x0010 Data transfer direction, 0:Read from pheripheral, 1:Read from memory
+        , TEIE        = 1 << 3   // 0x0008 Transfer error interrupt enable
+        , HTIE        = 1 << 2   // 0x0004 Half transfer interrupt enable
+        , TCIE        = 1 << 1   // 0x0002 Transfer complete interrupt enable
+        , EN          = 1        // 0x0001 Channel enable
+    };
+
     //---------------------------------------
     template< DMA_CHANNEL >
     struct peripheral_address {
         static constexpr uint32_t value = 0;
-        static constexpr DMA_DIR dma_dir = DMA_ReadFromPeripheral;
+        static constexpr uint32_t dma_ccr = 0;
     };
 
     template<> struct peripheral_address< DMA_ADC1 > {
         static constexpr uint32_t value = ADC1_BASE;
-        static constexpr DMA_DIR dma_dir = DMA_ReadFromPeripheral;
+        static constexpr uint32_t dma_ccr = DMA_ReadFromPeripheral;
     };
     template<> struct peripheral_address< DMA_I2C1_RX > {
         static constexpr uint32_t value = I2C1_BASE;
-        static constexpr DMA_DIR dma_dir = DMA_ReadFromPeripheral;
+        static constexpr uint32_t dma_ccr = PL_VeryHigh | MINC;  // memory inc enable, 8bit, 8bit, dir = 'from peripheral'
+    };
+    template<> struct peripheral_address< DMA_I2C2_RX > {
+        static constexpr uint32_t value = I2C1_BASE;
+        static constexpr uint32_t dma_ccr = PL_VeryHigh | MINC;  // memory inc enable, 8bit, 8bit, dir = 'from peripheral'
     };
     template<> struct peripheral_address< DMA_I2C1_TX > {
         static constexpr uint32_t value = I2C1_BASE;
-        static constexpr DMA_DIR dma_dir = DMA_ReadFromMemory;
+        static constexpr uint32_t dma_ccr = PL_High | DMA_ReadFromMemory | MINC;
+    };
+    template<> struct peripheral_address< DMA_I2C2_TX > {
+        static constexpr uint32_t value = I2C1_BASE;
+        static constexpr uint32_t dma_ccr = PL_High | DMA_ReadFromMemory | MINC;
     };
 
     //---------------------------------------
@@ -74,28 +101,33 @@ namespace stm32f103 {
     };
     
     template<> struct dma_buffer_size< DMA_ADC1 > { static constexpr size_t value = 32; };
-    template<> struct dma_buffer_size< DMA_I2C1_RX > { static constexpr size_t value = 64; };
+    template<> struct dma_buffer_size< DMA_I2C1_RX > { static constexpr size_t value = 32; };
     template<> struct dma_buffer_size< DMA_I2C1_TX > { static constexpr size_t value = 32; };
+    template<> struct dma_buffer_size< DMA_I2C2_RX > { static constexpr size_t value = 32; };
+    template<> struct dma_buffer_size< DMA_I2C2_TX > { static constexpr size_t value = 32; };    
 
     template< size_t size >
-    struct alignas( 32 ) dma_buffer {
+    struct alignas( 4 ) dma_buffer {
         uint8_t data [ size ];
     };
 
-    template< DMA_CHANNEL channel > //, peripheral_address< channel >::size >
+    template< DMA_CHANNEL channel >
     class dma_channel_t {
+        dma& dma_;
     public:
-        dma_channel_t() {
-            stream() << "dma_channel_t -- value: " << peripheral_address
-                     << "\tdma_dir: " << dma_dir
-                     << "\tsize: " << buffer_size
-                     << "\tbuffer size: " << sizeof( buffer ) << std::endl;
+        dma_channel_t( dma& dma ) : dma_( dma ) {
+            dma::init_channel( dma, channel, peripheral_address, buffer.data, sizeof(buffer.data), dma_ccr );
         }
-        static constexpr DMA_DIR dma_dir = peripheral_address< channel >::dma_dir;
+
+        void setEnabled( bool enable ) {
+            dma_.setEnabled( channel, enable );
+        }
+        
+        static constexpr uint32_t dma_ccr = peripheral_address< channel >::dma_ccr;
         static constexpr uint32_t peripheral_address = peripheral_address< channel >::value;
-        static constexpr size_t buffer_size = dma_buffer_size< channel >::value;
         dma_buffer< dma_buffer_size< channel >::value > buffer;
     };
+
 
 }
 

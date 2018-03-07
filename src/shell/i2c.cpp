@@ -214,7 +214,7 @@ i2c::i2c() : i2c_( 0 )
 }
 
 void
-i2c::init( stm32f103::I2C_BASE addr, dma& dma )
+i2c::init( stm32f103::I2C_BASE addr, dma& dma, bool isReceiving )
 {
     init( addr );
 
@@ -223,16 +223,17 @@ i2c::init( stm32f103::I2C_BASE addr, dma& dma )
     stream() << "*********************** init with dma **********************" << std::endl;
 
     if ( addr == I2C1_BASE ) {
-        __dma_i2c1_tx = new (&__i2c1_tx_dma) dma_channel_t< DMA_I2C1_TX >();
-        __dma_i2c1_rx = new (&__i2c1_rx_dma) dma_channel_t< DMA_I2C1_RX >();
-        
-        //dma.init_channel( DMA_I2C1_TX, __dma_i2c1_tx->peripheral_address, __dma_i2c1_tx->buffer.data, sizeof( __dma_i2c1_tx->buffer.data ) );
-        //dma.init_channel( DMA_I2C1_RX, __dma_i2c1_rx->peripheral_address, __dma_i2c1_rx->buffer.data, sizeof( __dma_i2c1_rx->buffer.data ) );
+        if ( isReceiving ) {
+            __dma_i2c1_rx = new (&__i2c1_rx_dma) dma_channel_t< DMA_I2C1_RX >( dma );            
+        } else {
+            __dma_i2c1_tx = new (&__i2c1_tx_dma) dma_channel_t< DMA_I2C1_TX >( dma );
+        }
     } else if ( addr == I2C2_BASE ) {
-        __dma_i2c2_tx = new (&__i2c2_tx_dma) dma_channel_t< DMA_I2C2_TX >();
-        __dma_i2c2_rx = new (&__i2c2_rx_dma) dma_channel_t< DMA_I2C2_RX >();
-        //dma.init_channel( DMA_I2C2_TX, __dma_i2c2_tx->peripheral_address, __dma_i2c2_tx->buffer.data, sizeof( __dma_i2c2_tx->buffer.data ) );
-        //dma.init_channel( DMA_I2C2_RX, __dma_i2c2_rx->peripheral_address, __dma_i2c2_rx->buffer.data, sizeof( __dma_i2c2_rx->buffer.data ) );        
+        if ( isReceiving ) {
+            __dma_i2c2_rx = new (&__i2c2_rx_dma) dma_channel_t< DMA_I2C2_RX >( dma );
+        } else {
+            __dma_i2c2_tx = new (&__i2c2_tx_dma) dma_channel_t< DMA_I2C2_TX >( dma );            
+        }
     }
 }
 
@@ -311,6 +312,33 @@ bool
 i2c::enable()
 {
     return i2c_enable<true>()( *i2c_ );
+}
+
+bool
+i2c::dmaEnable( bool enable )
+{
+    if ( enable ) {
+        i2c_->CR2 |= DMAEN;
+    } else {
+        i2c_->CR2 &= ~DMAEN;
+    }
+}
+
+bool
+i2c::hasDMA( bool receiving ) const
+{
+    if ( reinterpret_cast< uint32_t >(const_cast< I2C * >(i2c_)) == I2C1_BASE ) {
+        if ( receiving )
+            return __dma_i2c1_rx != nullptr;
+        else
+            return __dma_i2c1_tx != nullptr;
+    } else if ( reinterpret_cast< uint32_t >(const_cast< I2C * >(i2c_)) == I2C2_BASE ) {
+        if ( receiving )
+            return __dma_i2c2_rx != nullptr;
+        else
+            return __dma_i2c2_tx != nullptr;
+    }
+    return false;
 }
 
 void
