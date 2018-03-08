@@ -59,7 +59,10 @@ namespace stm32f103 {
 
         inline operator bool () const { return dma_; };
 
-        void setEnabled( uint32_t, bool );
+        void enable( uint32_t channel, bool );
+
+        void set_transfer_buffer( uint32_t channel, const uint8_t * buffer, size_t size );
+        void set_receive_buffer( uint32_t channel, uint8_t * buffer, size_t size );
 
         bool transfer_complete( uint32_t channel ) const;
         void transfer_complete_clear( uint32_t channel );

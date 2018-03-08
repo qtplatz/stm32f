@@ -26,13 +26,18 @@
 #include "i2c.hpp"
 
 using namespace ad5593;
+#define USE_DMA  0
 
 bool
 ad5593dev::write( uint8_t addr, uint16_t value )
 {
     std::array< uint8_t, 3 > buf = { addr, uint8_t(value >> 8), uint8_t(value & 0xff) };
-    if ( i2c_ )
-        return i2c_->write( address_, buf.data(), buf.size() );
+    if ( i2c_ ) {
+        if ( use_dma_ )
+            return i2c_->dma_transfer( address_, buf.data(), buf.size() );
+        else 
+            return i2c_->write( address_, buf.data(), buf.size() );
+    }
     return false;
 }
 
@@ -42,12 +47,19 @@ ad5593dev::read( uint8_t addr )
     if ( !(addr & 0xf0) )
         addr |= AD5593R_MODE_REG_READBACK;
 
-    std::array< uint8_t, 2 > buf = { 0 };
-
     if ( i2c_ ) {
-        i2c_->write( address_, &addr, 1 );
-        i2c_->read( address_, buf.data(), buf.size() );
-        return uint16_t( buf[ 0 ] << 8 ) | buf[ 1 ];
+        uint8_t buf[ 2 ] = { 0 };
+        
+        if ( use_dma_ ) {
+            return i2c_->dma_transfer( address_, &addr, 1 );
+            if ( i2c_->dma_receive( address_, buf, sizeof(buf) ) ) {
+                return uint16_t( buf[ 0 ] << 8 ) | buf[ 1 ];
+            }
+        } else {
+            i2c_->write( address_, &addr, 1 );
+            i2c_->read( address_, buf, sizeof(buf) );
+            return uint16_t( buf[ 0 ] << 8 ) | buf[ 1 ];
+        }
     }
 
     return -1;

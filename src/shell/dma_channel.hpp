@@ -121,15 +121,23 @@ namespace stm32f103 {
             dma::init_channel( dma, channel, peripheral_address, buffer.data, sizeof(buffer.data), dma_ccr );
         }
 
-        void enable( bool enable ) {
-            dma_.setEnabled( channel, enable );
+        inline void enable( bool enable ) {
+            dma_.enable( channel, enable );
         }
 
-        bool transfer_complete() const {
+        inline void set_transfer_buffer( const uint8_t * buffer, size_t size ) {
+            dma_.set_transfer_buffer( channel, buffer, size );
+        }
+
+        inline void set_receive_buffer( uint8_t * buffer, size_t size ) {
+            dma_.set_receive_buffer( channel, buffer, size );
+        }        
+
+        inline bool transfer_complete() const {
             return dma_.transfer_complete( channel );
         }
         
-        void transfer_complate_clear()  {
+        inline void transfer_complate_clear()  {
             return dma_.transfer_complete_clear( channel );
         }        
         
