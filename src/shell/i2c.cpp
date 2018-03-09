@@ -488,9 +488,9 @@ namespace stm32f103 {
             scoped_i2c_start start( i2c );
             if ( start() ) { // generate start condition (master start)
                 if ( i2c_address< Transmitter >()( i2c, address ) ) {
-                    i2c_dma_enable< true >()( i2c );
-                    dma_channel.set_transfer_buffer( dma_channel.buffer.data, size );
                     dma_channel.enable( true );
+                    dma_channel.set_transfer_buffer( dma_channel.buffer.data, size );
+                    i2c_dma_enable< true >()( i2c );
                     size_t count = 0x7fff;
                     while ( --count && !dma_channel.transfer_complete() )
                         ;
@@ -579,22 +579,30 @@ i2c::dma_transfer( uint8_t address, const uint8_t * data, size_t size )
 bool
 i2c::dma_receive( uint8_t address, uint8_t * data, size_t size )
 {
-    i2c_enable< true >()( *i2c_ );
+    const auto base_addr = reinterpret_cast< uint32_t >( const_cast< I2C * >(i2c_) );
 
+    if ( base_addr == I2C1_BASE && __dma_i2c1_rx == nullptr ) {
+        stream() << "I2C1 Rx DMA not attached\n";
+        return false;
+    } else if ( base_addr == I2C2_BASE && __dma_i2c2_rx == nullptr ) {
+        stream() << "I2C2 Rx DMA not attached\n";
+        return false;
+    }    
+
+    i2c_enable< true >()( *i2c_ );
+    
     if ( ! i2c_ready_wait( *i2c_, own_addr_ )() ) {
         stream() << __FUNCTION__ << " i2c_ready_wait failed\n";
         return false;
     }
+    
+    if ( base_addr == I2C1_BASE && __dma_i2c1_rx != nullptr ) {
 
-    auto base_addr = reinterpret_cast< uint32_t >( const_cast< I2C * >(i2c_) );
-
-    if ( base_addr == I2C1_BASE && __dma_i2c1_tx != nullptr ) {
-
-        return dma_master_receive( *i2c_ )( *__dma_i2c1_tx, address, data, size );
+        return dma_master_receive( *i2c_ )( *__dma_i2c1_rx, address, data, size );
         
-    } else if ( base_addr == I2C2_BASE && __dma_i2c2_tx != nullptr ) {
+    } else if ( base_addr == I2C2_BASE && __dma_i2c2_rx != nullptr ) {
 
-        return dma_master_receive( *i2c_ )( *__dma_i2c2_tx, address, data, size );
+        return dma_master_receive( *i2c_ )( *__dma_i2c2_rx, address, data, size );
     }
 
     return false;
