@@ -26,6 +26,8 @@ extern stm32f103::dma __dma0;
 extern std::atomic< uint32_t > atomic_jiffies;
 extern void mdelay( uint32_t ms );
 
+void i2c_test( size_t argc, const char ** argv );
+
 int
 strcmp( const char * a, const char * b )
 {
@@ -69,6 +71,11 @@ i2cdetect( size_t argc, const char ** argv )
     
     stm32f103::I2C_BASE addr = ( id == 0 ) ? stm32f103::I2C1_BASE : stm32f103::I2C2_BASE;    
     auto& i2cx = ( addr == stm32f103::I2C1_BASE ) ? __i2c0 : __i2c1;
+
+    if ( !i2cx ) {
+        const char * argv [] = { id == 0 ? "i2c" : "i2c2", nullptr };
+        i2c_test( 1, argv );
+    }
 
     if ( i2cx ) {
 
@@ -391,21 +398,19 @@ ad5593_test( size_t argc, const char ** argv )
         const char * argv [] = { "i2c", nullptr };
         i2c_test( 1, argv );
     }
-
     ad5593::ad5593dev ad5593( &__i2c0, 0x10 );
-#if 0
-    for ( size_t pin = 0; pin < 8; ++pin ) {
+
+    for ( size_t pin = 0; pin < 4; ++pin ) {
         auto value = ad5593::io( ad5593, pin, ad5593::ADC ).get();
         stream() << "\tpin" << pin << "\t" << value;
     }
     stream() << std::endl;
-#endif
 
     double volts = 1.0;
     double Vref = 3.3;
     
     uint16_t value = uint16_t( 0.5 + volts * 4096 / Vref );
-    for ( size_t pin = 0; pin < 8; ++pin ) {
+    for ( size_t pin = 4; pin < 8; ++pin ) {
         auto io = ad5593::io( ad5593, pin, ad5593::DAC_AND_ADC );
         io.set( value );
         uint16_t readValue = io.get();
