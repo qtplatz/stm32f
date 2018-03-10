@@ -175,6 +175,9 @@ dma::handle_interrupt( uint32_t channel )
 
     auto x = flag >> ( channel * 4 );
 
+    if ( interrupt_handlers_.at( channel ) )
+        interrupt_handlers_[ channel ]( x );
+
     stream() << "\tDMA: handle_interrupt: " << channel << " ISR=" << flag << " "
              << ((x & 0x8) ? "transfer error, " : "")
              << ((x & 0x4) ? "half transfer, " : "")

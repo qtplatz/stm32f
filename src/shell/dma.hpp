@@ -41,7 +41,8 @@ namespace stm32f103 {
 
         std::atomic_flag lock_;
         std::atomic< uint32_t  > interrupt_status_;
-        
+        std::array< void (*)( uint32_t ), 7 > interrupt_handlers_;
+
         dma( const dma& ) = delete;
         dma& operator = ( const dma& ) = delete;
         

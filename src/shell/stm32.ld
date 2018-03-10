@@ -22,17 +22,24 @@ MEMORY {
 
 SECTIONS {
 	.text :	{
+                . = ALIGN(4);
+                __text_start = .;
         	KEEP(*(.vect))     /* Vector table */
                 *(.text*)          /* Program code */
                 *(.rodata*)        /* Read only data */
 		. = ALIGN(4);
 	} > flash
 	.bss :	{
-                _sbss = . ;        
+                 __bss_start = . ;        
 		. = ALIGN(4);
 		*(.bss*)       /* Read-write zero initialized data */
 		*(COMMON)
 		. = ALIGN(4);
-                _ebss = . ;
+                __bss_end = . ;
 	} > sram
+        .ARM.exidx : {
+                 __exidx_start = .;
+                 *(.ARM.exidx* .gnu.linkonce.armexidx.*)
+                __exidx_end = .;
+        } > sram
 }

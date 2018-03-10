@@ -27,7 +27,7 @@
 #include <utility>
 
 extern uint64_t jiffies;  // 100us
-extern uint32_t _sbss, _ebss;
+extern uint32_t __bss_start, __bss_end;
 
 uint32_t __system_clock;
 uint32_t __pclk1, __pclk2;
@@ -46,15 +46,11 @@ stm32f103::spi __spi0, __spi1;
 stm32f103::uart __uart0;
 stm32f103::dma __dma0, __dma1;
 
-std::array< void (*)(), 12 > __dma_irq_handlers;
-
 extern void uart1_handler();
 
 extern "C" {
     void enable_interrupt( stm32f103::IRQn_type IRQn );
     void disable_interrupt( stm32f103::IRQn_type IRQn );
-    void __aeabi_unwind_cpp_pr0 ( int, int *, int * ) {}
-    void __aeabi_unwind_cpp_pr1 ( int, int *, int * ) {}
 
     void serial_puts( const char * s );
     void serial_putc( int );
@@ -130,23 +126,12 @@ init_systick( uint32_t s, bool en )
     }
 }
 
-typedef void (*irq_handler_type)();
-
-void
-register_dma_irq( size_t no, irq_handler_type handler )
-{
-    if ( no < __dma_irq_handlers.size() )
-        __dma_irq_handlers[ no ] = handler;
-}
-
 int
 main()
 {
     // zero clear .bss
-    memset( &_sbss, 0, reinterpret_cast< const char * >(&_ebss) - reinterpret_cast< const char * >(&_sbss) );
+    memset( &__bss_start, 0, reinterpret_cast< const char * >(&__bss_end) - reinterpret_cast< const char * >(&__bss_start) + 1);
 
-    std::for_each( __dma_irq_handlers.begin(), __dma_irq_handlers.end(), [](auto& handler){ handler = [](){}; } );
-    
     if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
         // clock/pll setup -->
         // RM0008 p98- 
@@ -249,12 +234,12 @@ main()
     }
 
     {
-        int size = reinterpret_cast< const char * >(&_ebss) - reinterpret_cast< const char * >(&_sbss);
+        int size = reinterpret_cast< const char * >(&__bss_end) - reinterpret_cast< const char * >(&__bss_start);
         __system_clock = stm32f103::rcc().system_frequency();
         __pclk1 = stm32f103::rcc().pclk1(); // 72MHz
         __pclk2 = stm32f103::rcc().pclk1(); // 36MHz
         stream() << "\t**********************************************" << std::endl;
-        stream() << "\t***** BSS = 0x" << uint32_t(&_sbss) << " -- 0x" << uint32_t(&_ebss) << "\t *****" << std::endl;
+        stream() << "\t***** BSS = 0x" << uint32_t(&__bss_start) << " -- 0x" << uint32_t(&__bss_end) << "\t *****" << std::endl;
         stream() << "\t***** " << size << " octsts of bss segment is in use. ***" << std::endl;
         stream() << "\t***** Current stack pointer = " << uint32_t(&size) << "\t *****" << std::endl;
         stream() << "\t***** SYSCLK = " << int32_t( __system_clock ) << "Hz" << std::endl;
@@ -489,3 +474,11 @@ __dma2_ch5_handler( void )
     __dma1.handle_interrupt( 4 );
 }
 
+namespace std {
+    void __throw_out_of_range_fmt( char const *, ... ) { while( true ); }
+};
+
+extern "C" {
+    void __aeabi_unwind_cpp_pr0 ( int, int *, int * ) {}
+    void __aeabi_unwind_cpp_pr1 ( int, int *, int * ) {}
+}

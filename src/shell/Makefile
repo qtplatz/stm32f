@@ -44,13 +44,10 @@ OBJCOPY = $(CROSSCOMPILE)objcopy
 # restart gdb
 ####################################################################
 
-#CFLAGS   = -mcpu=cortex-m3 -mthumb -Wno-implicit-function-declaration -fno-builtin-printf -O2
-#CXXFLAGS = -mcpu=cortex-m3 -mthumb -fno-builtin-printf -std=c++14 -O2
-#CFLAGS   = -mcpu=cortex-m3 -mthumb -Wno-implicit-function-declaration -fno-builtin-printf -g -O0
-#CXXFLAGS = -mcpu=cortex-m3 -mthumb -fno-builtin-printf -std=c++14 -fno-threadsafe-statics -g -O0
-CFLAGS   = -mcpu=cortex-m3 -mthumb -Wno-implicit-function-declaration -fno-builtin-printf -g -O2
-CXXFLAGS = -mcpu=cortex-m3 -mthumb -fno-builtin-printf -std=c++14 -fno-threadsafe-statics -fno-exceptions -g -O2
-LDFLAGS = -nostdlib -nostartfiles
+CFLAGS   = -mcpu=cortex-m3 -mthumb -Wno-implicit-function-declaration -nostdlib -nodefaultlibs -g -O2
+CXXFLAGS = -mcpu=cortex-m3 -mthumb -std=c++17 -fno-threadsafe-statics -fno-exceptions -g -O2
+LDFLAGS = -Tstm32.ld -g -Wl,-Map=shell.map,--cref -nostdlib -nostartfiles -static -Xlinker --gc-sections -fno-exceptions
+#LDFLAGS = -Tstm32.ld -g -Wl,-Map=shell.map,--cref -static -Xlinker --gc-sections -fno-exceptions
 
 OCDCFG = -f /usr/share/openocd/scripts/interface/stlink-v2.cfg -f /usr/share/openocd/scripts/target/stm32f1x.cfg
 
@@ -75,7 +72,9 @@ shell.bin:	shell.elf
 	$(OBJCOPY) shell.elf shell.bin -O binary
 
 shell.elf: $(OBJS) stm32.ld
-	$(LD) -T stm32.ld -o shell.elf $(OBJS) -Map=shell.map
+	$(CXX) $(LDFLAGS) -o shell.elf $(OBJS) 
+
+#$(LD) -T stm32.ld -o shell.elf $(OBJS) -Map=shell.map
 
 .PHONY: clean
 clean:
