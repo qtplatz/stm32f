@@ -147,8 +147,11 @@ namespace ad5593 {
         std::array< io, 8 > ios_;
         uint8_t address_; // 0x10 | 0x11
         stm32f103::i2c * i2c_;
+        bool use_dma_;
     public:
-        ad5593dev( stm32f103::i2c * i2c, uint8_t address ) : address_( address ), i2c_( i2c ) {
+        ad5593dev( stm32f103::i2c * i2c, uint8_t address, bool use_dma = false ) : address_( address )
+                                                                                 , i2c_( i2c )
+                                                                                 , use_dma_( use_dma ) {
         }
         bool write( uint8_t addr, uint16_t value );
         uint16_t read( uint8_t addr );

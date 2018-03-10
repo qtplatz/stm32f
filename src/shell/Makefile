@@ -38,7 +38,7 @@ OBJCOPY = $(CROSSCOMPILE)objcopy
 # reference for stm32ld is 'https://github.com/jsnyder/stm32ld'
 ####################################################################
 # write program from gdb with openocd
-# gdb --eval-command="target remote localhost:3333" shell.elf
+# /usr/arm-none-eabi/bin/arm-none-eabi-gdb --eval-command="target remote localhost:3333" shell.elf
 # (gdb) monitor halt
 # (gdb) load
 # restart gdb

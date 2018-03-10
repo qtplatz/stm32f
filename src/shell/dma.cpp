@@ -114,12 +114,26 @@ dma::init_channel( dma& dma
 }
 
 void
-dma::setEnabled( uint32_t channel_number, bool enable )
+dma::enable( uint32_t channel_number, bool enable )
 {
     if ( enable )
         dmaChannel( channel_number ).CCR |= EN;
     else
         dmaChannel( channel_number ).CCR &= ~EN;
+}
+
+void
+dma::set_transfer_buffer( uint32_t channel_number, const uint8_t * buffer, size_t size )
+{
+    dmaChannel( channel_number ).CMAR = reinterpret_cast< uint32_t >( buffer );
+    dmaChannel( channel_number ).CNDTR = size;    
+}
+
+void
+dma::set_receive_buffer( uint32_t channel_number, uint8_t * buffer, size_t size )
+{
+    dmaChannel( channel_number ).CMAR = reinterpret_cast< uint32_t >( buffer );
+    dmaChannel( channel_number ).CNDTR = size;    
 }
 
 bool

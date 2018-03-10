@@ -172,7 +172,7 @@ i2c_test( size_t argc, const char ** argv )
                 stream() << "i2c " << data << " sent out." << std::endl;
             }
         } else if ( strcmp( argv[ 0 ], "dma" ) == 0 ) {
-
+#if 0
             stream() << "--------------- dma transfer ----------------" << std::endl;
             
             const int8_t i2caddr = 0x04;
@@ -191,6 +191,7 @@ i2c_test( size_t argc, const char ** argv )
                     }
                 }
             }
+#endif
         }
     }
 }
@@ -398,23 +399,39 @@ ad5593_test( size_t argc, const char ** argv )
         const char * argv [] = { "i2c", nullptr };
         i2c_test( 1, argv );
     }
-    ad5593::ad5593dev ad5593( &__i2c0, 0x10 );
-
-    for ( size_t pin = 0; pin < 4; ++pin ) {
-        auto value = ad5593::io( ad5593, pin, ad5593::ADC ).get();
-        stream() << "\tpin" << pin << "\t" << value;
+    size_t count = 1;
+    for ( size_t i = 1; i < argc; ++i ) {
+        if ( std::isdigit( *argv[i] ) ) {
+            count = strtod( argv[i] );
+            if ( count == 0 )
+                count = 1;
+        }
     }
-    stream() << std::endl;
+    bool use_dma( false );
+    auto it = std::find_if( argv, argv + argc, [](auto a){ return strcmp( a, "dma" ) == 0; } );
+    use_dma = it != ( argv + argc );    
+
+    ad5593::ad5593dev ad5593( &__i2c0, 0x10, use_dma );
 
     double volts = 1.0;
     double Vref = 3.3;
     
     uint16_t value = uint16_t( 0.5 + volts * 4096 / Vref );
-    for ( size_t pin = 4; pin < 8; ++pin ) {
-        auto io = ad5593::io( ad5593, pin, ad5593::DAC_AND_ADC );
-        io.set( value );
-        uint16_t readValue = io.get();
-        stream() << "[" << pin << "] set=" << value << ", act=" << readValue << std::endl;
+
+    for ( size_t i = 0; i < count; ++i ) {
+
+        for ( size_t pin = 0; pin < 4; ++pin ) {
+            auto io = ad5593::io( ad5593, pin, ad5593::DAC_AND_ADC );
+            io.set( value );
+            uint16_t readValue = io.get();
+            stream() << "\t[" << pin << "] " << value << ", " << readValue;
+        }
+        stream() << std::endl;
+        for ( size_t pin = 4; pin < 8; ++pin ) {
+            auto value = ad5593::io( ad5593, pin, ad5593::ADC ).get();
+            stream() << "\t[" << pin << "] " << value << "\t";
+        }
+        stream() << std::endl << std::endl;
     }
 }
 
