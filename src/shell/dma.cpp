@@ -75,8 +75,7 @@ dma::dmaChannel( uint32_t channel )
 }
 
 bool
-dma::init_channel( dma& dma
-                   , DMA_CHANNEL channel_number
+dma::init_channel( DMA_CHANNEL channel_number
                    , uint32_t peripheral_data_addr
                    , uint8_t * buffer_addr
                    , uint32_t buffer_size
@@ -89,16 +88,20 @@ dma::init_channel( dma& dma
              << ")"
              << std::endl;
     
-    auto& dmaChannel = dma.dmaChannel( channel_number );
-    if ( &dmaChannel == &readOnlyChannel )
-        return false;
+    auto& channel = dmaChannel( channel_number );
 
     // p277
-    dmaChannel.CPAR = peripheral_data_addr;
-    dmaChannel.CMAR = reinterpret_cast< decltype( dmaChannel.CMAR ) >( buffer_addr );
-    dmaChannel.CNDTR = buffer_size;
+    channel.CPAR = peripheral_data_addr;
+    channel.CMAR = reinterpret_cast< decltype( channel.CMAR ) >( buffer_addr );
+    channel.CNDTR = buffer_size;
 
-    dmaChannel.CCR = ( dmaChannel.CCR & 0xffff800f ) | dma_ccr;
+    channel.CCR = ( channel.CCR & 0xffff800f ) | dma_ccr;
+
+    if ( reinterpret_cast< uint32_t >( const_cast< DMA * >( dma_ ) ) == DMA1_BASE ) {
+        enable_interrupt( IRQn( DMA1_Channel1_IRQn + channel_number ) );
+    } else {
+        enable_interrupt( IRQn( DMA2_Channel1_IRQn + channel_number ) );
+    }
 
     // 1. Set the peripheral register address in the DMA_CPARx register. The data will be
     // moved from/ to this address to/ from the memory after the peripheral event.
@@ -116,17 +119,32 @@ dma::init_channel( dma& dma
 void
 dma::enable( uint32_t channel_number, bool enable )
 {
-    if ( enable )
-        dmaChannel( channel_number ).CCR |= EN;
-    else
-        dmaChannel( channel_number ).CCR &= ~EN;
+    if ( enable ) {
+        dmaChannel( channel_number ).CCR |= EN | TCIE | TEIE; // channel enable, transfer complete interrupt enable, error irq
+    } else {
+        dmaChannel( channel_number ).CCR &= ~( EN | TCIE );
+    }
+    stream( __FILE__, __LINE__ ) << "dma dma #" << channel_number << ": " << enable << std::endl;
+    stream() << "dma::enable DR: 0x" << dmaChannel( channel_number ).CMAR
+             << ", size: " << int( dmaChannel( channel_number ).CNDTR )
+             << ", CPAR: 0x" << dmaChannel( channel_number ).CPAR
+             << ", CCR: 0x" << dmaChannel( channel_number ).CCR
+             << std::endl;
+    
 }
 
 void
 dma::set_transfer_buffer( uint32_t channel_number, const uint8_t * buffer, size_t size )
 {
     dmaChannel( channel_number ).CMAR = reinterpret_cast< uint32_t >( buffer );
-    dmaChannel( channel_number ).CNDTR = size;    
+    dmaChannel( channel_number ).CNDTR = size;
+
+    stream( __FILE__, __LINE__ ) << "set_transfer_buffer #" << channel_number
+                                 << ", DR: 0x" << dmaChannel( channel_number ).CMAR
+                                 << ", size: " << int( dmaChannel( channel_number ).CNDTR ) << ", " << int( size )
+                                 << ", CPAR: 0x" << dmaChannel( channel_number ).CPAR
+                                 << ", CCR: 0x" << dmaChannel( channel_number ).CCR
+                                 << std::endl;
 }
 
 void
@@ -139,6 +157,7 @@ dma::set_receive_buffer( uint32_t channel_number, uint8_t * buffer, size_t size 
 bool
 dma::transfer_complete( uint32_t channel ) const
 {
+    // stream() << "dma::transfer_complete(" << channel << ")=" << dma_->ISR << ", " << dma_->channels[ channel ].CNDTR << std::endl;
     return dma_->ISR & ( TCIF << ( channel * 4 ) );
 }
 
@@ -146,4 +165,10 @@ void
 dma::transfer_complete_clear( uint32_t channel )
 {
     dma_->ISR |= ( TCIF << ( channel * 4 ) );
+}
+
+void
+dma::handle_interrupt( uint32_t channel )
+{
+    stream() << "dma::handle_interrupt: " << channel << std::endl;
 }

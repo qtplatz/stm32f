@@ -26,6 +26,9 @@ class stream {
 public:
     stream( stm32f103::uart& );
     stream() : uart_( __uart0 ) {}
+    stream( const char * file, const int line ) : uart_( __uart0 ) {
+        stream() << file << ": " << line << " ";
+    }
     void flush();
 
     stream& operator << ( const char );

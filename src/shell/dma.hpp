@@ -50,13 +50,12 @@ namespace stm32f103 {
 
         volatile DMAChannel& dmaChannel( uint32_t );
 
-        static bool init_channel( dma& dma
-                                  , DMA_CHANNEL channel_number
-                                  , uint32_t peripheral_base_addr
-                                  , uint8_t * buffer_addr
-                                  , uint32_t buffer_size
-                                  , uint32_t dma_ccr );
-
+        bool init_channel( DMA_CHANNEL channel_number
+                           , uint32_t peripheral_base_addr
+                           , uint8_t * buffer_addr
+                           , uint32_t buffer_size
+                           , uint32_t dma_ccr );
+        
         inline operator bool () const { return dma_; };
 
         void enable( uint32_t channel, bool );
@@ -67,8 +66,7 @@ namespace stm32f103 {
         bool transfer_complete( uint32_t channel ) const;
         void transfer_complete_clear( uint32_t channel );
         
-        void handle_interrupt();
-        static void interrupt_handler( dma * );
+        void handle_interrupt( uint32_t );
     };
 
 }

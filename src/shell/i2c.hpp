@@ -5,6 +5,7 @@
 //
 
 
+#include <array>
 #include <atomic>
 #include <cstdint>
 
@@ -35,13 +36,18 @@ namespace stm32f103 {
     class i2c {
         volatile I2C * i2c_;
         std::atomic_flag lock_;
-        std::atomic< uint32_t > rxd_;
         uint8_t own_addr_;
 
         i2c( const i2c& ) = delete;
         i2c& operator = ( const i2c& ) = delete;
 
+        uint32_t recvp_;
+        std::array< uint8_t, 32 > recv_;
+
     public:
+        std::atomic< uint32_t > status_;
+        std::atomic< uint32_t > rxd_;
+        
         i2c();
 
         enum DMA_Direction { DMA_None, DMA_Tx, DMA_Rx, DMA_Both };
@@ -70,7 +76,6 @@ namespace stm32f103 {
 
         bool dmaEnable( bool );
         bool has_dma( bool receiving ) const;
-
 
         void set_own_addr( uint8_t );
         uint8_t own_addr() const;

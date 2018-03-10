@@ -172,26 +172,13 @@ i2c_test( size_t argc, const char ** argv )
                 stream() << "i2c " << data << " sent out." << std::endl;
             }
         } else if ( strcmp( argv[ 0 ], "dma" ) == 0 ) {
-#if 0
             stream() << "--------------- dma transfer ----------------" << std::endl;
             
-            const int8_t i2caddr = 0x04;
+            //const int8_t i2caddr = 0x04;
             const uint8_t * rp;
-            constexpr static const uint8_t * txd = reinterpret_cast< const uint8_t *>("abcdefghijklmnop0123456789ABCDEF");
-            if ( __i2c0.dma_transfer(i2caddr, txd, 32 ) ) {
-                stream() << "\t--------------- dma transfer ------> dma_receive" << std::endl;
-                if ( auto size = __i2c1.dma_receive( i2caddr, rp ) ) {
-                    mdelay( 100 );
-                    stream() << "dma receive size: " << size << std::endl;
-                    if ( rp ) {
-                        for ( size_t i = 0; i < size; ++i ) {
-                            stream() << *rp++ << ", ";
-                        }
-                        stream() << std::endl;
-                    }
-                }
+            constexpr static const uint8_t txd [] = { 0x00, 0x01 };
+            if ( __i2c0.dma_transfer(i2caddr, txd, 2 ) ) {
             }
-#endif
         }
     }
 }
@@ -435,6 +422,11 @@ ad5593_test( size_t argc, const char ** argv )
     }
 }
 
+static const char * __apbenr__ [] = {
+    "DMA1",     "DMA2",  "SRAM",  nullptr,  "FLITF", nullptr,  "CRCEN",  nullptr
+    ,  nullptr, nullptr, nullptr, nullptr,  "OTGFS",  nullptr, "ETHMAC", "ETHMAC_TX"
+    , "ETHMAC_RX"
+};
 
 static const char * __apb2enr__ [] = {
     "AFIO",    nullptr, "IOPA",  "IOPB",  "IOPC",  "IOPD",  "IOPE",  "IOPF"
@@ -456,6 +448,17 @@ rcc_status( size_t argc, const char ** argv )
         stream() << "APB2, APB1 peripheral clock enable register (p112-116, RM0008, Rev 17) " << std::endl;
         stream() << "\tRCC->APB2ENR : " << RCC->APB2ENR << std::endl;
         stream() << "\tRCC->APB1ENR : " << RCC->APB1ENR << std::endl;
+
+        {
+            stream() << "\tEnables : ";
+            int i = 0;
+            for ( auto& p: __apbenr__ ) {
+                if ( p && ( RCC->APB2ENR & (1<<i) ) )
+                    stream() << p << ", ";                    
+                ++i;
+            }
+            stream() << "\n";
+        }
         
         {
             stream() << "\tEnables : ";
@@ -465,9 +468,10 @@ rcc_status( size_t argc, const char ** argv )
                     stream() << p << ", ";                    
                 ++i;
             }
-            stream() << "|";
+            stream() << "\n";
         }
         {
+            stream() << "\tEnables : ";
             int i = 0;
             for ( auto& p: __apb1enr__ ) {
                 if ( p && ( RCC->APB1ENR & (1<<i) ) )
@@ -595,10 +599,12 @@ bool
 command_processor::operator()( size_t argc, const char ** argv ) const
 {
     if ( argc ) {
+#if 0
         stream() << "command_procedssor: argc=" << argc << " argv = {";
         for ( size_t i = 0; i < argc; ++i )
             stream() << argv[i] << ( ( i < argc - 1 ) ? ", " : "" );
         stream() << "}" << std::endl;
+#endif
 
         bool processed( false );
     

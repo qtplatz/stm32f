@@ -174,7 +174,6 @@ main()
 
         // DMA
         RCC->AHBENR |= 0x01; // DMA1 enable
-
         // 
 
         ///////////////////////////////////////////////////////
@@ -421,72 +420,72 @@ __systick_handler( void )
 void
 __dma1_ch1_handler( void )
 {
-    __dma_irq_handlers[ 0 ]();
+    __dma0.handle_interrupt( 0 );
 }
 
 void
 __dma1_ch2_handler( void )
 {
-    __dma_irq_handlers[ 1 ]();
+    __dma0.handle_interrupt( 1 );
 }
 
 void
 __dma1_ch3_handler( void )
 {
-    __dma_irq_handlers[ 2 ]();
+    __dma0.handle_interrupt( 2 );
 }
 
 void
 __dma1_ch4_handler( void )
 {
-    __dma_irq_handlers[ 3 ]();
+    __dma0.handle_interrupt( 3 );
 }
 
 void
 __dma1_ch5_handler( void )
 {
-    __dma_irq_handlers[ 4 ]();
+    __dma0.handle_interrupt( 4 );
 }
 
 void
 __dma1_ch6_handler( void )
 {
-    __dma_irq_handlers[ 5 ]();    
+    __dma0.handle_interrupt( 5 );
 }
 
 void
 __dma1_ch7_handler( void )
 {
-    __dma_irq_handlers[ 6 ]();    
+    __dma0.handle_interrupt( 6 );
 }
 
 void
 __dma2_ch1_handler( void )
 {
-    __dma_irq_handlers[ 7 ]();
+    __dma1.handle_interrupt( 0 );
 }
 
 void
 __dma2_ch2_handler( void )
 {
-    __dma_irq_handlers[ 8 ]();        
+    __dma1.handle_interrupt( 1 );
 }
 
 void
 __dma2_ch3_handler( void )
 {
-    __dma_irq_handlers[ 9 ]();        
+    __dma1.handle_interrupt( 2 );
 }
 
 void
 __dma2_ch4_handler( void )
 {
-    __dma_irq_handlers[ 10 ]();            
+    __dma1.handle_interrupt( 3 );
 }
 
 void
 __dma2_ch5_handler( void )
 {
-    __dma_irq_handlers[ 11 ]();                
+    __dma1.handle_interrupt( 4 );
 }
 

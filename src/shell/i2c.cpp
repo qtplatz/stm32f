@@ -90,13 +90,13 @@ namespace stm32f103 {
     constexpr uint32_t error_condition = SMB_ALART | TIME_OUT | PEC_ERR | OVR | AF | ARLO | BERR;
     
     struct i2c_status {
-        volatile I2C& i2c;
-        i2c_status( volatile I2C& t ) : i2c( t ) {}
-        inline bool busy() const { return i2c.SR2 & BUSY; }
+        volatile I2C& _;
+        i2c_status( volatile I2C& t ) : _( t ) {}
+        inline bool busy() const { return _.SR2 & BUSY; }
 
         // p783, Reading SR2 after reading SR1 clears ADDR flag.
-        inline uint32_t status() const { return ( (i2c.SR1 & STOPF) == 0
-                                                  || ((i2c.SR1 & ADDR) == ADDR ) ) ? ( i2c.SR2 << 16 ) | i2c.SR1 : i2c.SR1; }
+        inline uint32_t status() const { return ( (_.SR1 & STOPF) == 0
+                                                  || ((_.SR1 & ADDR) == ADDR ) ) ? ( _.SR2 << 16 ) | _.SR1 : _.SR1; }
 
         inline uint32_t operator ()() const { return status(); }
 
@@ -110,24 +110,24 @@ namespace stm32f103 {
     };
 
     struct i2c_stop {
-        inline bool operator()(volatile I2C& i2c ) const { i2c.CR1 |= STOP;  return true;  }
+        inline bool operator()(volatile I2C& _ ) const {
+            _.CR1 |= STOP;
+            return true;
+        }
     };
 
     // master start
     struct i2c_start {
-        volatile I2C& i2c;
-        i2c_start( volatile I2C& t ) : i2c( t ) {}
+        volatile I2C& _;
+        i2c_start( volatile I2C& t ) : _( t ) {}
 
         constexpr static uint32_t master_mode_selected = ( ( BUSY | MSL ) << 16 ) | SB;
 
         inline bool operator()() const {
             size_t count = 3;
-            i2c_status st( i2c );
-
-            while ( st.busy() && --count )
-                mdelay(1);
-
-            i2c.CR1 |= START;
+            i2c_status st( _ );
+            
+            _.CR1 |= START;
                 
             count = 3;
             while( !st.is_equal( master_mode_selected ) && --count )
@@ -138,16 +138,16 @@ namespace stm32f103 {
     };
 
     struct scoped_i2c_start {
-        volatile I2C& i2c;
+        volatile I2C& _;
         bool success;
-        scoped_i2c_start( volatile I2C& t ) : i2c( t ), success( false ) {}
+        scoped_i2c_start( volatile I2C& t ) : _( t ), success( false ) {}
         ~scoped_i2c_start() {
             if ( success )
-                i2c_stop()( i2c );
+                i2c_stop()( _ );
         }
         
         bool operator()() {
-            success = i2c_start( i2c )();
+            success = i2c_start( _ )();
             return success;
         }
     };
@@ -156,12 +156,12 @@ namespace stm32f103 {
 
     template< I2C_DIRECTION >    
     struct i2c_address {
-        inline bool operator()( volatile I2C& i2c, uint8_t address ) {
+        inline bool operator()( volatile I2C& _, uint8_t address ) {
             
-            i2c.DR = ( address << 1 );
+            _.DR = ( address << 1 );
             
             constexpr uint32_t byte_transmitting = (( TRA | BUSY | MSL) << 16 ) | TxE;
-            i2c_status st( i2c );
+            i2c_status st( _ );
             size_t count = 0x7fff;
             while( !st.is_equal( byte_transmitting ) && --count )
                 ;
@@ -169,44 +169,44 @@ namespace stm32f103 {
         }
     };
 
-    template<> inline bool i2c_address<Receiver>::operator()( volatile I2C& i2c, uint8_t address ) {
-        i2c.DR = (address << 1) | 1;
+    template<> inline bool i2c_address<Receiver>::operator()( volatile I2C& _, uint8_t address ) {
+        _.DR = (address << 1) | 1;
         return true;
     }
 
     // master transmit
     struct i2c_transmitter {
-        volatile I2C& i2c;
-        i2c_transmitter( volatile I2C& t ) : i2c( t ) {}
+        volatile I2C& _;
+        i2c_transmitter( volatile I2C& t ) : _( t ) {}
 
         inline bool operator()( uint8_t data ) {
             constexpr size_t byte_transferred = (( TRA | BUSY | MSL ) << 16) | TxE | BTF; // /*0x00070084*/
 
-            i2c.DR = data;
+            _.DR = data;
 
             size_t count = 0x7fff;
-            i2c_status st( i2c );
+            i2c_status st( _ );
             while ( !st.is_equal( byte_transferred ) && --count )
                 ;
             return st.is_equal( byte_transferred );
         }
     };
 
-    // master receive
+    // polling
     struct i2c_receiver {
-        volatile I2C& i2c;
-        i2c_receiver( volatile I2C& t ) : i2c( t ) {}
+        volatile I2C& _;
+        i2c_receiver( volatile I2C& t ) : _( t ) {}
         
         inline bool operator()( uint8_t& data ) {
             constexpr size_t byte_received = (( BUSY | MSL ) << 16) | RxNE;
             size_t count = 0x7fff;
-            i2c_status st( i2c );
+            i2c_status st( _ );
 
             while ( !st.is_equal( byte_received ) && --count )
                 ;
 
             if ( st.is_equal( byte_received ) ) {
-                data = i2c.DR;
+                data = _.DR;
                 return true;
             }
             return false;
@@ -436,13 +436,17 @@ i2c::read( uint8_t address, uint8_t * data, size_t size )
         return false;
     }
 
+    status_ = 0;
     scoped_i2c_start start( *i2c_ );
-    if ( start() ) {                                         // generate start condition
+    if ( start() ) { // generate start condition
         if ( i2c_address< Receiver >()( *i2c_, address ) ) { // address phase
             i2c_receiver read( *i2c_ );
             auto rp = data;
+
+            i2c_->CR2 |= ITEVTEN;
             while( size && read( *rp++ ) )
                 --size;
+
             return size == 0;
         }
     }
@@ -476,8 +480,8 @@ i2c::write( uint8_t address, const uint8_t * data, size_t size )
 namespace stm32f103 {
 
     struct dma_master_transfer {
-        volatile I2C& i2c;
-        dma_master_transfer( volatile I2C& _i2c ) : i2c( _i2c ) {}
+        volatile I2C& _;
+        dma_master_transfer( volatile I2C& t ) : _( t ) {}
 
         template< typename T >
         bool operator()( T& dma_channel, uint8_t address, const uint8_t * data, size_t size ) const {
@@ -485,18 +489,20 @@ namespace stm32f103 {
             for ( size_t i = 0; i < size && i < sizeof( dma_channel.buffer.data ); ++i )
                 dma_channel.buffer.data[ i ] = data[ i ];
 
-            scoped_i2c_start start( i2c );
+            scoped_i2c_start start( _ );
             if ( start() ) { // generate start condition (master start)
-                if ( i2c_address< Transmitter >()( i2c, address ) ) {
-                    dma_channel.enable( true );
+                if ( i2c_address< Transmitter >()( _, address ) ) {
                     dma_channel.set_transfer_buffer( dma_channel.buffer.data, size );
-                    i2c_dma_enable< true >()( i2c );
+                    i2c_dma_enable< true >()( _ );
+                    dma_channel.enable( true );
                     size_t count = 0x7fff;
                     while ( --count && !dma_channel.transfer_complete() )
                         ;
+                    if ( count == 0 )
+                        stream() << "dma_master_transfer timeout\n";
                     return count != 0;
                 } else {
-                    stream() << "i2c::dma_master_transfer -- address phase failed: " << status32_to_string( i2c_status( i2c )() ) << std::endl;
+                    stream() << "i2c::dma_master_transfer -- address phase failed: " << status32_to_string( i2c_status( _ )() ) << std::endl;
                 }
             } else {
                 stream() << "i2c::dma_master_transfer() -- can't generate start condition" << std::endl;
@@ -611,7 +617,15 @@ i2c::dma_receive( uint8_t address, uint8_t * data, size_t size )
 void
 i2c::handle_event_interrupt()
 {
-    stream() << "EVENT: " << status32_to_string( i2c_status( *i2c_ )() ) << std::endl;
+    // stream() << "EVENT: " << status32_to_string( i2c_status( *i2c_ )() ) << std::endl;
+    status_ = i2c_status( *i2c_ )();
+    if ( i2c_->SR1 & RxNE ) {
+        stream() << "\ti2c irq data=" << rxd_.load() << std::endl;
+        rxd_ = i2c_->DR;
+        recv_[ recvp_++ % recv_.size() ] = rxd_.load();
+    } else {
+        i2c_->CR2 &= ~ITEVTEN;
+    }
 }
 
 void
