@@ -97,21 +97,10 @@ namespace stm32f103 {
     };
 
     //---------------------------------------
-    template< DMA_CHANNEL >
-    struct dma_buffer_size {
-        typedef uint8_t type;
-        static constexpr size_t value = 0;
-    };
-    
-    template<> struct dma_buffer_size< DMA_ADC1 > { static constexpr size_t value = 32; typedef uint16_t type; };
-    template<> struct dma_buffer_size< DMA_I2C1_RX > { static constexpr size_t value = 32; };
-    template<> struct dma_buffer_size< DMA_I2C1_TX > { static constexpr size_t value = 32; };
-    template<> struct dma_buffer_size< DMA_I2C2_RX > { static constexpr size_t value = 32; };
-    template<> struct dma_buffer_size< DMA_I2C2_TX > { static constexpr size_t value = 32; };    
 
-    template< size_t size >
-    struct alignas( 4 ) dma_buffer {
-        uint8_t data [ size ];
+    template< size_t size, typename T >
+    struct alignas( sizeof(T) ) dma_buffer {
+        T data [ size ];
     };
 
     template< DMA_CHANNEL channel >
