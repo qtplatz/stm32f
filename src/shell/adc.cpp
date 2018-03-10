@@ -21,6 +21,7 @@ extern "C" {
 namespace stm32f103 {
     static dma_channel_t< DMA_ADC1 > * __dma_adc1;
     static uint8_t __adc1_dma[ sizeof( dma_channel_t< DMA_ADC1 > ) ];
+    static uint16_t __adc1_data[ 32 ];
 };
 
 
@@ -42,7 +43,8 @@ adc::~adc()
 void
 adc::attach( dma& dma )
 {
-    __dma_adc1 = new (&__adc1_dma) dma_channel_t< DMA_ADC1 >( dma );
+    __dma_adc1 = new (&__adc1_dma) dma_channel_t< DMA_ADC1 >( dma, 0, 0 );
+    __dma_adc1->set_receive_buffer( reinterpret_cast< uint8_t *>( __adc1_data ), 32 );
 
     adc_->CR1 |= (1 << 8); // SCAN
     adc_->CR2 |= 0x07 << 17; // SWSTART

@@ -75,7 +75,7 @@ namespace stm32f103 {
 
     template<> struct peripheral_address< DMA_ADC1 > {
         static constexpr uint32_t value = ADC1_BASE + offsetof( ADC, DR );
-        static constexpr uint32_t dma_ccr = PL_High | DMA_ReadFromPeripheral | 1 << 10 | 1 << 8 | CIRC;
+        static constexpr uint32_t dma_ccr = PL_High | DMA_ReadFromPeripheral | (1 << 10) | (1 << 8) | CIRC; // 16bit,16bit
     };
 
     template<> struct peripheral_address< DMA_I2C1_RX > {
@@ -118,8 +118,8 @@ namespace stm32f103 {
     class dma_channel_t {
         dma& dma_;
     public:
-        dma_channel_t( dma& dma ) : dma_( dma ) {
-            dma.init_channel( channel, peripheral_address, buffer.data, sizeof(buffer.data), dma_ccr );
+        dma_channel_t( dma& dma, uint8_t * data, uint16_t size ) : dma_( dma ) {
+            dma.init_channel( channel, peripheral_address, data, size, dma_ccr );
         }
 
         inline void enable( bool enable ) {
@@ -140,7 +140,6 @@ namespace stm32f103 {
         
         static constexpr uint32_t dma_ccr = peripheral_address< channel >::dma_ccr;
         static constexpr uint32_t peripheral_address = peripheral_address< channel >::value;
-        dma_buffer< dma_buffer_size< channel >::value > buffer;
     };
 
 

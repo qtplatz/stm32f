@@ -298,14 +298,14 @@ i2c::attach( dma& dma, DMA_Direction dir )
 
     if ( addr == I2C1_BASE ) {
         if ( dir == DMA_Rx || dir == DMA_Both )
-            __dma_i2c1_rx = new (&__i2c1_rx_dma) dma_channel_t< DMA_I2C1_RX >( dma );            
+            __dma_i2c1_rx = new (&__i2c1_rx_dma) dma_channel_t< DMA_I2C1_RX >( dma, 0, 0 );
         if ( dir == DMA_Tx || dir == DMA_Both )
-            __dma_i2c1_tx = new (&__i2c1_tx_dma) dma_channel_t< DMA_I2C1_TX >( dma );
+            __dma_i2c1_tx = new (&__i2c1_tx_dma) dma_channel_t< DMA_I2C1_TX >( dma, 0, 0 );
     } else if ( addr == I2C2_BASE ) {
         if ( dir == DMA_Rx || dir == DMA_Both )        
-            __dma_i2c2_rx = new (&__i2c2_rx_dma) dma_channel_t< DMA_I2C2_RX >( dma );
+            __dma_i2c2_rx = new (&__i2c2_rx_dma) dma_channel_t< DMA_I2C2_RX >( dma, 0, 0 );
         if ( dir == DMA_Tx || dir == DMA_Both )
-            __dma_i2c2_tx = new (&__i2c2_tx_dma) dma_channel_t< DMA_I2C2_TX >( dma );            
+            __dma_i2c2_tx = new (&__i2c2_tx_dma) dma_channel_t< DMA_I2C2_TX >( dma, 0, 0 );            
     }
 }
 
@@ -515,10 +515,6 @@ namespace stm32f103 {
         template< typename T >
         bool operator()( T& dma_channel, uint8_t address, uint8_t * data, size_t size ) const {
 
-            // bzero
-            for ( size_t i = 0; sizeof( dma_channel.buffer.data ); ++i )
-                dma_channel.buffer.data[ i ] = 0;
-            
             scoped_i2c_start start( i2c );
             if ( start() ) { // generate start condition (master start)
                 if ( i2c_address< Transmitter >()( i2c, address ) ) {
