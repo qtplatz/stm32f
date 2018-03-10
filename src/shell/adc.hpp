@@ -13,6 +13,8 @@ namespace stm32f103 {
     struct ADC;
     enum PERIPHERAL_BASE : uint32_t;
 
+    class dma;
+
     class adc {
         adc( const adc& ) = delete;
         adc& operator = ( const adc& ) = delete;
@@ -24,6 +26,7 @@ namespace stm32f103 {
         adc();
         ~adc();
         void init( PERIPHERAL_BASE );
+        void attach( dma& );
         operator bool () const { return adc_; }
 
         bool start_conversion(); // software trigger

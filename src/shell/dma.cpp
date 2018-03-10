@@ -52,6 +52,7 @@ void
 dma::init( stm32f103::DMA_BASE addr )
 {
     lock_.clear();
+    interrupt_status_ = 0;
 
     if ( auto DMA = reinterpret_cast< volatile stm32f103::DMA * >( addr ) ) {
         dma_ = DMA;
@@ -95,31 +96,24 @@ dma::init_channel( DMA_CHANNEL channel_number
     channel.CMAR = reinterpret_cast< decltype( channel.CMAR ) >( buffer_addr );
     channel.CNDTR = buffer_size;
 
-    channel.CCR = ( channel.CCR & 0xffff800f ) | dma_ccr;
+    //channel.CCR = ( channel.CCR & 0xffff800f ) | dma_ccr;
+    channel.CCR = dma_ccr;
 
     if ( reinterpret_cast< uint32_t >( const_cast< DMA * >( dma_ ) ) == DMA1_BASE ) {
         enable_interrupt( IRQn( DMA1_Channel1_IRQn + channel_number ) );
     } else {
         enable_interrupt( IRQn( DMA2_Channel1_IRQn + channel_number ) );
     }
-
-    // 1. Set the peripheral register address in the DMA_CPARx register. The data will be
-    // moved from/ to this address to/ from the memory after the peripheral event.
-    // 2. Set the memory address in the DMA_CMARx register. The data will be written to or
-    // read from this memory after the peripheral event.
-    // 3. Configure the total number of data to be transferred in the DMA_CNDTRx register.
-    // After each peripheral event, this value will be decremented.
-    // 4. Configure the channel priority using the PL[1:0] bits in the DMA_CCRx register
-    // 5. Configure data transfer direction, circular mode, peripheral & memory incremented
-    // mode, peripheral & memory data size, and interrupt after half and/or full transfer in the
-    // DMA_CCRx register
-    // 6. Activate the channel by setting the ENABLE bit in the DMA_CCRx register.
 }
 
 void
 dma::enable( uint32_t channel_number, bool enable )
 {
     if ( enable ) {
+        while ( !lock_.test_and_set( std::memory_order_acquire ) )
+            ;
+        interrupt_status_ &= ~( 0x0f << channel_number );
+        lock_.clear();
         dmaChannel( channel_number ).CCR |= EN | TCIE | TEIE; // channel enable, transfer complete interrupt enable, error irq
     } else {
         dmaChannel( channel_number ).CCR &= ~( EN | TCIE );
@@ -155,20 +149,36 @@ dma::set_receive_buffer( uint32_t channel_number, uint8_t * buffer, size_t size 
 }
 
 bool
-dma::transfer_complete( uint32_t channel ) const
+dma::transfer_complete( uint32_t channel )
 {
-    // stream() << "dma::transfer_complete(" << channel << ")=" << dma_->ISR << ", " << dma_->channels[ channel ].CNDTR << std::endl;
-    return dma_->ISR & ( TCIF << ( channel * 4 ) );
+    uint32_t isr(0);
+    
+    while ( ! lock_.test_and_set( std::memory_order_acquire ) )
+            ;
+    isr = interrupt_status_.load();
+    lock_.clear();
+
+    return ( ( isr >> (channel * 4) ) & TCIF );
 }
 
-void
-dma::transfer_complete_clear( uint32_t channel )
-{
-    dma_->ISR |= ( TCIF << ( channel * 4 ) );
-}
 
 void
 dma::handle_interrupt( uint32_t channel )
 {
-    stream() << "dma::handle_interrupt: " << channel << std::endl;
+    while ( !lock_.test_and_set( std::memory_order_acquire ) )
+        ;
+    uint32_t flag = dma_->ISR;
+    interrupt_status_ = flag;
+    lock_.clear();
+
+    dma_->IFCR |= (0x0f << (channel * 4)) & flag;
+
+    auto x = flag >> ( channel * 4 );
+
+    stream() << "\tDMA: handle_interrupt: " << channel << " ISR=" << flag << " "
+             << ((x & 0x8) ? "transfer error, " : "")
+             << ((x & 0x4) ? "half transfer, " : "")
+             << ((x & 0x2) ? "transfer complete, " : "")
+             << ((x & 0x1) ? "global interrupt, " : "")
+             << std::endl;
 }

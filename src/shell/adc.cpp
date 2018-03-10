@@ -5,6 +5,8 @@
 //
 
 #include "adc.hpp"
+#include "dma.hpp"
+#include "dma_channel.hpp"
 #include "stm32f103.hpp"
 #include "stream.hpp"
 #include <atomic>
@@ -15,6 +17,14 @@ extern "C" {
     void enable_interrupt( stm32f103::IRQn_type IRQn );
     void disable_interrupt( stm32f103::IRQn_type IRQn );
 }
+
+namespace stm32f103 {
+    static dma_channel_t< DMA_ADC1 > * __dma_adc1;
+    static uint8_t __adc1_dma[ sizeof( dma_channel_t< DMA_ADC1 > ) ];
+};
+
+
+extern stm32f103::dma __dma0;
 
 using namespace stm32f103;
 
@@ -27,6 +37,19 @@ adc::adc() : adc_( 0 )
 
 adc::~adc()
 {
+}
+
+void
+adc::attach( dma& dma )
+{
+    __dma_adc1 = new (&__adc1_dma) dma_channel_t< DMA_ADC1 >( dma );
+
+    adc_->CR1 |= (1 << 8); // SCAN
+    adc_->CR2 |= 0x07 << 17; // SWSTART
+    adc_->CR2 |= 0x01 << 1;  // Continuous conversion mode
+    adc_->CR2 |= 0x01 << 8;  // DMA enable
+
+    __dma_adc1->enable( true );
 }
 
 void

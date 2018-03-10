@@ -486,15 +486,12 @@ namespace stm32f103 {
         template< typename T >
         bool operator()( T& dma_channel, uint8_t address, const uint8_t * data, size_t size ) const {
 
-            for ( size_t i = 0; i < size && i < sizeof( dma_channel.buffer.data ); ++i )
-                dma_channel.buffer.data[ i ] = data[ i ];
-
             scoped_i2c_start start( _ );
             if ( start() ) { // generate start condition (master start)
                 if ( i2c_address< Transmitter >()( _, address ) ) {
-                    dma_channel.set_transfer_buffer( dma_channel.buffer.data, size );
-                    i2c_dma_enable< true >()( _ );
+                    dma_channel.set_transfer_buffer( data, size );
                     dma_channel.enable( true );
+                    i2c_dma_enable< true >()( _ );
                     size_t count = 0x7fff;
                     while ( --count && !dma_channel.transfer_complete() )
                         ;
@@ -526,13 +523,11 @@ namespace stm32f103 {
             if ( start() ) { // generate start condition (master start)
                 if ( i2c_address< Transmitter >()( i2c, address ) ) {
                     i2c_dma_enable< true >()( i2c );
-                    dma_channel.set_receive_buffer( dma_channel.buffer.data, size );
+                    dma_channel.set_receive_buffer( data, size );
                     dma_channel.enable( true );
                     size_t count = 0x7fff;
                     while ( --count && !dma_channel.transfer_complete() )
                         ;
-                    for ( size_t i = 0; i < size && i < sizeof( dma_channel.buffer.data ); ++i )
-                        data[ i ] = dma_channel.buffer.data[ i ];
                     return count != 0;
                 } else {
                     stream() << "i2c::dma_master_transfer -- address phase failed: " << status32_to_string( i2c_status( i2c )() ) << std::endl;

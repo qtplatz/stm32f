@@ -14,24 +14,24 @@
 namespace stm32f103 {
 
     // DMA1
-    // Channel1 := ADC1
-    // Channel2 := SPI1_RX | USART3_TX
-    // Channel3 := SPI1_TX | USART3_RX
-    // Channel4 := SPI2_RX | USART1_TX | I2C2_TX
-    // Channel5 := SPI2_TX | USART1_RX | I2C2_RX
-    // Channel6 := USART2_RX | I2C1_TX
-    // Channel7 := USART2_TX | I2C1_RX
+    // 0 Channel1 := ADC1
+    // 1 Channel2 := SPI1_RX | USART3_TX
+    // 2 Channel3 := SPI1_TX | USART3_RX
+    // 3 Channel4 := SPI2_RX | USART1_TX | I2C2_TX
+    // 4 Channel5 := SPI2_TX | USART1_RX | I2C2_RX
+    // 5 Channel6 := USART2_RX | I2C1_TX
+    // 6 Channel7 := USART2_TX | I2C1_RX
 
     enum DMA_CHANNEL : uint32_t {
-        DMA_ADC1 = 1
-        , DMA_SPI1_RX = 2
-        , DMA_SPI1_TX = 3
+        DMA_ADC1 = 0
+        , DMA_SPI1_RX = 1
+        , DMA_SPI1_TX = 2
         //, DMA_SPI2_RX = 4
         //, DMA_SPI2_TX = 5
-        , DMA_I2C2_TX = 4
-        , DMA_I2C2_RX = 5        
-        , DMA_I2C1_TX = 6
-        , DMA_I2C1_RX = 7
+        , DMA_I2C2_TX = 3
+        , DMA_I2C2_RX = 4        
+        , DMA_I2C1_TX = 5
+        , DMA_I2C1_RX = 6
     };
 
     // p286, bit4
@@ -74,13 +74,13 @@ namespace stm32f103 {
     };
 
     template<> struct peripheral_address< DMA_ADC1 > {
-        static constexpr uint32_t value = ADC1_BASE;
-        static constexpr uint32_t dma_ccr = DMA_ReadFromPeripheral;
+        static constexpr uint32_t value = ADC1_BASE + offsetof( ADC, DR );
+        static constexpr uint32_t dma_ccr = PL_High | DMA_ReadFromPeripheral | 1 << 10 | 1 << 8 | CIRC;
     };
 
     template<> struct peripheral_address< DMA_I2C1_RX > {
         static constexpr uint32_t value = I2C1_BASE + 0x10;
-        static constexpr uint32_t dma_ccr = PL_VeryHigh | MINC;  // memory inc enable, 8bit, 8bit, dir = 'from peripheral'
+        static constexpr uint32_t dma_ccr = PL_VeryHigh | DMA_ReadFromPeripheral | MINC;  // memory inc enable, 8bit, 8bit, dir = 'from peripheral'
     };
     template<> struct peripheral_address< DMA_I2C1_TX > {
         static constexpr uint32_t value = I2C1_BASE + 0x10;
@@ -99,10 +99,11 @@ namespace stm32f103 {
     //---------------------------------------
     template< DMA_CHANNEL >
     struct dma_buffer_size {
+        typedef uint8_t type;
         static constexpr size_t value = 0;
     };
     
-    template<> struct dma_buffer_size< DMA_ADC1 > { static constexpr size_t value = 32; };
+    template<> struct dma_buffer_size< DMA_ADC1 > { static constexpr size_t value = 32; typedef uint16_t type; };
     template<> struct dma_buffer_size< DMA_I2C1_RX > { static constexpr size_t value = 32; };
     template<> struct dma_buffer_size< DMA_I2C1_TX > { static constexpr size_t value = 32; };
     template<> struct dma_buffer_size< DMA_I2C2_RX > { static constexpr size_t value = 32; };
@@ -136,10 +137,6 @@ namespace stm32f103 {
         inline bool transfer_complete() const {
             return dma_.transfer_complete( channel );
         }
-        
-        inline void transfer_complate_clear()  {
-            return dma_.transfer_complete_clear( channel );
-        }        
         
         static constexpr uint32_t dma_ccr = peripheral_address< channel >::dma_ccr;
         static constexpr uint32_t peripheral_address = peripheral_address< channel >::value;

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <array>
 #include <atomic>
 #include <cstdint>
 #include <cstddef>
@@ -39,10 +40,11 @@ namespace stm32f103 {
         volatile DMA * dma_;
 
         std::atomic_flag lock_;
-
+        std::atomic< uint32_t  > interrupt_status_;
+        
         dma( const dma& ) = delete;
         dma& operator = ( const dma& ) = delete;
-
+        
     public:
         dma();
         
@@ -63,8 +65,7 @@ namespace stm32f103 {
         void set_transfer_buffer( uint32_t channel, const uint8_t * buffer, size_t size );
         void set_receive_buffer( uint32_t channel, uint8_t * buffer, size_t size );
 
-        bool transfer_complete( uint32_t channel ) const;
-        void transfer_complete_clear( uint32_t channel );
+        bool transfer_complete( uint32_t channel );
         
         void handle_interrupt( uint32_t );
     };

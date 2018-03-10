@@ -7,6 +7,8 @@
 #include "command_processor.hpp"
 #include "ad5593.hpp"
 #include "adc.hpp"
+#include "dma.hpp"
+#include "dma_channel.hpp"
 #include "gpio.hpp"
 #include "gpio_mode.hpp"
 #include "printf.h"
@@ -356,6 +358,9 @@ adc_test( size_t argc, const char ** argv )
         if ( count == 0 )
             count = 1;
     }
+    bool use_dma( false );
+    auto it = std::find_if( argv, argv + argc, [](auto a){ return strcmp( a, "dma" ) == 0; } );
+    use_dma = it != ( argv + argc );
 
     if ( !__adc0 ) {
         using namespace stm32f103;
@@ -369,12 +374,24 @@ adc_test( size_t argc, const char ** argv )
         stream() << "adc reset & calibration: status " << (( __adc0.cr2() & 0x0c ) == 0 ? " PASS" : " FAIL" )  << std::endl;
     }
 
-    for ( size_t i = 0; i < count; ++i ) {
+    if ( use_dma ) {
+
+        __adc0.attach( __dma0 );
         if ( __adc0.start_conversion() ) { // software trigger
             uint32_t d = __adc0.data(); // can't read twince
-            stream() << "[" << int(i) << "] adc data= 0x" << d
+            stream() << "adc data= 0x" << d
                      << "\t" << int(d) << "(mV)"
                      << std::endl;
+        }
+        
+    } else {
+        for ( size_t i = 0; i < count; ++i ) {
+            if ( __adc0.start_conversion() ) { // software trigger
+                uint32_t d = __adc0.data(); // can't read twince
+                stream() << "[" << int(i) << "] adc data= 0x" << d
+                         << "\t" << int(d) << "(mV)"
+                         << std::endl;
+            }
         }
     }
 }
@@ -484,6 +501,36 @@ rcc_status( size_t argc, const char ** argv )
 }
 
 void
+dma_test( size_t argc, const char ** argv )
+{
+    uint32_t channel = 1;
+
+    auto it = std::find_if( argv, argv + argc, [](auto a){ return std::isdigit( a[0] ); } );
+    if ( it != (argv + argc) ) {
+        channel = **it - '0';
+    }
+    
+    uint32_t src [] = { 1, 2, 3, 4 };
+    uint32_t dst [ 4 ] = { 0 };
+
+    using namespace stm32f103;
+    constexpr uint32_t ccr = MEM2MEM | PL_High | 2 << 10 | 2 << 8 | MINC | PINC;
+
+    __dma0.init_channel( DMA_CHANNEL(channel), reinterpret_cast< uint32_t >( src ), reinterpret_cast< uint8_t * >( dst ), 4, ccr );
+    __dma0.enable( DMA_CHANNEL(channel), true );
+
+    size_t count = 2000;
+    while ( ! __dma0.transfer_complete( DMA_CHANNEL(channel) ) && --count)
+        ;
+
+    for ( int i = 0; i < 4; ++i )
+        stream() << src[i] << " == " << dst[ i ] << std::endl;
+
+    if ( count == 0 )
+        stream() << "\tdma timeout\n";
+}
+
+void
 afio_test( size_t argc, const char ** argv )
 {
     if ( auto AFIO = reinterpret_cast< volatile stm32f103::AFIO * >( stm32f103::AFIO_BASE ) ) {    
@@ -565,7 +612,6 @@ rcc_enable( size_t argc, const char ** argv )
     }
 }
 
-
 ///////////////////////////////////////////////////////
 
 command_processor::command_processor()
@@ -593,6 +639,7 @@ static const premitive command_table [] = {
     , { "i2c2", i2c_test,       " I2C-2 test" }
     , { "i2cdetect", i2cdetect, " i2cdetect [0|1]" }
     , { "ad5593", ad5593_test,  " ad5593" }
+    , { "dma",    dma_test,     " dma" }
 };
 
 bool
