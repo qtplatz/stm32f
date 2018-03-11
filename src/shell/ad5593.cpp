@@ -26,7 +26,6 @@
 #include "i2c.hpp"
 
 using namespace ad5593;
-#define USE_DMA  0
 
 bool
 ad5593dev::write( uint8_t addr, uint16_t value )

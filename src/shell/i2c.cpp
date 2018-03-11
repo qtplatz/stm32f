@@ -297,15 +297,35 @@ i2c::attach( dma& dma, DMA_Direction dir )
              << std::endl;
 
     if ( addr == I2C1_BASE ) {
-        if ( dir == DMA_Rx || dir == DMA_Both )
-            __dma_i2c1_rx = new (&__i2c1_rx_dma) dma_channel_t< DMA_I2C1_RX >( dma, 0, 0 );
-        if ( dir == DMA_Tx || dir == DMA_Both )
-            __dma_i2c1_tx = new (&__i2c1_tx_dma) dma_channel_t< DMA_I2C1_TX >( dma, 0, 0 );
+        if ( dir == DMA_Rx || dir == DMA_Both ) {
+            if ( __dma_i2c1_rx = new (&__i2c1_rx_dma) dma_channel_t< DMA_I2C1_RX >( dma, 0, 0 ) ) {
+                __dma_i2c1_rx->set_callback( +[]( uint32_t flag ){
+                        stream() << "i2c-1 rx irq: " << flag << std::endl;
+                    });
+            }
+        }
+        if ( dir == DMA_Tx || dir == DMA_Both ) {
+            if ( __dma_i2c1_tx = new (&__i2c1_tx_dma) dma_channel_t< DMA_I2C1_TX >( dma, 0, 0 ) ) {
+                __dma_i2c1_tx->set_callback( +[]( uint32_t flag ){
+                        stream() << "i2c-1 tx irq: " << flag << std::endl;
+                    });                
+            }
+        }
     } else if ( addr == I2C2_BASE ) {
-        if ( dir == DMA_Rx || dir == DMA_Both )        
-            __dma_i2c2_rx = new (&__i2c2_rx_dma) dma_channel_t< DMA_I2C2_RX >( dma, 0, 0 );
-        if ( dir == DMA_Tx || dir == DMA_Both )
-            __dma_i2c2_tx = new (&__i2c2_tx_dma) dma_channel_t< DMA_I2C2_TX >( dma, 0, 0 );            
+        if ( dir == DMA_Rx || dir == DMA_Both ) {
+            if ( __dma_i2c2_rx = new (&__i2c2_rx_dma) dma_channel_t< DMA_I2C2_RX >( dma, 0, 0 ) ) {
+                __dma_i2c2_rx->set_callback( +[]( uint32_t flag ){
+                        stream() << "i2c-2 rx irq: " << flag << std::endl;
+                    });
+            }
+        }
+        if ( dir == DMA_Tx || dir == DMA_Both ) {
+            if ( __dma_i2c2_tx = new (&__i2c2_tx_dma) dma_channel_t< DMA_I2C2_TX >( dma, 0, 0 ) ) {
+                __dma_i2c2_tx->set_callback( +[]( uint32_t flag ){
+                        stream() << "i2c-2 tx irq: " << flag << std::endl;
+                    });
+            }
+        }
     }
 }
 
@@ -563,11 +583,19 @@ i2c::dma_transfer( uint8_t address, const uint8_t * data, size_t size )
 
     if ( base_addr == I2C1_BASE && __dma_i2c1_tx != nullptr ) {
 
-        return dma_master_transfer( *i2c_ )( *__dma_i2c1_tx, address, data, size );
+        if ( dma_master_transfer( *i2c_ )( *__dma_i2c1_tx, address, data, size ) ) {
+            while ( !__dma_i2c1_tx->transfer_complete() )
+                ;
+            return true;            
+        }
         
     } else if ( base_addr == I2C2_BASE && __dma_i2c2_tx != nullptr ) {
 
-        return dma_master_transfer( *i2c_ )( *__dma_i2c2_tx, address, data, size );
+        if ( dma_master_transfer( *i2c_ )( *__dma_i2c2_tx, address, data, size ) ) {
+            while ( !__dma_i2c2_tx->transfer_complete() )
+                ;
+            return true;            
+        }
     }
 
     return false;
@@ -595,11 +623,19 @@ i2c::dma_receive( uint8_t address, uint8_t * data, size_t size )
     
     if ( base_addr == I2C1_BASE && __dma_i2c1_rx != nullptr ) {
 
-        return dma_master_receive( *i2c_ )( *__dma_i2c1_rx, address, data, size );
+        if ( dma_master_receive( *i2c_ )( *__dma_i2c1_rx, address, data, size ) ) {
+            while ( !__dma_i2c1_rx->transfer_complete() )
+                ;
+            return true;
+        }
         
     } else if ( base_addr == I2C2_BASE && __dma_i2c2_rx != nullptr ) {
 
-        return dma_master_receive( *i2c_ )( *__dma_i2c2_rx, address, data, size );
+        if ( dma_master_receive( *i2c_ )( *__dma_i2c2_rx, address, data, size ) ) {
+            while ( !__dma_i2c2_rx->transfer_complete() )
+                ;
+            return true;
+        }
     }
 
     return false;

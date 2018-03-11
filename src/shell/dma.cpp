@@ -127,13 +127,14 @@ dma::enable( uint32_t channel_number, bool enable )
     } else {
         dmaChannel( channel_number ).CCR &= ~( EN | TCIE );
     }
+#if 0
     stream( __FILE__, __LINE__ ) << "dma dma #" << channel_number << ": " << enable << std::endl;
     stream() << "dma::enable DR: 0x" << dmaChannel( channel_number ).CMAR
              << ", size: " << int( dmaChannel( channel_number ).CNDTR )
              << ", CPAR: 0x" << dmaChannel( channel_number ).CPAR
              << ", CCR: 0x" << dmaChannel( channel_number ).CCR
              << std::endl;
-    
+#endif    
 }
 
 void
@@ -141,13 +142,14 @@ dma::set_transfer_buffer( uint32_t channel_number, const uint8_t * buffer, size_
 {
     dmaChannel( channel_number ).CMAR = reinterpret_cast< uint32_t >( buffer );
     dmaChannel( channel_number ).CNDTR = size;
-
+#if 0
     stream( __FILE__, __LINE__ ) << "set_transfer_buffer #" << channel_number
                                  << ", DR: 0x" << dmaChannel( channel_number ).CMAR
                                  << ", size: " << int( dmaChannel( channel_number ).CNDTR ) << ", " << int( size )
                                  << ", CPAR: 0x" << dmaChannel( channel_number ).CPAR
                                  << ", CCR: 0x" << dmaChannel( channel_number ).CCR
                                  << std::endl;
+#endif
 }
 
 void
@@ -188,13 +190,14 @@ dma::handle_interrupt( uint32_t channel )
         callbacks_[ channel ]( x );
     else if ( x & 0x08 )
         stream() << "\tDMA: handle_interrupt: transfer error at channel# " << channel << " ISR=" << flag << std::endl;
-
-#if 0
-    stream() << "\tDMA: handle_interrupt: " << channel << " ISR=" << flag << " "
-             << ((x & 0x8) ? "transfer error, " : "")
-             << ((x & 0x4) ? "half transfer, " : "")
-             << ((x & 0x2) ? "transfer complete, " : "")
-             << ((x & 0x1) ? "global interrupt, " : "")
-             << std::endl;
+#if 1
+    if ( callbacks_.at( channel ) == nullptr ) {
+        stream() << "\tDMA: handle_interrupt: " << channel << " ISR=" << flag << " "
+                 << ((x & 0x8) ? "transfer error, " : "")
+                 << ((x & 0x4) ? "half transfer, " : "")
+                 << ((x & 0x2) ? "transfer complete, " : "")
+                 << ((x & 0x1) ? "global interrupt, " : "")
+                 << std::endl;
+    }
 #endif
 }

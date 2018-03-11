@@ -133,25 +133,16 @@ i2c_test( size_t argc, const char ** argv )
         }
     }
     if ( use_dma ) {
-        __i2c0.attach( __dma0, i2c::DMA_Tx );  // Tx
-        __i2c1.attach( __dma0, i2c::DMA_Rx );   // Rx
+        __i2c0.attach( __dma0, i2c::DMA_Both );
+        __i2c1.attach( __dma0, i2c::DMA_Both );
     }
     
     uint8_t i2caddr = 0x10; // DA5593R
 
     while ( --argc ) {
         ++argv;
-
-        if ( strcmp( argv[0], "stop" ) == 0 ) {
-            i2cx.stop();
-        } else if ( strcmp( argv[0], "start" ) == 0 ) {
-            i2cx.start();
-        } else if ( strcmp( argv[0], "status" ) == 0 ) {
+        if ( strcmp( argv[0], "status" ) == 0 ) {
             i2cx.print_status();
-        } else if ( strcmp( argv[0], "disable" ) == 0 ) {
-            i2cx.disable();
-        } else if ( strcmp( argv[0], "enable" ) == 0 ) {
-            i2cx.enable();
         } else if ( strcmp( argv[0], "reset" ) == 0 ) {
             i2cx.reset();
         } else if ( strcmp( argv[0], "addr" ) == 0 ) {
@@ -174,12 +165,16 @@ i2c_test( size_t argc, const char ** argv )
                 stream() << "i2c " << data << " sent out." << std::endl;
             }
         } else if ( strcmp( argv[ 0 ], "dma" ) == 0 ) {
-            stream() << "--------------- dma transfer ----------------" << std::endl;
-            
             //const int8_t i2caddr = 0x04;
             const uint8_t * rp;
             constexpr static const uint8_t txd [] = { 0x00, 0x01 };
             if ( __i2c0.dma_transfer(i2caddr, txd, 2 ) ) {
+                stream() << "--------------- dma transfer ----------------" << std::endl;
+                static std::array< uint8_t, 8 > rxdata;
+                if ( __i2c0.dma_receive(i2caddr, rxdata.data(), 2 ) ) {
+                    stream() << "--------------- dma recv ----------------" << std::endl;
+                    stream() << rxdata[0] << ", " << rxdata[1] << std::endl;
+                }
             }
         }
     }
