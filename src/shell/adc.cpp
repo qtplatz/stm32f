@@ -22,7 +22,7 @@ extern "C" {
 namespace stm32f103 {
     static dma_channel_t< DMA_ADC1 > * __dma_adc1;
     static uint8_t __adc1_dma[ sizeof( dma_channel_t< DMA_ADC1 > ) ];
-    static std::array< uint16_t, 10 > __adc1_data;
+    static std::array< uint16_t, 4 > __adc1_data;
 };
 
 
@@ -47,10 +47,20 @@ adc::attach( dma& dma )
     __dma_adc1 = new (&__adc1_dma) dma_channel_t< DMA_ADC1 >( dma, 0, 0 );
     __dma_adc1->set_receive_buffer( reinterpret_cast< uint8_t * >(__adc1_data.data()), size_t( __adc1_data.size() ) );
 
-    adc_->CR1 |= (1 << 8); // SCAN
+    adc_->CR1 |= (1 << 8); // SCAN conv mode
     adc_->CR2 |= 0x07 << 17; // SWSTART
     adc_->CR2 |= 0x01 << 1;  // Continuous conversion mode
     adc_->CR2 |= 0x01 << 8;  // DMA enable
+
+    constexpr uint8_t sample_time = 07; // 239.5 cycles
+    uint32_t smpr = 0;
+    for ( size_t i = 0; i < __adc1_data.size(); ++i )
+        smpr |= sample_time << (3*i);
+    adc_->SMPR2 |= smpr;
+
+    adc_->SQR1 = (3 << 20);  // p246, Regular channel sequence length [23:20] = 3 (4-1 channels to be converted)
+    adc_->SQR2 = 0;          // p247, Regular channel sequence, 12th down to 7th
+    adc_->SQR3 = 0|(1<<5)|(2<<10)|(3<<15);      // p248, Regular channel sequence [0->1->2->3]
 
     auto callback = +[]( uint32_t flag ){
         int i = 0;

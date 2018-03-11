@@ -76,7 +76,7 @@ namespace stm32f103 {
 
     template<> struct peripheral_address< DMA_ADC1 > {
         static constexpr uint32_t value = ADC1_BASE + offsetof( ADC, DR );
-        static constexpr uint32_t dma_ccr = PL_High | DMA_ReadFromPeripheral | (1 << 10) | (1 << 8) | CIRC; // 16bit,16bit
+        static constexpr uint32_t dma_ccr = PL_High | DMA_ReadFromPeripheral | MINC | (1 << 10) | (1 << 8) | CIRC; // 16bit,16bit
     };
 
     template<> struct peripheral_address< DMA_I2C1_RX > {
