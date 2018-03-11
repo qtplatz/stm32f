@@ -23,6 +23,9 @@ namespace stm32f103 {
     static dma_channel_t< DMA_ADC1 > * __dma_adc1;
     static uint8_t __adc1_dma[ sizeof( dma_channel_t< DMA_ADC1 > ) ];
     static std::array< uint16_t, 4 > __adc1_data;
+    static std::array< uint32_t, 4 > __adc1_accumulated_data;
+    static uint32_t __number_of_adc_samples;
+    static constexpr uint32_t __number_of_accumulation = 4096;
 };
 
 
@@ -63,12 +66,24 @@ adc::attach( dma& dma )
     adc_->SQR3 = 0|(1<<5)|(2<<10)|(3<<15);      // p248, Regular channel sequence [0->1->2->3]
 
     auto callback = +[]( uint32_t flag ){
-        int i = 0;
-        for ( const auto& a: __adc1_data ) {
-            stream() << "[" << i << "]:" << __adc1_data[i] << "\t";
-            ++i;
+        if ( flag & 02 ) { // transfer complete
+            if ( ( __number_of_adc_samples++ % __number_of_accumulation ) == 0 ) {
+                std::copy( __adc1_data.begin(), __adc1_data.end(), __adc1_accumulated_data.begin() );
+            } else {
+                std::transform( __adc1_data.begin(), __adc1_data.end()
+                                , __adc1_accumulated_data.begin(), __adc1_accumulated_data.begin()
+                                , [](const uint16_t& b, const uint32_t& a){ return a + b; } );
+            }
+
+            if ( ( __number_of_adc_samples % __number_of_accumulation ) == ( __number_of_accumulation - 1 ) ) {
+                int i = 0;
+                for ( const auto& a: __adc1_accumulated_data ) {
+                    stream() << "[" << i << "]:" << a / __number_of_accumulation << "\t";
+                    ++i;
+                }
+                stream() << std::endl;
+            }
         }
-        stream() << std::endl;
     };
 
     __dma_adc1->set_callback( callback );
