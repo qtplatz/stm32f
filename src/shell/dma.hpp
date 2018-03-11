@@ -11,8 +11,6 @@
 #include <cstdint>
 #include <cstddef>
 
-// typedef void (*irq_handler_type)();
-
 // Section 13, p273 Introduction
 
 namespace stm32f103 {
@@ -65,6 +63,17 @@ namespace stm32f103 {
 
         void set_transfer_buffer( uint32_t channel, const uint8_t * buffer, size_t size );
         void set_receive_buffer( uint32_t channel, uint8_t * buffer, size_t size );
+
+        template< typename buffer_type >
+        void set_transfer_buffer( uint32_t channel, const buffer_type * buffer, size_t size ) {
+            set_transfer_buffer( channel, reinterpret_cast< const uint8_t * >( buffer ), size );
+        }
+
+        template< typename buffer_type >
+        void set_receive_buffer( uint32_t channel, buffer_type * buffer, size_t size ) {
+            set_transfer_buffer( channel, reinterpret_cast< uint8_t * >( buffer ), size );
+        }
+
         bool transfer_complete( uint32_t channel );
 
         void set_callback( uint32_t channel, void(*callback)( uint32_t ) ) {

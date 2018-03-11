@@ -116,22 +116,19 @@ namespace stm32f103 {
             dma_.enable( channel, enable );
         }
 
-        inline void set_transfer_buffer( const uint8_t * buffer, size_t size ) {
+        template< typename buffer_type >
+        inline void set_transfer_buffer( const buffer_type * buffer, size_t size ) {
             dma_.set_transfer_buffer( channel, buffer, size );
         }
 
-        inline void set_receive_buffer( uint8_t * buffer, size_t size ) {
+        template< typename buffer_type >
+        inline void set_receive_buffer( buffer_type * buffer, size_t size ) {
             dma_.set_receive_buffer( channel, buffer, size );
         }        
 
         inline bool transfer_complete() const {
             return dma_.transfer_complete( channel );
         }
-
-        // template< typename functor >
-        // inline void set_callback( functor callback ) {
-        //     dma_.set_callback( channel, &decltype(callback)::operator() );
-        // }
 
         inline void set_callback( void(*callback)( uint32_t ) ) {
             dma_.set_callback( channel, callback );

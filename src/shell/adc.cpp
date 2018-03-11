@@ -9,6 +9,7 @@
 #include "dma_channel.hpp"
 #include "stm32f103.hpp"
 #include "stream.hpp"
+#include <array>
 #include <atomic>
 #include <mutex>
 
@@ -21,7 +22,7 @@ extern "C" {
 namespace stm32f103 {
     static dma_channel_t< DMA_ADC1 > * __dma_adc1;
     static uint8_t __adc1_dma[ sizeof( dma_channel_t< DMA_ADC1 > ) ];
-    static uint16_t __adc1_data[ 32 ];
+    static std::array< uint16_t, 10 > __adc1_data;
 };
 
 
@@ -44,24 +45,25 @@ void
 adc::attach( dma& dma )
 {
     __dma_adc1 = new (&__adc1_dma) dma_channel_t< DMA_ADC1 >( dma, 0, 0 );
-    __dma_adc1->set_receive_buffer( reinterpret_cast< uint8_t *>( __adc1_data ), 32 );
+    __dma_adc1->set_receive_buffer( reinterpret_cast< uint8_t * >(__adc1_data.data()), size_t( __adc1_data.size() ) );
 
     adc_->CR1 |= (1 << 8); // SCAN
     adc_->CR2 |= 0x07 << 17; // SWSTART
     adc_->CR2 |= 0x01 << 1;  // Continuous conversion mode
     adc_->CR2 |= 0x01 << 8;  // DMA enable
 
-    // auto callback = [&]( uint32_t flag ){  stream() << "callback " << flag << std::endl; };
+    auto callback = +[]( uint32_t flag ){
+        int i = 0;
+        for ( const auto& a: __adc1_data ) {
+            stream() << "[" << i << "]:" << __adc1_data[i] << "\t";
+            ++i;
+        }
+        stream() << std::endl;
+    };
 
-    __dma_adc1->set_callback( &adc::callback ); //decltype( callback )::operator() );
+    __dma_adc1->set_callback( callback );
 
     __dma_adc1->enable( true );
-}
-
-void
-adc::callback( uint32_t flag )
-{
-    stream() << "callback " << flag << std::endl;
 }
 
 void
