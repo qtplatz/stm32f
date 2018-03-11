@@ -10,6 +10,7 @@
 #include "stream.hpp"
 #include <atomic>
 #include <cstdint>
+#include <functional>
 
 namespace stm32f103 {
 
@@ -125,6 +126,19 @@ namespace stm32f103 {
 
         inline bool transfer_complete() const {
             return dma_.transfer_complete( channel );
+        }
+
+        // template< typename functor >
+        // inline void set_callback( functor callback ) {
+        //     dma_.set_callback( channel, &decltype(callback)::operator() );
+        // }
+
+        inline void set_callback( void(*callback)( uint32_t ) ) {
+            dma_.set_callback( channel, callback );
+        }
+        
+        inline void clear_callback() {
+            dma_.clear_callback( channel );
         }
         
         static constexpr uint32_t dma_ccr = peripheral_address< channel >::dma_ccr;

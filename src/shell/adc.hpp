@@ -22,6 +22,8 @@ namespace stm32f103 {
         std::atomic_flag lock_;
         std::atomic_bool flag_;
         std::atomic< uint16_t > data_;
+        static void callback( uint32_t );
+
     public:
         adc();
         ~adc();

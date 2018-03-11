@@ -46,8 +46,8 @@ OBJCOPY = $(CROSSCOMPILE)objcopy
 
 CFLAGS   = -mcpu=cortex-m3 -mthumb -Wno-implicit-function-declaration -nostdlib -nodefaultlibs -g -O2
 CXXFLAGS = -mcpu=cortex-m3 -mthumb -std=c++17 -fno-threadsafe-statics -fno-exceptions -g -O2
-LDFLAGS = -Tstm32.ld -g -Wl,-Map=shell.map,--cref -nostdlib -nostartfiles -static -Xlinker --gc-sections -fno-exceptions
-#LDFLAGS = -Tstm32.ld -g -Wl,-Map=shell.map,--cref -static -Xlinker --gc-sections -fno-exceptions
+#LDFLAGS = -Tstm32.ld -g -Wl,-Map=shell.map,--cref -nostdlib -nostartfiles -static -Xlinker --gc-sections -fno-exceptions
+LDFLAGS = -Tstm32.ld -g -Wl,-Map=shell.map,--cref -static -nostartfiles -Xlinker --gc-sections -fno-exceptions
 
 OCDCFG = -f /usr/share/openocd/scripts/interface/stlink-v2.cfg -f /usr/share/openocd/scripts/target/stm32f1x.cfg
 

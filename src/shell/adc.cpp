@@ -51,7 +51,17 @@ adc::attach( dma& dma )
     adc_->CR2 |= 0x01 << 1;  // Continuous conversion mode
     adc_->CR2 |= 0x01 << 8;  // DMA enable
 
+    // auto callback = [&]( uint32_t flag ){  stream() << "callback " << flag << std::endl; };
+
+    __dma_adc1->set_callback( &adc::callback ); //decltype( callback )::operator() );
+
     __dma_adc1->enable( true );
+}
+
+void
+adc::callback( uint32_t flag )
+{
+    stream() << "callback " << flag << std::endl;
 }
 
 void

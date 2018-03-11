@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <cstddef>
 
-typedef void (*irq_handler_type)();
+// typedef void (*irq_handler_type)();
 
 // Section 13, p273 Introduction
 
@@ -41,7 +41,7 @@ namespace stm32f103 {
 
         std::atomic_flag lock_;
         std::atomic< uint32_t  > interrupt_status_;
-        std::array< void (*)( uint32_t ), 7 > interrupt_handlers_;
+        std::array< void(*)( uint32_t ), 7 > callbacks_;
 
         dma( const dma& ) = delete;
         dma& operator = ( const dma& ) = delete;
@@ -65,8 +65,13 @@ namespace stm32f103 {
 
         void set_transfer_buffer( uint32_t channel, const uint8_t * buffer, size_t size );
         void set_receive_buffer( uint32_t channel, uint8_t * buffer, size_t size );
-
         bool transfer_complete( uint32_t channel );
+
+        void set_callback( uint32_t channel, void(*callback)( uint32_t ) ) {
+            callbacks_.at( channel ) = callback;
+        }
+
+        void clear_callback( uint32_t channel );
         
         void handle_interrupt( uint32_t );
     };

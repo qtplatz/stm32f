@@ -59,6 +59,15 @@ dma::init( stm32f103::DMA_BASE addr )
     }
 }
 
+void
+dma::clear_callback( uint32_t channel )
+{
+    while ( !lock_.test_and_set( std::memory_order_acquire ) )
+        ;
+    callbacks_[ channel ] = nullptr;
+    lock_.clear();
+}
+
 constexpr static const DMAChannel readOnlyChannel = { 0 }; // allocated on .data (ROM)
 
 volatile DMAChannel&
@@ -175,13 +184,17 @@ dma::handle_interrupt( uint32_t channel )
 
     auto x = flag >> ( channel * 4 );
 
-    if ( interrupt_handlers_.at( channel ) )
-        interrupt_handlers_[ channel ]( x );
+    if ( callbacks_.at( channel ) )
+        callbacks_[ channel ]( x );
+    else if ( x & 0x08 )
+        stream() << "\tDMA: handle_interrupt: transfer error at channel# " << channel << " ISR=" << flag << std::endl;
 
+#if 0
     stream() << "\tDMA: handle_interrupt: " << channel << " ISR=" << flag << " "
              << ((x & 0x8) ? "transfer error, " : "")
              << ((x & 0x4) ? "half transfer, " : "")
              << ((x & 0x2) ? "transfer complete, " : "")
              << ((x & 0x1) ? "global interrupt, " : "")
              << std::endl;
+#endif
 }
