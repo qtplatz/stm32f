@@ -9,6 +9,7 @@
 #include "dma_channel.hpp"
 #include "stm32f103.hpp"
 #include "stream.hpp"
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <mutex>

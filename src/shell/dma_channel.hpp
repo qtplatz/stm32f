@@ -90,7 +90,7 @@ namespace stm32f103 {
     
     template<> struct peripheral_address< DMA_I2C2_RX > {
         static constexpr uint32_t value = I2C2_BASE + 0x10;
-        static constexpr uint32_t dma_ccr = PL_VeryHigh | MINC;  // memory inc enable, 8bit, 8bit, dir = 'from peripheral'
+        static constexpr uint32_t dma_ccr = PL_VeryHigh | DMA_ReadFromPeripheral | MINC;  // memory inc enable, 8bit, 8bit, dir = 'from peripheral'
     };
     template<> struct peripheral_address< DMA_I2C2_TX > {
         static constexpr uint32_t value = I2C2_BASE + 0x10;

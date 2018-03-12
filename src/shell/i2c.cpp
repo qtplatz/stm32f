@@ -216,9 +216,6 @@ namespace stm32f103 {
     template< bool > struct i2c_enable { inline bool operator()( volatile I2C& i2c ) {  i2c.CR1 |= PE;  return true;  } };
     template<> bool inline i2c_enable< false >::operator()( volatile I2C& i2c )  {  i2c.CR1 &= ~PE; return true;  }
 
-    template< bool > struct i2c_dma_enable { inline bool operator()( volatile I2C& i2c ) {  i2c.CR2 |= DMAEN;  return true;  } };
-    template<> bool inline i2c_dma_enable< false >::operator()( volatile I2C& i2c )  {  i2c.CR2 &= ~DMAEN; return true;  }
-
     struct i2c_reset {
         bool operator()( volatile I2C& i2c, uint8_t own_addr ) {
             if ( own_addr == 0 )
@@ -514,20 +511,20 @@ namespace stm32f103 {
             scoped_i2c_start start( _ );
             if ( start() ) { // generate start condition (master start)
                 dma_channel.set_transfer_buffer( data, size );
-                scoped_dma_channel_enable dma_channel_enable( dma_channel );
+                scoped_dma_channel_enable enable_dma_channel( dma_channel );
                 scoped_i2c_dma_enable dma_enable( _ );
                 if ( i2c_address< Transmitter >()( _, address ) ) {
                     size_t count = 0x7fff;
                     while ( --count && !dma_channel.transfer_complete() )
                         ;
                     if ( count == 0 )
-                        stream() << "dma_master_transfer timeout\n";
+                        stream(__FILE__,__LINE__) << "dma_master_transfer timeout\n";
                     return count != 0;
                 } else {
-                    stream() << "i2c::dma_master_transfer -- address phase failed: " << status32_to_string( i2c_status( _ )() ) << std::endl;
+                    stream(__FILE__,__LINE__) << "i2c::dma_master_transfer -- address phase failed: " << status32_to_string( i2c_status( _ )() ) << std::endl;
                 }
             } else {
-                stream() << "i2c::dma_master_transfer() -- can't generate start condition" << std::endl;
+                stream(__FILE__,__LINE__) << "i2c::dma_master_transfer() -- can't generate start condition" << std::endl;
             }
             return false;
         }
@@ -543,9 +540,9 @@ namespace stm32f103 {
             scoped_i2c_start start( _ );
             if ( start() ) { // generate start condition (master start)
                 dma_channel.set_receive_buffer( data, size );
-                scoped_dma_channel_enable dma_channel_enable( dma_channel );
                 scoped_i2c_dma_enable dma_enable( _ );
                 if ( i2c_address< Receiver >()( _, address ) ) {
+                    scoped_dma_channel_enable dma_channel_enable( dma_channel );
                     size_t count = 0x7fff;
                     while ( --count && !dma_channel.transfer_complete() )
                         ;
@@ -563,18 +560,6 @@ namespace stm32f103 {
         }
     };
     
-    struct dma_slave_receive {
-        volatile I2C& i2c;
-        dma_slave_receive( volatile I2C& _i2c ) : i2c( _i2c ) {}
-        template< typename T>
-        size_t operator()( T& dma_channel, const uint8_t *& data ) const {
-            data = dma_channel.buffer.data;
-            i2c_dma_enable< true >()( i2c );
-            dma_channel.enable( true );
-            return sizeof( dma_channel.buffer.data );
-        }
-    };
-        
 }
 
 bool
