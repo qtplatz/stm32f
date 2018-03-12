@@ -323,7 +323,6 @@ void
 i2c::init( stm32f103::I2C_BASE addr )
 {
     lock_.clear();
-    rxd_ = 0;
     own_addr_ = ( addr == I2C1_BASE ) ? 0x03 : 0x04;
 
     if ( auto I2C = reinterpret_cast< volatile stm32f103::I2C * >( addr ) ) {
@@ -401,18 +400,26 @@ i2c::dmaEnable( bool enable )
 }
 
 bool
-i2c::has_dma( bool receiving ) const
+i2c::has_dma( DMA_Direction dir ) const
 {
     if ( reinterpret_cast< uint32_t >(const_cast< I2C * >(i2c_)) == I2C1_BASE ) {
-        if ( receiving )
+        if ( dir == DMA_Rx )
             return __dma_i2c1_rx != nullptr;
-        else
+        else if ( dir == DMA_Tx )
             return __dma_i2c1_tx != nullptr;
-    } else if ( reinterpret_cast< uint32_t >(const_cast< I2C * >(i2c_)) == I2C2_BASE ) {
-        if ( receiving )
-            return __dma_i2c2_rx != nullptr;
+        else if ( dir == DMA_Both )
+            return __dma_i2c1_rx != nullptr && __dma_i2c1_tx != nullptr;
         else
+            return __dma_i2c1_rx == nullptr && __dma_i2c1_tx == nullptr;
+    } else if ( reinterpret_cast< uint32_t >(const_cast< I2C * >(i2c_)) == I2C2_BASE ) {
+        if ( dir == DMA_Rx )
+            return __dma_i2c2_rx != nullptr;
+        else if ( dir == DMA_Tx )
             return __dma_i2c2_tx != nullptr;
+        else if ( dir == DMA_Both )
+            return __dma_i2c2_rx != nullptr && __dma_i2c2_tx != nullptr;
+        else
+            return __dma_i2c2_rx == nullptr && __dma_i2c2_tx == nullptr;
     }
     return false;
 }
@@ -445,8 +452,6 @@ i2c::read( uint8_t address, uint8_t * data, size_t size )
         stream() << __FUNCTION__ << " i2c_ready_wait failed\n";
         return false;
     }
-
-    stream(__FILE__,__LINE__) << "read start\n";
 
     scoped_i2c_start start( *i2c_ );
     if ( start() ) { // generate start condition
@@ -498,10 +503,10 @@ namespace stm32f103 {
 
             scoped_i2c_start start( _ );
             if ( start() ) { // generate start condition (master start)
+                dma_channel.set_transfer_buffer( data, size );
+                i2c_dma_enable< true >()( _ );
                 if ( i2c_address< Transmitter >()( _, address ) ) {
-                    dma_channel.set_transfer_buffer( data, size );
                     dma_channel.enable( true );
-                    i2c_dma_enable< true >()( _ );
                     size_t count = 0x7fff;
                     while ( --count && !dma_channel.transfer_complete() )
                         ;
@@ -527,10 +532,10 @@ namespace stm32f103 {
 
             scoped_i2c_start start( i2c );
             if ( start() ) { // generate start condition (master start)
+                dma_channel.set_receive_buffer( data, size );
+                i2c_dma_enable< true >()( i2c );
                 if ( i2c_address< Receiver >()( i2c, address ) ) {
-                    i2c_dma_enable< true >()( i2c );
-                    dma_channel.set_receive_buffer( data, size );
-                    dma_channel.enable( true );
+                    dma_channel.enable( true );            
                     size_t count = 0x7fff;
                     while ( --count && !dma_channel.transfer_complete() )
                         ;
@@ -635,11 +640,8 @@ void
 i2c::handle_event_interrupt()
 {
     // stream() << "EVENT: " << status32_to_string( i2c_status( *i2c_ )() ) << std::endl;
-    status_ = i2c_status( *i2c_ )();
     if ( i2c_->SR1 & RxNE ) {
-        stream() << "\ti2c irq data=" << rxd_.load() << std::endl;
-        rxd_ = i2c_->DR;
-        recv_[ recvp_++ % recv_.size() ] = rxd_.load();
+        stream() << "\ti2c irq" << std::endl;
     } else {
         i2c_->CR2 &= ~ITEVTEN;
     }
@@ -652,8 +654,6 @@ i2c::handle_error_interrupt()
 
     constexpr uint32_t error_condition = SMB_ALART | TIME_OUT | PEC_ERR | OVR | AF | ARLO | BERR;
     i2c_->SR1 &= ~error_condition;
-    //disable(); mdelay(1);
-    //enable(); mdelay(1);
 }
 
 //static

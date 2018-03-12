@@ -150,7 +150,8 @@ i2c_test( size_t argc, const char ** argv )
             __i2c1.init( stm32f103::I2C2_BASE );
         }
     }
-    if ( use_dma )
+
+    if ( use_dma && !i2cx.has_dma( i2c::DMA_Both ) )
         i2cx.attach( __dma0, i2c::DMA_Both );
     
     uint8_t i2caddr = 0x10; // DA5593R
@@ -169,11 +170,11 @@ i2c_test( size_t argc, const char ** argv )
         } else if ( std::isdigit( *argv[0] ) ) {
             txdata = strtox( argv[0] );
             stream() << "txdata=" << txdata << std::endl;
-        } else if ( strcmp( argv[0], "read" ) == 0 ) {
+        } else if ( strcmp( argv[0], "read" ) == 0 || strcmp( argv[0], "r" ) == 0 ) {
             if ( use_dma ) {
                 stream() << "--------------- dma recv ----------------" << std::endl;
                 if ( __i2c0.dma_receive(i2caddr, rxdata.data(), 2 ) ) {
-                    stream() << rxdata[0] << ", " << rxdata[1] << std::endl;
+                    stream() << "\ngot data: ";  std::for_each( rxdata.begin(), rxdata.end(), [](auto x){ stream() << x << ","; } ); stream() << std::endl;
                 } else {
                     stream(__FILE__,__LINE__,__FUNCTION__) << "\tread failed.";
                 }
@@ -185,10 +186,11 @@ i2c_test( size_t argc, const char ** argv )
                     stream(__FILE__,__LINE__,__FUNCTION__) << "\tread failed.";
                 }
             }
-        } else if ( strcmp( argv[0], "write" ) == 0 ) {
+        } else if ( strcmp( argv[0], "write" ) == 0 || strcmp( argv[0], "w" ) == 0 ) {
             if ( use_dma ) {
                 stream() << "\n--------------- dma transfer " << txdata << " ----------------" << std::endl;
                 if ( __i2c0.dma_transfer(i2caddr, &txdata, 1 ) ) {
+                    stream() << "\n--------- " << txdata << " ----- dma transferred\n";
                 } else {
                     stream(__FILE__,__LINE__,__FUNCTION__) << "\tdma transfer failed.";
                 }

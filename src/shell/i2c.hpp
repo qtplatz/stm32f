@@ -45,9 +45,6 @@ namespace stm32f103 {
         std::array< uint8_t, 32 > recv_;
 
     public:
-        std::atomic< uint32_t > status_;
-        std::atomic< uint32_t > rxd_;
-        
         i2c();
 
         enum DMA_Direction { DMA_None, DMA_Tx, DMA_Rx, DMA_Both };
@@ -75,7 +72,7 @@ namespace stm32f103 {
         bool enable();
 
         bool dmaEnable( bool );
-        bool has_dma( bool receiving ) const;
+        bool has_dma( DMA_Direction ) const;
 
         void set_own_addr( uint8_t );
         uint8_t own_addr() const;
