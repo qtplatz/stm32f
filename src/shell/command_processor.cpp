@@ -538,7 +538,8 @@ dma_test( size_t argc, const char ** argv )
     constexpr uint32_t ccr = MEM2MEM | PL_High | 2 << 10 | 2 << 8 | MINC | PINC;
 
     __dma0.init_channel( DMA_CHANNEL(channel), reinterpret_cast< uint32_t >( src ), reinterpret_cast< uint8_t * >( dst ), 4, ccr );
-    __dma0.enable( DMA_CHANNEL(channel), true );
+
+    stm32f103::scoped_dma_channel_enable<stm32f103::dma> enable_dma_channel( __dma0, channel );
 
     size_t count = 2000;
     while ( ! __dma0.transfer_complete( DMA_CHANNEL(channel) ) && --count)

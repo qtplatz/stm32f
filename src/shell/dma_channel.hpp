@@ -10,7 +10,7 @@
 #include "stream.hpp"
 #include <atomic>
 #include <cstdint>
-#include <functional>
+#include <utility>
 
 namespace stm32f103 {
 
@@ -104,6 +104,31 @@ namespace stm32f103 {
         T data [ size ];
     };
 
+    template< typename dma_channel_type >
+    class scoped_dma_channel_enable {
+        dma_channel_type& _;
+    public:
+        scoped_dma_channel_enable( dma_channel_type& t ) : _( t ) {
+            _.enable( true );
+        }
+        ~scoped_dma_channel_enable() {
+            _.enable( false );
+        }
+    };
+
+    template<>
+    class scoped_dma_channel_enable< dma > {
+        dma& dma_;
+        uint32_t channel_;
+    public:
+        scoped_dma_channel_enable( dma& dma, uint32_t channel ) : dma_( dma ), channel_( channel ) {
+            dma_.enable( channel_, true );
+        }
+        ~scoped_dma_channel_enable() {
+            dma_.enable( channel_, false );
+        }
+    };
+
     template< DMA_CHANNEL channel >
     class dma_channel_t {
         dma& dma_;
@@ -140,6 +165,7 @@ namespace stm32f103 {
         
         static constexpr uint32_t dma_ccr = peripheral_address< channel >::dma_ccr;
         static constexpr uint32_t peripheral_address = peripheral_address< channel >::value;
+        static constexpr uint32_t channel_number = channel;
     };
 
 
