@@ -179,32 +179,22 @@ namespace stm32f103 {
         volatile I2C& _;
         i2c_transmitter( volatile I2C& t ) : _( t ) {}
 
-        inline bool operator()( uint8_t data ) {
+        inline bool operator << ( uint8_t data ) {
             constexpr size_t byte_transferred = (( TRA | BUSY | MSL ) << 16) | TxE | BTF; // /*0x00070084*/
-
             _.DR = data;
-
             size_t count = 0x7fff;
             i2c_status st( _ );
             while ( !st.is_equal( byte_transferred ) && --count )
                 ;
             return st.is_equal( byte_transferred );
         }
-    };
 
-    // polling
-    struct i2c_receiver {
-        volatile I2C& _;
-        i2c_receiver( volatile I2C& t ) : _( t ) {}
-        
-        inline bool operator()( uint8_t& data ) {
+        inline bool operator >> ( uint8_t& data ) {
             constexpr size_t byte_received = (( BUSY | MSL ) << 16) | RxNE;
             size_t count = 0x7fff;
             i2c_status st( _ );
-
             while ( !st.is_equal( byte_received ) && --count )
                 ;
-
             if ( st.is_equal( byte_received ) ) {
                 data = _.DR;
                 return true;
@@ -456,19 +446,20 @@ i2c::read( uint8_t address, uint8_t * data, size_t size )
         return false;
     }
 
-    status_ = 0;
+    stream(__FILE__,__LINE__) << "read start\n";
+
     scoped_i2c_start start( *i2c_ );
     if ( start() ) { // generate start condition
         if ( i2c_address< Receiver >()( *i2c_, address ) ) { // address phase
-            i2c_receiver read( *i2c_ );
-            auto rp = data;
-
-            i2c_->CR2 |= ITEVTEN;
-            while( size && read( *rp++ ) )
+            i2c_transmitter reader( *i2c_ );
+            while( size && ( reader >> *data++ ) )
                 --size;
-
             return size == 0;
+        } else {
+            stream(__FILE__,__LINE__,__FUNCTION__) << "address phase failed\n";
         }
+    } else {
+        stream(__FILE__,__LINE__,__FUNCTION__) << "generate start condition failed\n";
     }
     return false;
 }
@@ -479,7 +470,7 @@ i2c::write( uint8_t address, const uint8_t * data, size_t size )
     i2c_enable< true >()( *i2c_ );
 
     if ( ! i2c_ready_wait( *i2c_, own_addr_ )() ) {
-        stream() << __FUNCTION__ << " i2c_ready_wait failed\n";
+        stream(__FILE__,__LINE__) << __FUNCTION__ << " i2c_ready_wait failed\n";
         return false;
     }
 
@@ -487,9 +478,8 @@ i2c::write( uint8_t address, const uint8_t * data, size_t size )
 
     if ( start() ) {    
         if ( i2c_address< Transmitter >()( *i2c_, address ) ) { // address phase
-            i2c_transmitter write( *i2c_ );
-
-            while ( size && write( *data++ ) )
+            i2c_transmitter writer( *i2c_ );
+            while ( size && ( writer << *data++ ) )
                 --size;
             return size == 0;
         }
@@ -537,7 +527,7 @@ namespace stm32f103 {
 
             scoped_i2c_start start( i2c );
             if ( start() ) { // generate start condition (master start)
-                if ( i2c_address< Transmitter >()( i2c, address ) ) {
+                if ( i2c_address< Receiver >()( i2c, address ) ) {
                     i2c_dma_enable< true >()( i2c );
                     dma_channel.set_receive_buffer( data, size );
                     dma_channel.enable( true );

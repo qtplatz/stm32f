@@ -62,6 +62,24 @@ strtod( const char * s )
     return num * sign;
 }
 
+uint32_t
+strtox( const char * s )
+{
+    uint32_t xnum = 0;
+    while ( *s && ( ('0' <= *s && *s <= '9') || ('a' <= *s && *s <= 'f') || ('A' <= *s && *s <= 'F') ) ) {
+        uint8_t x = 0;
+        if ( '0' <= *s && *s <= '9' )
+            x = *s - '0';
+        else if ( 'a' <= *s && *s <= 'f' )
+            x = *s - 'a' + 10;
+        else if ( 'A' <= *s && *s <= 'F' )
+            x = *s - 'A' + 10;
+        xnum = (xnum << 4) | x;
+        ++s;
+    }
+    return xnum;
+}
+
 void
 i2cdetect( size_t argc, const char ** argv )
 {
@@ -118,62 +136,68 @@ i2c_test( size_t argc, const char ** argv )
     // (see RM0008, p180, Table 55)
     // I2C ALT function  REMAP=0 { SCL,SDA } = { PB6, PB7 }, REMAP=1 { PB8, PB9 }
     // GPIO config in p167, Table 27
-    if ( use_dma || ( id == 0 ) ) {
+    if ( id == 0 ) {
         if ( ! __i2c0 ) {
             gpio_mode()( stm32f103::PB6, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,  stm32f103::GPIO_MODE_OUTPUT_2M ); // SCL
             gpio_mode()( stm32f103::PB7, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,  stm32f103::GPIO_MODE_OUTPUT_2M ); // SDA
             __i2c0.init( stm32f103::I2C1_BASE );
         }
     }
-    if ( use_dma || ( id == 1 ) ) {
+    if ( id == 1 ) {
         if ( ! __i2c1 ) {
             gpio_mode()( stm32f103::PB10, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M ); // SCL
             gpio_mode()( stm32f103::PB11, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M ); // SDA
             __i2c1.init( stm32f103::I2C2_BASE );
         }
     }
-    if ( use_dma ) {
-        __i2c0.attach( __dma0, i2c::DMA_Both );
-        __i2c1.attach( __dma0, i2c::DMA_Both );
-    }
+    if ( use_dma )
+        i2cx.attach( __dma0, i2c::DMA_Both );
     
     uint8_t i2caddr = 0x10; // DA5593R
-
+    std::array< uint8_t, 2 > rxdata;
+    static uint8_t txdata; // = 0x70;
+    if ( txdata == 0 )
+        txdata = 0x71;
+    
     while ( --argc ) {
         ++argv;
         if ( strcmp( argv[0], "status" ) == 0 ) {
             i2cx.print_status();
         } else if ( strcmp( argv[0], "reset" ) == 0 ) {
             i2cx.reset();
-        } else if ( strcmp( argv[0], "addr" ) == 0 ) {
-            if ( argc ) {
-                --argc;
-                ++argv;
-                i2caddr = strtod( argv[ 0 ] );
-            }
+            i2cx.print_status();
+        } else if ( std::isdigit( *argv[0] ) ) {
+            txdata = strtox( argv[0] );
+            stream() << "txdata=" << txdata << std::endl;
         } else if ( strcmp( argv[0], "read" ) == 0 ) {
-            uint8_t data;
-            i2cx.enable();
-            if ( i2cx.read( i2caddr, &data, 1 ) ) {
-                stream() << "got data: " << data << std::endl;
+            if ( use_dma ) {
+                stream() << "--------------- dma recv ----------------" << std::endl;
+                if ( __i2c0.dma_receive(i2caddr, rxdata.data(), 2 ) ) {
+                    stream() << rxdata[0] << ", " << rxdata[1] << std::endl;
+                } else {
+                    stream(__FILE__,__LINE__,__FUNCTION__) << "\tread failed.";
+                }
+            } else {
+                stream() << "------- i2c read -----------" << std::endl;
+                if ( i2cx.read( i2caddr, rxdata.data(), rxdata.size() ) ) {
+                    stream() << "\ngot data: ";  std::for_each( rxdata.begin(), rxdata.end(), [](auto x){ stream() << x << ","; } ); stream() << std::endl;
+                } else {
+                    stream(__FILE__,__LINE__,__FUNCTION__) << "\tread failed.";
+                }
             }
         } else if ( strcmp( argv[0], "write" ) == 0 ) {
-            i2cx.enable();
-            //if ( i2cx.write( i2caddr, 'A' ) ) {
-            uint8_t data = 'a';
-            if ( i2cx.write( i2caddr, &data, 1 ) ) {
-                stream() << "i2c " << data << " sent out." << std::endl;
-            }
-        } else if ( strcmp( argv[ 0 ], "dma" ) == 0 ) {
-            //const int8_t i2caddr = 0x04;
-            const uint8_t * rp;
-            constexpr static const uint8_t txd [] = { 0x00, 0x01 };
-            if ( __i2c0.dma_transfer(i2caddr, txd, 2 ) ) {
-                stream() << "--------------- dma transfer ----------------" << std::endl;
-                static std::array< uint8_t, 8 > rxdata;
-                if ( __i2c0.dma_receive(i2caddr, rxdata.data(), 2 ) ) {
-                    stream() << "--------------- dma recv ----------------" << std::endl;
-                    stream() << rxdata[0] << ", " << rxdata[1] << std::endl;
+            if ( use_dma ) {
+                stream() << "\n--------------- dma transfer " << txdata << " ----------------" << std::endl;
+                if ( __i2c0.dma_transfer(i2caddr, &txdata, 1 ) ) {
+                } else {
+                    stream(__FILE__,__LINE__,__FUNCTION__) << "\tdma transfer failed.";
+                }
+            } else {
+                stream() << "\n------- i2c write " << txdata << " -----------" << std::endl;
+                if ( i2cx.write( i2caddr, &txdata, 1 ) ) {
+                    stream() << "\ni2c " << txdata << " sent out." << std::endl;
+                } else {
+                    stream(__FILE__,__LINE__,__FUNCTION__) << "\tdma write failed.";
                 }
             }
         }

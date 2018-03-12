@@ -26,8 +26,10 @@ class stream {
 public:
     stream( stm32f103::uart& );
     stream() : uart_( __uart0 ) {}
-    stream( const char * file, const int line ) : uart_( __uart0 ) {
-        stream() << file << ": " << line << " ";
+    stream( const char * file, const int line, const char * function = 0 ) : uart_( __uart0 ) {
+        stream() << file << " " << line << ": ";
+        if ( function )
+            stream() << function << "()\t";
     }
     void flush();
 
