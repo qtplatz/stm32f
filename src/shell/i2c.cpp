@@ -176,6 +176,7 @@ namespace stm32f103 {
             while( !st.is_equal( byte_transmitting ) && --count )
                 ;
             return st.is_equal( byte_transmitting );
+            return true;
         }
     };
 
@@ -524,9 +525,12 @@ namespace stm32f103 {
             scoped_i2c_start start( _ );
             if ( start() ) { // generate start condition (master start)
                 dma_channel.set_transfer_buffer( data, size );
-                scoped_dma_channel_enable enable_dma_channel( dma_channel );
-                scoped_i2c_dma_enable dma_enable( _ );
+                
                 if ( i2c_address< Transmitter >()( _, address ) ) {
+
+                    scoped_dma_channel_enable enable_dma_channel( dma_channel );
+                    scoped_i2c_dma_enable dma_enable( _ );
+                    
                     size_t count = 0x7fff;
                     while ( --count && !dma_channel.transfer_complete() )
                         ;
@@ -554,13 +558,17 @@ namespace stm32f103 {
 
             scoped_i2c_start start( _ );
             if ( start() ) { // generate start condition (master start)
+
                 dma_channel.set_receive_buffer( data, size );
+
                 if ( i2c_address< Receiver >()( _, address ) ) {
+
                     scoped_dma_channel_enable dma_channel_enable( dma_channel );
                     scoped_i2c_dma_enable dma_enable( _ );
+
                     size_t count = 0x7fff;
                     while ( --count && !dma_channel.transfer_complete() ) {
-                        volatile auto x = i2c_status( _ )();
+                        volatile auto x = i2c_status( _ )(); // this seems critical
                     }
                     if ( count == 0 )
                         stream(__FILE__,__LINE__) << "i2c::dma_master_transfer -- timeout: " << std::endl;
