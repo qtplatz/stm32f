@@ -180,7 +180,18 @@ namespace stm32f103 {
     };
 
     template<> inline bool i2c_address<Receiver>::operator()( volatile I2C& _, uint8_t address ) {
+
         _.DR = (address << 1) | 1;
+#if 0        
+        size_t count = 0x7fff;
+        constexpr uint32_t master_receiver = (( BUSY | MSL ) << 16) | ADDR;
+        i2c_status st( _ );
+        while( !st.is_equal( master_receiver ) && --count )
+            ;        
+        //while ( ! (_.SR1 & ADDR ) )
+        //    volatile auto x = i2c_status( _ )();
+        return count != 0;
+#endif
         return true;
     }
 
@@ -297,14 +308,14 @@ i2c::attach( dma& dma, DMA_Direction dir )
         if ( dir == DMA_Rx || dir == DMA_Both ) {
             if ( __dma_i2c1_rx = new (&__i2c1_rx_dma) dma_channel_t< DMA_I2C1_RX >( dma, 0, 0 ) ) {
                 __dma_i2c1_rx->set_callback( +[]( uint32_t flag ){
-                        stream() << "i2c-1 rx irq: " << flag << std::endl;
+                        stream() << "\n\tI2C-1 Rx irq: " << flag << std::endl;
                     });
             }
         }
         if ( dir == DMA_Tx || dir == DMA_Both ) {
             if ( __dma_i2c1_tx = new (&__i2c1_tx_dma) dma_channel_t< DMA_I2C1_TX >( dma, 0, 0 ) ) {
                 __dma_i2c1_tx->set_callback( +[]( uint32_t flag ){
-                        stream() << "i2c-1 tx irq: " << flag << std::endl;
+                        stream() << "\n\tI2C-1 Tx irq: " << flag << std::endl;
                     });                
             }
         }
@@ -312,14 +323,14 @@ i2c::attach( dma& dma, DMA_Direction dir )
         if ( dir == DMA_Rx || dir == DMA_Both ) {
             if ( __dma_i2c2_rx = new (&__i2c2_rx_dma) dma_channel_t< DMA_I2C2_RX >( dma, 0, 0 ) ) {
                 __dma_i2c2_rx->set_callback( +[]( uint32_t flag ){
-                        stream() << "i2c-2 rx irq: " << flag << std::endl;
+                        stream() << "\n\tI2C-2 Rx irq: " << flag << std::endl;
                     });
             }
         }
         if ( dir == DMA_Tx || dir == DMA_Both ) {
             if ( __dma_i2c2_tx = new (&__i2c2_tx_dma) dma_channel_t< DMA_I2C2_TX >( dma, 0, 0 ) ) {
                 __dma_i2c2_tx->set_callback( +[]( uint32_t flag ){
-                        stream() << "i2c-2 tx irq: " << flag << std::endl;
+                        stream() << "\n\tI2C-2 Tx irq: " << flag << std::endl;
                     });
             }
         }
@@ -503,7 +514,9 @@ namespace stm32f103 {
 
     struct dma_master_transfer {
         volatile I2C& _;
-        dma_master_transfer( volatile I2C& t ) : _( t ) {}
+        dma_master_transfer( volatile I2C& t ) : _( t ) {
+            // _.CR1 |= ACK | PE;  // ACK enable, peripheral enable
+        }
 
         template< typename T >
         bool operator()( T& dma_channel, uint8_t address, const uint8_t * data, size_t size ) const {
@@ -532,7 +545,9 @@ namespace stm32f103 {
 
     struct dma_master_receive {
         volatile I2C& _;
-        dma_master_receive( volatile I2C& t ) : _( t ) {}
+        dma_master_receive( volatile I2C& t ) : _( t ) {
+            // _.CR1 |= ACK | PE;  // ACK enable, peripheral enable
+        }
 
         template< typename T >
         bool operator()( T& dma_channel, uint8_t address, uint8_t * data, size_t size ) const {
@@ -540,15 +555,15 @@ namespace stm32f103 {
             scoped_i2c_start start( _ );
             if ( start() ) { // generate start condition (master start)
                 dma_channel.set_receive_buffer( data, size );
-                scoped_i2c_dma_enable dma_enable( _ );
                 if ( i2c_address< Receiver >()( _, address ) ) {
                     scoped_dma_channel_enable dma_channel_enable( dma_channel );
+                    scoped_i2c_dma_enable dma_enable( _ );
                     size_t count = 0x7fff;
-                    while ( --count && !dma_channel.transfer_complete() )
-                        ;
+                    while ( --count && !dma_channel.transfer_complete() ) {
+                        volatile auto x = i2c_status( _ )();
+                    }
                     if ( count == 0 )
-                        stream() << "i2c::dma_master_transfer -- timeout: " << status32_to_string( i2c_status( _ )() ) << std::endl;
-                    
+                        stream(__FILE__,__LINE__) << "i2c::dma_master_transfer -- timeout: " << std::endl;
                     return count != 0;
                 } else {
                     stream() << "i2c::dma_master_transfer -- address phase failed: " << status32_to_string( i2c_status( _ )() ) << std::endl;
@@ -576,19 +591,11 @@ i2c::dma_transfer( uint8_t address, const uint8_t * data, size_t size )
 
     if ( base_addr == I2C1_BASE && __dma_i2c1_tx != nullptr ) {
 
-        if ( dma_master_transfer( *i2c_ )( *__dma_i2c1_tx, address, data, size ) ) {
-            while ( !__dma_i2c1_tx->transfer_complete() )
-                ;
-            return true;            
-        }
+        return dma_master_transfer( *i2c_ )( *__dma_i2c1_tx, address, data, size );
         
     } else if ( base_addr == I2C2_BASE && __dma_i2c2_tx != nullptr ) {
 
-        if ( dma_master_transfer( *i2c_ )( *__dma_i2c2_tx, address, data, size ) ) {
-            while ( !__dma_i2c2_tx->transfer_complete() )
-                ;
-            return true;            
-        }
+        return dma_master_transfer( *i2c_ )( *__dma_i2c2_tx, address, data, size );
     }
 
     return false;
@@ -614,21 +621,10 @@ i2c::dma_receive( uint8_t address, uint8_t * data, size_t size )
         return false;
     }
     
-    if ( base_addr == I2C1_BASE && __dma_i2c1_rx != nullptr ) {
-
-        if ( dma_master_receive( *i2c_ )( *__dma_i2c1_rx, address, data, size ) ) {
-            while ( !__dma_i2c1_rx->transfer_complete() )
-                ;
-            return true;
-        }
-        
-    } else if ( base_addr == I2C2_BASE && __dma_i2c2_rx != nullptr ) {
-
-        if ( dma_master_receive( *i2c_ )( *__dma_i2c2_rx, address, data, size ) ) {
-            while ( !__dma_i2c2_rx->transfer_complete() )
-                ;
-            return true;
-        }
+    if ( base_addr == I2C1_BASE ) {
+        return dma_master_receive( *i2c_ )( *__dma_i2c1_rx, address, data, size );
+    } else if ( base_addr == I2C2_BASE ) {
+        return dma_master_receive( *i2c_ )( *__dma_i2c2_rx, address, data, size );
     }
 
     return false;

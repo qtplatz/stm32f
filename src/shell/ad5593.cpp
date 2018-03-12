@@ -50,9 +50,9 @@ ad5593dev::read( uint8_t addr )
         uint8_t buf[ 2 ] = { 0 };
         
         if ( use_dma_ ) {
-            return i2c_->dma_transfer( address_, &addr, 1 );
-            if ( i2c_->dma_receive( address_, buf, sizeof(buf) ) ) {
-                return uint16_t( buf[ 0 ] << 8 ) | buf[ 1 ];
+            if ( i2c_->dma_transfer( address_, &addr, 1 ) ) {
+                if ( i2c_->dma_receive( address_, buf, sizeof(buf) ) )
+                    return uint16_t( buf[ 0 ] << 8 ) | buf[ 1 ];
             }
         } else {
             i2c_->write( address_, &addr, 1 );

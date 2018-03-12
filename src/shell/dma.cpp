@@ -167,6 +167,7 @@ dma::transfer_complete( uint32_t channel )
     while ( ! lock_.test_and_set( std::memory_order_acquire ) )
             ;
     isr = interrupt_status_.load();
+    interrupt_status_ = dma_->ISR;
     lock_.clear();
 
     return ( ( isr >> (channel * 4) ) & TCIF );
