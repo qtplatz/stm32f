@@ -109,13 +109,6 @@ namespace stm32f103 {
         }
     };
 
-    struct i2c_stop {
-        inline bool operator()(volatile I2C& _ ) const {
-            _.CR1 |= STOP;
-            return true;
-        }
-    };
-
     // master start
     struct i2c_start {
         volatile I2C& _;
@@ -124,16 +117,15 @@ namespace stm32f103 {
         constexpr static uint32_t master_mode_selected = ( ( BUSY | MSL ) << 16 ) | SB;
 
         inline bool operator()() const {
-            size_t count = 3;
+            size_t count = 0x7fff;
             i2c_status st( _ );
-            
+
             _.CR1 |= START;
                 
-            count = 3;
             while( !st.is_equal( master_mode_selected ) && --count )
-                mdelay(1);
+                ;
 
-            return st.is_equal( master_mode_selected );
+            return count != 0;
         }
     };
 
@@ -153,7 +145,7 @@ namespace stm32f103 {
         scoped_i2c_start( volatile I2C& t ) : _( t ), success( false ) {}
         ~scoped_i2c_start() {
             if ( success )
-                i2c_stop()( _ );
+                _.CR1 |= STOP;
         }
         
         bool operator()() {
@@ -183,16 +175,6 @@ namespace stm32f103 {
     template<> inline bool i2c_address<Receiver>::operator()( volatile I2C& _, uint8_t address ) {
 
         _.DR = (address << 1) | 1;
-#if 0        
-        size_t count = 0x7fff;
-        constexpr uint32_t master_receiver = (( BUSY | MSL ) << 16) | ADDR;
-        i2c_status st( _ );
-        while( !st.is_equal( master_receiver ) && --count )
-            ;        
-        //while ( ! (_.SR1 & ADDR ) )
-        //    volatile auto x = i2c_status( _ )();
-        return count != 0;
-#endif
         return true;
     }
 
@@ -383,20 +365,6 @@ i2c::reset()
 }
 
 bool
-i2c::start()
-{
-    if ( ( i2c_->CR1 & PE ) == 0 )
-        i2c_enable<false>( *i2c_ )();
-    return i2c_start( *i2c_ )();
-}
-
-bool
-i2c::stop()
-{
-    return i2c_stop()( *i2c_ );
-}
-
-bool
 i2c::disable()
 {
     return i2c_enable<false>()( *i2c_ );
@@ -480,10 +448,11 @@ i2c::read( uint8_t address, uint8_t * data, size_t size )
                 --size;
             return size == 0;
         } else {
-            stream(__FILE__,__LINE__,__FUNCTION__) << "address phase failed\n";
+            stream(__FILE__,__LINE__,__FUNCTION__) << "\naddress phase failed for " << address << std::endl;
         }
     } else {
-        stream(__FILE__,__LINE__,__FUNCTION__) << "generate start condition failed\n";
+        // stream(__FILE__,__LINE__,__FUNCTION__) << "\ngenerate start condition failed for " << address << std::endl;
+        return false;
     }
     return false;
 }
@@ -516,7 +485,7 @@ namespace stm32f103 {
     struct dma_master_transfer {
         volatile I2C& _;
         dma_master_transfer( volatile I2C& t ) : _( t ) {
-            // _.CR1 |= ACK | PE;  // ACK enable, peripheral enable
+            _.CR1 |= ACK | PE;  // ACK enable, peripheral enable
         }
 
         template< typename T >
@@ -550,7 +519,7 @@ namespace stm32f103 {
     struct dma_master_receive {
         volatile I2C& _;
         dma_master_receive( volatile I2C& t ) : _( t ) {
-            // _.CR1 |= ACK | PE;  // ACK enable, peripheral enable
+            _.CR1 |= ACK | PE;  // ACK enable, peripheral enable
         }
 
         template< typename T >

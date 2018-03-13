@@ -28,6 +28,9 @@ extern stm32f103::dma __dma0;
 extern std::atomic< uint32_t > atomic_jiffies;
 extern void mdelay( uint32_t ms );
 
+static ad5593::AD5593 * __ad5593;
+static uint8_t __ad5593_allocator__[ sizeof( ad5593::AD5593 ) ];
+
 void i2c_test( size_t argc, const char ** argv );
 
 int
@@ -430,39 +433,42 @@ ad5593_test( size_t argc, const char ** argv )
         const char * argv [] = { "i2c", nullptr };
         i2c_test( 1, argv );
     }
-    size_t count = 1;
-    for ( size_t i = 1; i < argc; ++i ) {
-        if ( std::isdigit( *argv[i] ) ) {
-            count = strtod( argv[i] );
-            if ( count == 0 )
-                count = 1;
-        }
-    }
-    bool use_dma( false );
-    auto it = std::find_if( argv, argv + argc, [](auto a){ return strcmp( a, "dma" ) == 0; } );
-    use_dma = it != ( argv + argc );    
 
-    ad5593::ad5593dev ad5593( &__i2c0, 0x10, use_dma );
+    if ( __ad5593 == nullptr )
+        __ad5593 = new ( __ad5593_allocator__ ) ad5593::AD5593( __i2c0, 0x10 );
+    else
+        __ad5593->fetch();
+    
+    uint8_t i2caddr = 0x10;
 
     double volts = 1.0;
     double Vref = 3.3;
     
-    uint16_t value = uint16_t( 0.5 + volts * 4096 / Vref );
-
-    for ( size_t i = 0; i < count; ++i ) {
-
-        for ( size_t pin = 0; pin < 4; ++pin ) {
-            auto io = ad5593::io( ad5593, pin, ad5593::DAC_AND_ADC );
-            io.set( value );
-            uint16_t readValue = io.get();
-            stream() << "\t[" << pin << "] " << value << ", " << readValue;
+    while ( --argc ) {
+        ++argv;
+        if ( strcmp( argv[0], "fetch" ) == 0 ) {  // ad5593 dac 0 1 2...
+            __ad5593->fetch();
+            __ad5593->print_config();
+        } else if ( strcmp( argv[0], "dac" ) == 0 ) {  // ad5593 dac 0 1 2...
+            while ( argc && std::isdigit( *argv[1] ) ) {
+                int pin = *argv[1] - '0';
+                if ( pin < 8 )
+                    __ad5593->set_function( pin, ad5593::DAC );
+                --argc; ++argv;
+            }
+        } else if ( strcmp( argv[0], "adc" ) == 0 ) {  // ad5593 adc 0 1 2...
+            while ( argc && std::isdigit( *argv[1] ) ) {
+                int pin = *argv[1] - '0';
+                if ( pin < 8 )
+                    __ad5593->set_function( pin, ad5593::ADC );
+                --argc; ++argv;
+            }
         }
-        stream() << std::endl;
-        for ( size_t pin = 4; pin < 8; ++pin ) {
-            auto value = ad5593::io( ad5593, pin, ad5593::ADC ).get();
-            stream() << "\t[" << pin << "] " << value << "\t";
-        }
-        stream() << std::endl << std::endl;
+    }
+
+    if ( __ad5593->is_dirty() ) {
+        __ad5593->commit();
+        __ad5593->print_config();
     }
 }
 

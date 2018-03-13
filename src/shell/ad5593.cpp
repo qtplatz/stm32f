@@ -1,6 +1,6 @@
 /**************************************************************************
-** Copyright (C) 2016-2017 Toshinobu Hondo, Ph.D.
-** Copyright (C) 2016-2017 MS-Cheminformatics LLC, Toin, Mie Japan
+** Copyright (C) 2016-2018 MS-Cheminformatics LLC, Toin, Mie Japan
+** Author: Toshinobu Hondo, Ph.D.
 *
 ** Contact: toshi.hondo@qtplatz.com
 **
@@ -24,326 +24,339 @@
 
 #include "ad5593.hpp"
 #include "i2c.hpp"
+#if defined __linux
+#include <iostream>
+#include <unistd.h>
+#include <fcntl.h>
+#include <linux/i2c-dev.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <errno.h>
+#else
+#include "stream.hpp"
+#endif
+
+namespace ad5593 {
+
+    enum AD5593R_REG {
+        AD5593R_REG_NOOP           = 0x0
+        , AD5593R_REG_DAC_READBACK = 0x1
+        , AD5593R_REG_ADC_SEQ      = 0x2
+        , AD5593R_REG_CTRL         = 0x3
+        , AD5593R_REG_ADC_EN       = 0x4
+        , AD5593R_REG_DAC_EN       = 0x5
+        , AD5593R_REG_PULLDOWN     = 0x6
+        , AD5593R_REG_LDAC         = 0x7
+        , AD5593R_REG_GPIO_OUT_EN  = 0x8
+        , AD5593R_REG_GPIO_SET     = 0x9
+        , AD5593R_REG_GPIO_IN_EN   = 0xa
+        , AD5593R_REG_PD           = 0xb
+        , AD5593R_REG_OPEN_DRAIN   = 0xc
+        , AD5593R_REG_TRISTATE     = 0xd
+        , AD5593R_REG_RESET        = 0xf
+    };
+
+    enum AD5593R_MODE {
+        AD5593R_MODE_CONF            = (0 << 4)
+        , AD5593R_MODE_DAC_WRITE     = (1 << 4)
+        , AD5593R_MODE_ADC_READBACK  = (4 << 4)
+        , AD5593R_MODE_DAC_READBACK  = (5 << 4)
+        , AD5593R_MODE_GPIO_READBACK = (6 << 4)
+        , AD5593R_MODE_REG_READBACK  = (7 << 4)
+    };
+
+    constexpr static AD5593R_REG __reg_list [] = {
+        AD5593R_REG_NOOP          
+        , AD5593R_REG_DAC_READBACK
+        , AD5593R_REG_ADC_SEQ     
+        , AD5593R_REG_CTRL        
+        , AD5593R_REG_ADC_EN      
+        , AD5593R_REG_DAC_EN      
+        , AD5593R_REG_PULLDOWN    
+        , AD5593R_REG_LDAC        
+        , AD5593R_REG_GPIO_OUT_EN 
+        , AD5593R_REG_GPIO_SET    
+        , AD5593R_REG_GPIO_IN_EN  
+        , AD5593R_REG_PD          
+        , AD5593R_REG_OPEN_DRAIN  
+        , AD5593R_REG_TRISTATE    
+        , AD5593R_REG_RESET
+    };
+
+    constexpr static AD5593R_REG __fetch_reg_list [] = {
+        AD5593R_REG_ADC_EN        // bitmaps_[0]
+        , AD5593R_REG_DAC_EN      // bitmaps_[1]
+        , AD5593R_REG_PULLDOWN    // bitmaps_[2]
+        , AD5593R_REG_GPIO_OUT_EN // bitmaps_[3]
+        , AD5593R_REG_GPIO_SET    // bitmaps_[4]
+        , AD5593R_REG_GPIO_IN_EN  // bitmaps_[5]
+        , AD5593R_REG_TRISTATE    // bitmaps_[6]
+    };
+
+    template< AD5593R_REG > struct index_of {
+        constexpr static size_t value = 0;
+    };
+
+    template<> struct index_of<AD5593R_REG_ADC_EN>      { constexpr static size_t value = 0; };
+    template<> struct index_of<AD5593R_REG_DAC_EN>      { constexpr static size_t value = 1; };
+    template<> struct index_of<AD5593R_REG_PULLDOWN>    { constexpr static size_t value = 2; };
+    template<> struct index_of<AD5593R_REG_GPIO_OUT_EN> { constexpr static size_t value = 3; };
+    template<> struct index_of<AD5593R_REG_GPIO_SET>    { constexpr static size_t value = 4; };
+    template<> struct index_of<AD5593R_REG_GPIO_IN_EN>  { constexpr static size_t value = 5; };
+    template<> struct index_of<AD5593R_REG_TRISTATE>    { constexpr static size_t value = 6; };
+
+    static_assert(AD5593R_REG_ADC_EN == __fetch_reg_list[ index_of< AD5593R_REG_ADC_EN >::value ]);
+    static_assert(AD5593R_REG_DAC_EN == __fetch_reg_list[ index_of< AD5593R_REG_DAC_EN >::value ]);
+    static_assert(AD5593R_REG_PULLDOWN == __fetch_reg_list[ index_of< AD5593R_REG_PULLDOWN >::value ]);
+    static_assert(AD5593R_REG_GPIO_OUT_EN == __fetch_reg_list[ index_of< AD5593R_REG_GPIO_OUT_EN >::value ]);
+    static_assert(AD5593R_REG_GPIO_SET == __fetch_reg_list[ index_of< AD5593R_REG_GPIO_SET >::value ]);
+    static_assert(AD5593R_REG_GPIO_IN_EN == __fetch_reg_list[ index_of< AD5593R_REG_GPIO_IN_EN >::value ]);
+    static_assert(AD5593R_REG_TRISTATE == __fetch_reg_list[ index_of< AD5593R_REG_TRISTATE >::value ]);
+
+    constexpr static const char * __fetch_reg_name [] = {
+        "AD5593R_REG_ADC_EN"        // bitmaps_[0]
+        , "AD5593R_REG_DAC_EN"      // bitmaps_[1]
+        , "AD5593R_REG_PULLDOWN"    // bitmaps_[2]
+        , "AD5593R_REG_GPIO_OUT_EN" // bitmaps_[3]
+        , "AD5593R_REG_GPIO_SET"    // bitmaps_[4]
+        , "AD5593R_REG_GPIO_IN_EN"  // bitmaps_[5]
+        , "AD5593R_REG_TRISTATE"    // bitmaps_[6]
+    };
+
+    template< AD5593R_REG ... regs > struct set_io_function;
+
+    template< AD5593R_REG reg > struct set_io_function< reg >  { // last
+        void operator()( std::array< std::bitset< 8 >, 7 >& masks, int pin ) const {
+            masks[ index_of< reg >::value ].set( pin );
+        }
+    };
+
+    template< AD5593R_REG first, AD5593R_REG ... regs > struct set_io_function< first, regs ...> {
+        void operator()( std::array< std::bitset< 8 >, 7 >& masks, int pin ) const {
+            masks[ index_of< first >::value ].set( pin );
+        }
+    };
+
+    template< AD5593R_REG ... regs > struct reset_io_function;
+
+    template< AD5593R_REG last > struct reset_io_function< last >  { // last
+         void operator()( std::array< std::bitset< 8 >, 7 >& masks, int pin ) const {
+             masks[ index_of< last >::value ].reset( pin );
+             // std::cout << "reset<last>(" << pin << ", " << __fetch_reg_name[ index_of< last >::value ] << ")";
+             // std::cout << "\t=" << masks[ index_of< last >::value ].to_ulong() << std::endl;
+         }
+    };
+
+    template< AD5593R_REG first, AD5593R_REG ... regs > struct reset_io_function< first, regs ...> {
+        void operator()( std::array< std::bitset< 8 >, 7 >& masks, int pin ) const {
+            masks[ index_of< first >::value ].reset( pin );
+            reset_io_function< regs ... >()( masks, pin );
+            // std::cout << "reset(" << pin << ", " << __fetch_reg_name[ index_of< first >::value ] << ")";
+            // std::cout << "\t=" << masks[ index_of< first >::value ].to_ulong() << std::endl;
+        }
+    };
+
+    struct io_function {
+        AD5593R_IO_FUNCTION operator()( const std::array< std::bitset< 8 >, 7 >& masks, int pin ) const {
+        }
+    };
+    
+}
 
 using namespace ad5593;
 
-bool
-ad5593dev::write( uint8_t addr, uint16_t value )
+AD5593::~AD5593()
 {
-    std::array< uint8_t, 3 > buf = { addr, uint8_t(value >> 8), uint8_t(value & 0xff) };
+}
+
+#if defined __linux
+AD5593::AD5593( const char * device
+                , int address ) : i2c_( std::make_unique< i2c_linux::i2c >() )
+                                , address_( address )
+                                , functions_{ UNUSED_PULLDOWN }
+                                , dirty_( true )
+{
+    i2c_->init( device, address );
+    fetch();
+}
+#else
+AD5593::AD5593( stm32f103::i2c& t, int address ) : i2c_( &t )
+                                                 , address_( address )
+                                                 , functions_{ UNUSED_PULLDOWN }
+                                                 , dirty_( true )
+{
+    fetch();
+}
+#endif
+
+#if defined __linux
+const std::system_error&
+AD5593::error_code() const
+{
+    return i2c_->error_code();
+}
+#endif
+
+AD5593::operator bool () const
+{
+    return *i2c_;
+}
+
+bool
+AD5593::write( uint8_t addr, uint16_t value ) const
+{
     if ( i2c_ ) {
-        if ( use_dma_ )
-            return i2c_->dma_transfer( address_, buf.data(), buf.size() );
-        else 
-            return i2c_->write( address_, buf.data(), buf.size() );
+        std::array< uint8_t, 3 > buf = { addr, uint8_t(value >> 8), uint8_t(value & 0xff) };
+        return i2c_->write( address_, buf.data(), buf.size() );
     }
     return false;
 }
 
 uint16_t
-ad5593dev::read( uint8_t addr )
+AD5593::read( uint8_t addr ) const
 {
-    if ( !(addr & 0xf0) )
-        addr |= AD5593R_MODE_REG_READBACK;
-
     if ( i2c_ ) {
-        uint8_t buf[ 2 ] = { 0 };
-        
-        if ( use_dma_ ) {
-            if ( i2c_->dma_transfer( address_, &addr, 1 ) ) {
-                if ( i2c_->dma_receive( address_, buf, sizeof(buf) ) )
-                    return uint16_t( buf[ 0 ] << 8 ) | buf[ 1 ];
-            }
+        if ( i2c_->write( address_, &addr, 1 ) ) {
+            
+            std::array< uint8_t, 2 > buf = { 0 };
+            if ( i2c_->read( address_, buf.data(), buf.size() ) )
+                return uint16_t( buf[ 0 ] ) << 8 | buf[ 1 ];
         } else {
-            i2c_->write( address_, &addr, 1 );
-            i2c_->read( address_, buf, sizeof(buf) );
-            return uint16_t( buf[ 0 ] << 8 ) | buf[ 1 ];
+            stream() << "read -- write(" << addr << ") error\n"; 
         }
     }
-
     return -1;
-}
-
-void
-ad5593dev::reset()
-{
-	write( AD5593R_REG_RESET, 0xdac );
-}
-
-void ad5593dev::reference_internal()
-{
-	write( AD5593R_REG_PD, 1 << 9 );
-}
-
-void
-ad5593dev::reference_range_high()
-{
-	write( AD5593R_REG_CTRL, (1 << 4) | (1 << 5) );
-}
-
-const io& 
-ad5593dev::operator []( uint8_t pin ) const
-{
-	return ios_[ pin ] ;
-}
-
-io::io() : gpio_out( 0 )
-         , gpio_in( 0 )
-         , gpio_set( 0 )
-         , adc_en( 0 )
-         , dac_en( 0 )
-         , tristate( 0 )
-         , pulldown( 0xff )
-         , ident_( 0 )
-         , parent_( 0 )
-         , func_( ADC )
-         , dir_( GPIO_INPUT )
-{
-}
-
-io::io( const io& t ) : gpio_out( t.gpio_out )
-                      , gpio_in( t.gpio_in )
-                      , gpio_set( t.gpio_set )
-                      , adc_en( t.adc_en )
-                      , dac_en( t.dac_en )
-                      , tristate( t.tristate )
-                      , pulldown( t.pulldown)
-                      , ident_( t.ident_ )
-                      , parent_( t.parent_ )
-                      , func_( t.func_ )
-                      , dir_( t.dir_ )
-{
-}
-
-template<> bool
-io::isBitSet( uint16_t mask, uint8_t pos ) const
-{
-    return ( mask & (1 << pos) ) != 0;
-}
-
-template<> uint16_t
-io::isBitSet( uint16_t mask, uint8_t pos) const
-{
-    return (mask & (1 << pos)) != 0;
-}
-
-void
-io::setBit( uint16_t &mask ) const
-{
-    mask |= ( 1 << ident_ );
-}
-
-void
-io::clearBit( uint16_t &mask ) const
-{
-    mask &= ~( 1 << ident_ );
-}
-
-void
-io::setOrClear( uint16_t &mask, bool set ) const
-{
-    if (set)
-        setBit(mask);
-    else
-        clearBit(mask);
-}
-
-io::io( ad5593dev& parent
-        , uint8_t ident
-        , ioFunction func ) : parent_( &parent )
-                            , ident_( ident )
-                            , func_( func )
-{
-	function(func_);
-};
-
-void
-io::function( ioFunction func )
-{
-    if ( parent_ ) {
-        pulldown = parent_->read( AD5593R_REG_PULLDOWN );
-        tristate = parent_->read( AD5593R_REG_TRISTATE );
-        dac_en = parent_->read( AD5593R_REG_DAC_EN );
-        adc_en = parent_->read( AD5593R_REG_ADC_EN );
-        gpio_set = parent_->read( AD5593R_REG_GPIO_SET );
-        gpio_out = parent_->read( AD5593R_REG_GPIO_OUT_EN );
-        gpio_in = parent_->read( AD5593R_REG_GPIO_IN_EN );
-
-        clearBit(pulldown);
-        clearBit(tristate);
-
-        switch (func)  {
-        case ADC:
-            clearBit( dac_en );
-            setBit( adc_en );
-            clearBit( gpio_out );
-            clearBit( gpio_in );
-            break;
-        case DAC:
-            setBit( dac_en );
-            clearBit( gpio_out );
-            clearBit( gpio_in );
-            break;
-        case DAC_AND_ADC:
-            setBit( adc_en );
-            setBit( dac_en );
-            clearBit( gpio_out );
-            clearBit( gpio_in );
-            break;
-        case GPIO:
-            clearBit( adc_en );
-            clearBit( dac_en );
-            break;
-        case UNUSED_LOW:
-            clearBit( adc_en );
-            clearBit( dac_en );
-            clearBit( gpio_set );
-            setBit( gpio_out );
-            clearBit( gpio_in );
-            break;
-        case UNUSED_HIGH:
-            clearBit( adc_en );
-            clearBit( dac_en );
-            setBit( gpio_set );
-            setBit( gpio_out );
-            clearBit( gpio_in );
-            break;
-        case UNUSED_TRISTATE:
-            clearBit( adc_en );
-            clearBit( dac_en );
-            clearBit( gpio_out );
-            clearBit( gpio_in );
-            setBit( tristate );
-            break;
-        case UNUSED_PULLDOWN:
-            clearBit( adc_en );
-            clearBit( dac_en );
-            clearBit( gpio_out );
-            clearBit( gpio_in );
-            setBit( pulldown );
-            break;
-        };
-
-        parent_->write( AD5593R_REG_PULLDOWN, pulldown );
-        parent_->write( AD5593R_REG_TRISTATE, tristate );
-        parent_->write( AD5593R_REG_DAC_EN, dac_en );
-        parent_->write( AD5593R_REG_ADC_EN, adc_en );
-        parent_->write( AD5593R_REG_GPIO_SET, gpio_set );
-        parent_->write( AD5593R_REG_GPIO_OUT_EN, gpio_out );
-        parent_->write( AD5593R_REG_GPIO_IN_EN, gpio_in );
-    }
-    func_ = func;
-}
-
-ioFunction
-io::function()
-{
-	return func_;
-}
-
-void
-io::direction( gpioDirection dir )
-{
-	switch ( func_ ) {
-	case GPIO:
-		gpio_out = parent_->read(AD5593R_REG_GPIO_OUT_EN);
-		gpio_in = parent_->read(AD5593R_REG_GPIO_IN_EN);
-        
-		if (dir == GPIO_INPUT) {
-			setBit(gpio_in);
-			clearBit(gpio_out);
-		} else if (dir == GPIO_OUTPUT)	{
-			setBit(gpio_out);
-			clearBit(gpio_in);
-		}
-		parent_->write(AD5593R_REG_GPIO_OUT_EN, gpio_out);
-		parent_->write(AD5593R_REG_GPIO_IN_EN, gpio_in);
-		dir_ = dir;
-		return;
-	}
-}
-
-void
-io::direction( gpioDirection dir, uint16_t value )
-{
-	switch ( func_ )	{
-	case GPIO:
-		gpio_out = parent_->read(AD5593R_REG_GPIO_OUT_EN);
-		gpio_in = parent_->read(AD5593R_REG_GPIO_IN_EN);
-        
-		if (dir == GPIO_INPUT)	{
-			setBit(gpio_in);
-			clearBit(gpio_out);
-		} else if (dir == GPIO_OUTPUT)	{
-			gpio_set = parent_->read(AD5593R_REG_GPIO_SET);
-
-			setOrClear(gpio_set, value > 0);
-			setBit(gpio_out);
-			clearBit(gpio_in);
-
-			parent_->write(AD5593R_REG_GPIO_SET, gpio_set);
-		}
-
-		parent_->write(AD5593R_REG_GPIO_OUT_EN, gpio_out);
-		parent_->write(AD5593R_REG_GPIO_IN_EN, gpio_in);
-		dir_ = dir;
-
-		return;
-	}
-}
-
-gpioDirection
-io::direction()
-{
-	return dir_;
 }
 
 bool
-io::set(uint16_t value)
+AD5593::set_function( int pin, AD5593R_IO_FUNCTION f )
 {
-	switch ( func_ )	{
-	case DAC:
-	case DAC_AND_ADC:
-		parent_->write((AD5593R_MODE_DAC_WRITE | ident_), value );
-		break;
-
-	case GPIO:
-		gpio_set = parent_->read( AD5593R_REG_GPIO_SET );
-		setOrClear( gpio_set, value > 0 );
-		parent_->write( AD5593R_REG_GPIO_SET, gpio_set );
+    dirty_ = true;
+    functions_[ pin ] = f;
+    switch( f ) {
+    case ADC:
+        set_io_function< AD5593R_REG_ADC_EN >()( bitmaps_, pin );
+        reset_io_function< AD5593R_REG_PULLDOWN
+                           , AD5593R_REG_DAC_EN
+                           , AD5593R_REG_GPIO_OUT_EN >()( bitmaps_, pin );        
         break;
-	default:
-		return false;
-	};
+    case DAC:
+        set_io_function< AD5593R_REG_DAC_EN >()( bitmaps_, pin );
+        reset_io_function< AD5593R_REG_PULLDOWN
+                           , AD5593R_REG_GPIO_OUT_EN
+                           ,  AD5593R_REG_GPIO_IN_EN >()( bitmaps_, pin );
+        break;
+    case GPIO:
+        reset_io_function< AD5593R_REG_PULLDOWN
+                           , AD5593R_REG_ADC_EN
+                           , AD5593R_REG_DAC_EN >()( bitmaps_, pin );
+        break;
+    case UNUSED_LOW:
+        set_io_function< AD5593R_REG_GPIO_OUT_EN >()( bitmaps_, pin );
+        reset_io_function< AD5593R_REG_PULLDOWN
+                           , AD5593R_REG_ADC_EN
+                           , AD5593R_REG_DAC_EN
+                           , AD5593R_REG_GPIO_SET
+                           , AD5593R_REG_GPIO_IN_EN >()( bitmaps_, pin );        
+        break;
+    case UNUSED_HIGH:
+        set_io_function< AD5593R_REG_GPIO_SET, AD5593R_REG_GPIO_OUT_EN >()( bitmaps_, pin );
+        reset_io_function< AD5593R_REG_PULLDOWN
+                           , AD5593R_REG_ADC_EN
+                           , AD5593R_REG_DAC_EN
+                           , AD5593R_REG_GPIO_SET
+                           , AD5593R_REG_GPIO_IN_EN >()( bitmaps_, pin );        
+        break;
+    case UNUSED_TRISTATE:
+        set_io_function< AD5593R_REG_TRISTATE >()( bitmaps_, pin );
+        reset_io_function< AD5593R_REG_PULLDOWN
+                           , AD5593R_REG_ADC_EN
+                           , AD5593R_REG_DAC_EN
+                           , AD5593R_REG_GPIO_OUT_EN
+                           , AD5593R_REG_GPIO_IN_EN >()( bitmaps_, pin );        
+        break;
+    case UNUSED_PULLDOWN:
+        set_io_function< AD5593R_REG_PULLDOWN >()( bitmaps_, pin );
+        reset_io_function< AD5593R_REG_ADC_EN
+                           , AD5593R_REG_DAC_EN
+                           , AD5593R_REG_GPIO_OUT_EN
+                           , AD5593R_REG_GPIO_SET
+                           , AD5593R_REG_TRISTATE
+                           , AD5593R_REG_GPIO_IN_EN >()( bitmaps_, pin );
+        break;
+    };
+}
 
+AD5593R_IO_FUNCTION
+AD5593::function( int pin ) const
+{
+    return functions_[ pin ];
+}
+
+bool
+AD5593::fetch()
+{
+    size_t i = 0;
+    for ( auto reg: __fetch_reg_list ) {
+        auto value = this->read( reg | AD5593R_MODE_REG_READBACK );
+        if ( value == (-1) )
+            return false;
+        bitmaps_[ i++ ] = uint8_t( value );
+    }
+    dirty_ = false;
+}
+
+void
+AD5593::print_config() const
+{
+    size_t i = 0;
+#if defined __linux
+    for ( auto& bitmap: bitmaps_ )
+        std::cout << __fetch_reg_name[ i++ ] << "\t" << bitmap.to_string() << "\t" << bitmap.to_ulong() << std::endl;
+#else
+    stream(__FILE__,__LINE__) << "----------- AD5593 CONFIG ------------\n";
+    for ( auto& bitmap: bitmaps_ ) {
+        stream() << __fetch_reg_name[ i++ ] << "\t";
+        for ( auto i = 0; i < bitmap.size(); ++i )
+            stream() << bitmap.test( bitmap.size() - i - 1 );
+        stream() << "\t" << bitmap.to_ulong() << std::endl;        
+    }
+#endif
+}
+
+bool
+AD5593::commit()
+{
+    size_t i = 0;
+    for ( auto reg: __fetch_reg_list )
+        this->write( reg, static_cast< uint16_t >( bitmaps_[ i++ ].to_ulong() ) );
+    dirty_ = false;
     return true;
 }
 
-uint16_t
-io::get()
+bool
+AD5593::set_value( int pin, uint16_t value )
 {
-    if ( parent_ ) {
-        switch (this->func_) {
-        case DAC:
-            return parent_->read((AD5593R_REG_DAC_READBACK | ident_ ));
-        
-        case ADC:
-        case DAC_AND_ADC:
-            parent_->write(AD5593R_MODE_CONF | AD5593R_REG_ADC_SEQ, uint16_t(1 << ident_));
-            return parent_->read( AD5593R_MODE_ADC_READBACK ) & 0x0fff;
-	    case GPIO:
-            gpio_out = parent_->read(AD5593R_REG_GPIO_OUT_EN);
-            if (isBitSet(gpio_out, ident_)) {
-                gpio_set = parent_->read(AD5593R_REG_GPIO_SET);
-                return isBitSet< uint16_t >(gpio_set, ident_);
-            } else	{
-                return isBitSet< uint16_t >(parent_->read(AD5593R_MODE_GPIO_READBACK), ident_ );
-            }
-        default:
-            break;
-        }
+    switch( functions_.at( pin ) ) {
+    case DAC:
+        return this->write( AD5593R_MODE_DAC_WRITE | pin, value );
+    case ADC:
+        break;
+    }
+    return false;
+}
+
+uint16_t
+AD5593::value( int pin ) const
+{
+    uint16_t value = 0;
+
+    switch( functions_.at( pin ) ) {
+    case ADC:
+        return this->read( AD5593R_MODE_ADC_READBACK | pin ) & 0x0fff;
+    case DAC:
+        return this->read( AD5593R_MODE_DAC_READBACK | pin ) & 0x0fff;
     }
     return -1;
 }
-
-
