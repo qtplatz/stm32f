@@ -4,6 +4,7 @@
 // Contact: toshi.hondo@qtplatz.com
 //
 
+#include "bitset.hpp"
 #include "dma.hpp"
 #include "dma_channel.hpp"
 #include "i2c.hpp"
@@ -36,7 +37,7 @@ namespace stm32f103 {
         , RES0         = 1 << 14  //
         , ALERT        = 1 << 13  //
         , PEC          = 1 << 12  //
-        , POS          = 1 << 11  //
+        , POS          = 1 << 11  // Acknowledge/PEC Position (for data reception)
         , ACK          = 1 << 10  //
         , STOP         = 1 <<  9  //
         , START        = 1 <<  8  //
@@ -154,6 +155,16 @@ namespace stm32f103 {
         }
     };
 
+    struct condition_waiter {
+        size_t count;
+        condition_waiter() : count( 0xffff ) {}
+        template< typename functor >  bool operator()( functor condition ) {
+            while ( --count && !condition() )
+                ;
+            return count != 0;
+        }
+    };
+
     enum I2C_DIRECTION { Transmitter, Receiver };
 
     template< I2C_DIRECTION >    
@@ -170,13 +181,111 @@ namespace stm32f103 {
             return st.is_equal( byte_transmitting );
             return true;
         }
+        void static clear( volatile I2C& ) {}
     };
 
     template<> inline bool i2c_address<Receiver>::operator()( volatile I2C& _, uint8_t address ) {
-
         _.DR = (address << 1) | 1;
-        return true;
+        return condition_waiter()( [&](){ return _.SR1 & ADDR; } );
     }
+    
+    template<> void i2c_address<Receiver>::clear( volatile I2C& _ ) {
+        volatile auto x = _.SR1;
+        volatile auto y = _.SR2;
+    }
+
+    // AN2824, I2C optimized examples en.CD00209826.pdf
+    // receiving
+    template< size_t >
+    struct polling_master_receiver {
+        volatile I2C& _;
+        polling_master_receiver( volatile I2C& t ) : _( t ) {}
+        bool operator()( uint8_t address, uint8_t * data, size_t size ) {
+            if ( i2c_start( _ )() ) {
+                if ( i2c_address< Receiver >()( _, address ) ) {
+                    i2c_address<Receiver>().clear( _ );
+                    condition_waiter()( [&](){ return !_.SR1 & ADDR; } );
+                    while ( size > 3 ) {
+                        if ( condition_waiter()( [&](){ return _.SR1 & (RxNE|BTF); } ) ) {
+                            if ( _.SR1 & RxNE )
+                                *data++ = _.DR;
+                        }
+                    }
+                    if ( condition_waiter()( [&](){ return _.SR1 & BTF; } ) ) {
+                        bitset::reset( _.CR1, ACK );
+                        // disable irq
+                        bitset::set( _.CR1, STOP );
+                        *data++ = _.DR;  // Data N-1
+                        --size;
+                    }
+                    if ( condition_waiter()( [&](){ return _.SR1 & RxNE; } ) ) {
+                        *data++ = _.DR;
+                        --size;
+                        if ( condition_waiter()( [&](){ return !_.SR1 & STOP; } ) ) // wait untl STOP is cleard
+                            bitset::set( _.CR1, ACK ); // to be ready for another reception
+                        return size == 0;
+                    }
+                } else {
+                    stream(__FILE__,__LINE__) << "polling_master_receiver<3> address failed.\n";
+                }
+            } else {
+                stream(__FILE__,__LINE__) << "polling_master_receiver<3> start failed.\n";
+            }
+            return false;                
+        }
+    };
+
+    template<> bool polling_master_receiver< 2 >::operator()( uint8_t address, uint8_t * data, size_t size ) {
+        if ( i2c_start( _ )() ) {
+            if ( i2c_address< Receiver >()( _, address ) ) {
+                bitset::set( _.CR1, POS );
+                i2c_address<Receiver>().clear( _ );
+                bitset::reset( _.CR1, ACK );
+                if ( condition_waiter()( [&](){ return _.SR1 & BTF; } ) ) {
+                    bitset::set( _.CR1, STOP );
+                    *data++ = _.DR;
+                    --size;
+                    if ( condition_waiter()( [&](){ return _.SR1 & (RxNE|BTF); } ) ) {
+                        *data++ = _.DR;
+                        --size;
+                        if ( condition_waiter()( [&](){ return !_.SR1 & STOP; } ) ) { // wait untl STOP is cleard
+                            bitset::reset( _.CR1, POS ); // to be ready for another reception
+                            bitset::set( _.CR1, ACK ); // to be ready for another reception
+                        }
+                    }
+                }
+                return size == 0;
+            } else {
+                stream(__FILE__,__LINE__) << "polling_master_receiver<3> address failed.\n";
+            }
+        } else {
+            stream(__FILE__,__LINE__) << "polling_master_receiver<3> start failed.\n";
+        }
+    }
+
+    template<> bool polling_master_receiver< 1 >::operator()( uint8_t address, uint8_t * data, size_t size ) {
+        if ( i2c_start( _ )() ) {
+            if ( i2c_address< Receiver >()( _, address ) ) {
+                bitset::reset( _.CR1, ACK );
+                i2c_address<Receiver>().clear( _ );
+                bitset::set( _.CR1, STOP );
+                if ( condition_waiter()( [&](){ return _.SR1 & RxNE; } ) ) {
+                    *data++ = _.DR;
+                    --size;
+                    if ( condition_waiter()( [&](){ return !_.SR1 & STOP; } ) ) { // wait untl STOP is cleard
+                        bitset::set( _.CR1, ACK ); // to be ready for another reception
+                    }
+                }
+                return size == 0;
+            } else {
+                stream(__FILE__,__LINE__) << "polling_master_receiver<3> address failed.\n";
+            }
+        } else {
+            stream(__FILE__,__LINE__) << "polling_master_receiver<3> start failed.\n";
+        }                
+        return false;
+    }
+    /////////////////////////////////////////////////////
 
     // master transmit
     struct i2c_transmitter {
@@ -207,20 +316,17 @@ namespace stm32f103 {
         }
     };
 
-    template< bool > struct i2c_enable { inline bool operator()( volatile I2C& i2c ) {  i2c.CR1 |= PE;  return true;  } };
-    template<> bool inline i2c_enable< false >::operator()( volatile I2C& i2c )  {  i2c.CR1 &= ~PE; return true;  }
-
     struct i2c_reset {
         bool operator()( volatile I2C& i2c, uint8_t own_addr ) {
             if ( own_addr == 0 )
                 own_addr = i2c.OAR1 >> 1;
-            
-            i2c_enable< false >()( i2c );
-            i2c.CR1 |= SWRST;
+
+            bitset::reset( i2c.CR1, PE );
+            bitset::set( i2c.CR1, SWRST );
             while ( i2c.SR1 && i2c.SR2 )
                 ;
-            i2c.CR1 &= ~SWRST;
-            i2c_enable< false >()( i2c );
+            bitset::reset( i2c.CR1, SWRST );
+            bitset::reset( i2c.CR1, PE );
             
             uint16_t freqrange = uint16_t( __pclk1 / 1000'000 /*'*/ ); // souce clk in MHz
             uint16_t cr2 = freqrange;
@@ -365,28 +471,6 @@ i2c::reset()
 }
 
 bool
-i2c::disable()
-{
-    return i2c_enable<false>()( *i2c_ );
-}
-
-bool
-i2c::enable()
-{
-    return i2c_enable<true>()( *i2c_ );
-}
-
-bool
-i2c::dmaEnable( bool enable )
-{
-    if ( enable ) {
-        i2c_->CR2 |= DMAEN;
-    } else {
-        i2c_->CR2 &= ~DMAEN;
-    }
-}
-
-bool
 i2c::has_dma( DMA_Direction dir ) const
 {
     if ( reinterpret_cast< uint32_t >(const_cast< I2C * >(i2c_)) == I2C1_BASE ) {
@@ -433,34 +517,26 @@ i2c::print_status() const
 bool
 i2c::read( uint8_t address, uint8_t * data, size_t size )
 {
-    i2c_enable< true >()( *i2c_ );
+    bitset::set( i2c_->CR1, PE );
 
     if ( ! i2c_ready_wait( *i2c_, own_addr_ )() ) {
         stream() << __FUNCTION__ << " i2c_ready_wait failed\n";
         return false;
     }
 
-    scoped_i2c_start start( *i2c_ );
-    if ( start() ) { // generate start condition
-        if ( i2c_address< Receiver >()( *i2c_, address ) ) { // address phase
-            i2c_transmitter reader( *i2c_ );
-            while( size && ( reader >> *data++ ) )
-                --size;
-            return size == 0;
-        } else {
-            stream(__FILE__,__LINE__,__FUNCTION__) << "\naddress phase failed for " << address << std::endl;
-        }
-    } else {
-        // stream(__FILE__,__LINE__,__FUNCTION__) << "\ngenerate start condition failed for " << address << std::endl;
-        return false;
-    }
+    if ( size > 3 )
+        return polling_master_receiver<3>( *i2c_ )( address, data, size );
+    if ( size == 2 )
+        return polling_master_receiver<2>( *i2c_ )( address, data, size );
+    if ( size == 1 )
+        return polling_master_receiver<1>( *i2c_ )( address, data, size );
     return false;
 }
 
 bool
 i2c::write( uint8_t address, const uint8_t * data, size_t size )
 {
-    i2c_enable< true >()( *i2c_ );
+    bitset::set( i2c_->CR1, PE );
 
     if ( ! i2c_ready_wait( *i2c_, own_addr_ )() ) {
         stream(__FILE__,__LINE__) << __FUNCTION__ << " i2c_ready_wait failed\n";
@@ -557,8 +633,6 @@ namespace stm32f103 {
 bool
 i2c::dma_transfer( uint8_t address, const uint8_t * data, size_t size )
 {
-    i2c_enable< true >()( *i2c_ );
-
     if ( ! i2c_ready_wait( *i2c_, own_addr_ )() ) {
         stream() << __FUNCTION__ << " i2c_ready_wait failed\n";
         return false;
@@ -591,8 +665,6 @@ i2c::dma_receive( uint8_t address, uint8_t * data, size_t size )
         return false;
     }    
 
-    i2c_enable< true >()( *i2c_ );
-    
     if ( ! i2c_ready_wait( *i2c_, own_addr_ )() ) {
         stream() << __FUNCTION__ << " i2c_ready_wait failed\n";
         return false;

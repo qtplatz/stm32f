@@ -143,8 +143,6 @@ namespace ad5593 {
     template< AD5593R_REG last > struct reset_io_function< last >  { // last
          void operator()( std::array< std::bitset< 8 >, 7 >& masks, int pin ) const {
              masks[ index_of< last >::value ].reset( pin );
-             // std::cout << "reset<last>(" << pin << ", " << __fetch_reg_name[ index_of< last >::value ] << ")";
-             // std::cout << "\t=" << masks[ index_of< last >::value ].to_ulong() << std::endl;
          }
     };
 
@@ -152,13 +150,23 @@ namespace ad5593 {
         void operator()( std::array< std::bitset< 8 >, 7 >& masks, int pin ) const {
             masks[ index_of< first >::value ].reset( pin );
             reset_io_function< regs ... >()( masks, pin );
-            // std::cout << "reset(" << pin << ", " << __fetch_reg_name[ index_of< first >::value ] << ")";
-            // std::cout << "\t=" << masks[ index_of< first >::value ].to_ulong() << std::endl;
         }
     };
 
     struct io_function {
         AD5593R_IO_FUNCTION operator()( const std::array< std::bitset< 8 >, 7 >& masks, int pin ) const {
+            if ( masks[ index_of< AD5593R_REG_DAC_EN >::value ].test( pin ) )
+                return DAC;
+            if ( masks[ index_of< AD5593R_REG_ADC_EN >::value ].test( pin ) )
+                return ADC;
+            if ( masks[ index_of< AD5593R_REG_GPIO_OUT_EN >::value ].test( pin ) ||
+                 masks[ index_of< AD5593R_REG_GPIO_SET >::value ].test( pin ) ||
+                 masks[ index_of< AD5593R_REG_GPIO_IN_EN >::value ].test( pin ) )
+                return GPIO;
+            if ( masks[ index_of< AD5593R_REG_PULLDOWN >::value ].test( pin ) )
+                return UNUSED_PULLDOWN;
+            if ( masks[ index_of< AD5593R_REG_TRISTATE >::value ].test( pin ) )
+                return UNUSED_TRISTATE;
         }
     };
     
@@ -220,6 +228,7 @@ AD5593::read( uint8_t addr ) const
         if ( i2c_->write( address_, &addr, 1 ) ) {
             
             std::array< uint8_t, 2 > buf = { 0 };
+
             if ( i2c_->read( address_, buf.data(), buf.size() ) )
                 return uint16_t( buf[ 0 ] ) << 8 | buf[ 1 ];
         } else {
