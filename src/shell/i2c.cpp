@@ -130,6 +130,16 @@ namespace stm32f103 {
         }
     };
 
+    struct condition_waiter {
+        size_t count;
+        condition_waiter() : count( 0xffff ) {}
+        template< typename functor >  bool operator()( functor condition ) {
+            while ( --count && !condition() )
+                ;
+            return count != 0;
+        }
+    };
+
     struct scoped_i2c_dma_enable {
         volatile I2C& _;
         scoped_i2c_dma_enable( volatile I2C& t ) : _( t ) {
@@ -145,23 +155,15 @@ namespace stm32f103 {
         bool success;
         scoped_i2c_start( volatile I2C& t ) : _( t ), success( false ) {}
         ~scoped_i2c_start() {
-            if ( success )
-                _.CR1 |= STOP;
+            if ( success ) {
+                bitset::set( _.CR1, STOP );
+                condition_waiter()( [&](){ return !_.CR1 & STOP; } );
+            }
         }
         
         bool operator()() {
             success = i2c_start( _ )();
             return success;
-        }
-    };
-
-    struct condition_waiter {
-        size_t count;
-        condition_waiter() : count( 0xffff ) {}
-        template< typename functor >  bool operator()( functor condition ) {
-            while ( --count && !condition() )
-                ;
-            return count != 0;
         }
     };
 
@@ -592,42 +594,37 @@ namespace stm32f103 {
         }
     };
 
-    struct dma_master_receive {
+    struct dma_master_receiver {
         volatile I2C& _;
-        dma_master_receive( volatile I2C& t ) : _( t ) {
-            _.CR1 |= ACK | PE;  // ACK enable, peripheral enable
+        dma_master_receiver( volatile I2C& t ) : _( t ) {
+            bitset::set( _.CR1, PE );  // peripheral enable
         }
 
         template< typename T >
         bool operator()( T& dma_channel, uint8_t address, uint8_t * data, size_t size ) const {
 
+            dma_channel.set_receive_buffer( data, size );
+            scoped_dma_channel_enable dma_channel_enable( dma_channel );
+            scoped_i2c_dma_enable dma_enable( _ ); // DMAEN set
+            bitset::set( _.CR2, LAST );
             scoped_i2c_start start( _ );
             if ( start() ) { // generate start condition (master start)
-
-                dma_channel.set_receive_buffer( data, size );
-
                 if ( i2c_address< Receiver >()( _, address ) ) {
-
-                    scoped_dma_channel_enable dma_channel_enable( dma_channel );
-                    scoped_i2c_dma_enable dma_enable( _ );
-
-                    size_t count = 0x7fff;
-                    while ( --count && !dma_channel.transfer_complete() ) {
-                        volatile auto x = i2c_status( _ )(); // this seems critical
+                    i2c_address< Receiver >::clear(_);
+                    if ( condition_waiter()( [&](){ return dma_channel.transfer_complete(); } ) ) {
+                        return true;
                     }
-                    if ( count == 0 )
-                        stream(__FILE__,__LINE__) << "i2c::dma_master_transfer -- timeout: " << std::endl;
-                    return count != 0;
                 } else {
-                    stream() << "i2c::dma_master_transfer -- address phase failed: " << status32_to_string( i2c_status( _ )() ) << std::endl;
+                    stream(__FILE__,__LINE__) << "i2c::dma_master_receiver address failed\n";
                 }
             } else {
-                stream() << "i2c::dma_master_transfer() -- can't generate start condition" << std::endl;
+                stream(__FILE__,__LINE__) << "i2c::dma_master_receiver address failed\n";
             }
             return false;
         }
+        
     };
-    
+
 }
 
 bool
@@ -671,9 +668,9 @@ i2c::dma_receive( uint8_t address, uint8_t * data, size_t size )
     }
     
     if ( base_addr == I2C1_BASE ) {
-        return dma_master_receive( *i2c_ )( *__dma_i2c1_rx, address, data, size );
+        return dma_master_receiver( *i2c_ )( *__dma_i2c1_rx, address, data, size );
     } else if ( base_addr == I2C2_BASE ) {
-        return dma_master_receive( *i2c_ )( *__dma_i2c2_rx, address, data, size );
+        return dma_master_receiver( *i2c_ )( *__dma_i2c2_rx, address, data, size );
     }
 
     return false;
