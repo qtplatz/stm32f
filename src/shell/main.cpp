@@ -23,7 +23,6 @@
 #include <atomic>
 #include <algorithm>
 #include <cstddef>
-// #include <functional> this uses exception 
 #include <utility>
 
 extern uint64_t jiffies;  // 100us
@@ -58,7 +57,7 @@ extern "C" {
     void systick_handler();
 
     void * memset( void * ptr, int value, size_t num );
-
+    
     void __dma1_ch1_handler( void );
     void __dma1_ch2_handler( void );
     void __dma1_ch3_handler( void );

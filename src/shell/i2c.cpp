@@ -335,6 +335,7 @@ namespace stm32f103 {
             i2c.CR2 |= cr2;
             
             // p784, 
+            //i2c.TRISE = (freqrange/8) + 1;
             i2c.TRISE = freqrange + 1;
             i2c.OAR1 = own_addr << 1;
             i2c.OAR2 = 0;
@@ -568,16 +569,17 @@ namespace stm32f103 {
 
         template< typename T >
         bool operator()( T& dma_channel, uint8_t address, const uint8_t * data, size_t size ) const {
-
+            bitset::reset( _.CR2, LAST );
             scoped_i2c_start start( _ );
             if ( start() ) { // generate start condition (master start)
-                dma_channel.set_transfer_buffer( data, size );
                 
+                dma_channel.set_transfer_buffer( data, size );
+                scoped_dma_channel_enable enable_dma_channel( dma_channel );
+
                 if ( i2c_address< Transmitter >()( _, address ) ) {
 
-                    scoped_dma_channel_enable enable_dma_channel( dma_channel );
                     scoped_i2c_dma_enable dma_enable( _ );
-                    
+                                    
                     size_t count = 0x7fff;
                     while ( --count && !dma_channel.transfer_complete() )
                         ;
@@ -606,6 +608,7 @@ namespace stm32f103 {
             dma_channel.set_receive_buffer( data, size );
             scoped_dma_channel_enable dma_channel_enable( dma_channel );
             scoped_i2c_dma_enable dma_enable( _ ); // DMAEN set
+
             bitset::set( _.CR2, LAST );
             scoped_i2c_start start( _ );
             if ( start() ) { // generate start condition (master start)

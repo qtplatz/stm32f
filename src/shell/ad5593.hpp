@@ -26,13 +26,13 @@ namespace stm32f103 { class i2c; }
 namespace ad5593 {
 
     enum AD5593R_IO_FUNCTION {
-        ADC
-        , DAC
-        , GPIO
-        , UNUSED_HIGH
-        , UNUSED_LOW
-        , UNUSED_TRISTATE
-        , UNUSED_PULLDOWN
+        ADC                    // 0
+        , DAC                  // 1
+        , GPIO                 // 2
+        , UNUSED_HIGH          // 3
+        , UNUSED_LOW           // 4
+        , UNUSED_TRISTATE      // 5
+        , UNUSED_PULLDOWN      // 6
         , nFunctions
     };
     

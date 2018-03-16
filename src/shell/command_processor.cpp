@@ -11,11 +11,12 @@
 #include "dma_channel.hpp"
 #include "gpio.hpp"
 #include "gpio_mode.hpp"
-#include "printf.h"
 #include "i2c.hpp"
+#include "printf.h"
 #include "spi.hpp"
 #include "stream.hpp"
 #include "stm32f103.hpp"
+#include "utility.hpp"
 #include <atomic>
 #include <algorithm>
 #include <cctype>
@@ -183,14 +184,16 @@ i2c_test( size_t argc, const char ** argv )
             if ( use_dma ) {
                 stream() << "--------------- dma recv ----------------" << std::endl;
                 if ( __i2c0.dma_receive(i2caddr, rxdata.data(), 2 ) ) {
-                    stream() << "\ngot data: ";  std::for_each( rxdata.begin(), rxdata.end(), [](auto x){ stream() << x << ","; } ); stream() << std::endl;
+                    stream() << "\ngot data: ";  std::for_each( rxdata.begin(), rxdata.end()
+                                                                , [](auto x){ stream() << x << ","; } ); stream() << std::endl;
                 } else {
                     stream(__FILE__,__LINE__,__FUNCTION__) << "\tdma read failed.\n";
                 }
             } else {
                 stream() << "------- i2c read -----------" << std::endl;
                 if ( i2cx.read( i2caddr, rxdata.data(), rxdata.size() ) ) {
-                    stream() << "\ngot data: ";  std::for_each( rxdata.begin(), rxdata.end(), [](auto x){ stream() << x << ","; } ); stream() << std::endl;
+                    stream() << "\ngot data: ";  std::for_each( rxdata.begin(), rxdata.end()
+                                                                , [](auto x){ stream() << x << ","; } ); stream() << std::endl;
                 } else {
                     stream(__FILE__,__LINE__,__FUNCTION__) << "\tread failed.\n";
                 }
@@ -434,21 +437,39 @@ ad5593_test( size_t argc, const char ** argv )
         i2c_test( 1, argv );
     }
 
-    if ( __ad5593 == nullptr )
-        __ad5593 = new ( __ad5593_allocator__ ) ad5593::AD5593( __i2c0, 0x10 );
-    else
-        __ad5593->fetch();
+    if ( __ad5593 == nullptr ) {
+        if ( __ad5593 = new ( __ad5593_allocator__ ) ad5593::AD5593( __i2c0, 0x10 ) )
+            __ad5593->fetch();
+    }
     
     uint8_t i2caddr = 0x10;
+    uint8_t reg = 0x75; // default (DAC)
 
     double volts = 1.0;
     double Vref = 3.3;
-    
+
     while ( --argc ) {
         ++argv;
         if ( strcmp( argv[0], "fetch" ) == 0 ) {  // ad5593 dac 0 1 2...
             __ad5593->fetch();
             __ad5593->print_config();
+        } else if ( strcmp( argv[0], "reg" ) == 0 ) {  // ad5593 dac 0 1 2...
+            if ( argc && std::isdigit( *argv[1] ) ) {
+                reg = strtox( argv[1] );
+                --argc; ++argv;
+            }
+        } else if ( strcmp( argv[0], "read" ) == 0 ) {  // ad5593 dac 0 1 2...
+            auto data = __ad5593->read( reg );
+            const std::bitset< sizeof(data) * 8 > bits( data );
+            stream() << "\nread[0x" << reg << "]=" << data << "\t" << std::endl;
+        } else if ( strcmp( argv[0], "write" ) == 0 ) {  // ad5593 dac 0 1 2...
+            if ( argc && std::isdigit( *argv[1] ) ) {
+                auto data = strtox( argv[1] );
+                stream() << "\nwrite[0x" << reg << "]=" << data << std::endl;
+                __ad5593->write( reg, data );
+                --argc; ++argv;
+            }
+
         } else if ( strcmp( argv[0], "dac" ) == 0 ) {  // ad5593 dac 0 1 2...
             while ( argc && std::isdigit( *argv[1] ) ) {
                 int pin = *argv[1] - '0';
@@ -463,12 +484,29 @@ ad5593_test( size_t argc, const char ** argv )
                     __ad5593->set_function( pin, ad5593::ADC );
                 --argc; ++argv;
             }
+        } else if ( strcmp( argv[0], "?" ) == 0 ) {
+            __ad5593->print_config();
+        } else if ( strcmp( argv[0], "pin?" ) == 0 ) {
+            for ( int pin = 0; pin < 8; ++pin ) {
+                stream() << "pin " << pin << " function = " << __ad5593->function( pin ) << std::endl;
+            }            
+        } else if ( strcmp( argv[0], "value?" ) == 0 ) {
+            for ( int pin = 0; pin < 8; ++pin ) {
+                stream() << "pin " << pin << " = " << __ad5593->value( pin ) << std::endl;
+            }
+        } else if ( strcmp( argv[0], "value" ) == 0 ) {
+            int pin = 0;
+            while ( argc && std::isdigit( *argv[1] ) && pin < 8 ) {
+                uint32_t value = strtod( argv[1] );
+                __ad5593->set_value( pin++, value );
+                --argc; ++argv;                
+            }
         }
     }
 
     if ( __ad5593->is_dirty() ) {
         __ad5593->commit();
-        __ad5593->print_config();
+        stream() << "commit config to AD5593R" << std::endl;
     }
 }
 
