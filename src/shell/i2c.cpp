@@ -400,14 +400,14 @@ i2c::attach( dma& dma, DMA_Direction dir )
         if ( dir == DMA_Rx || dir == DMA_Both ) {
             if ( __dma_i2c1_rx = new (&__i2c1_rx_dma) dma_channel_t< DMA_I2C1_RX >( dma, 0, 0 ) ) {
                 __dma_i2c1_rx->set_callback( +[]( uint32_t flag ){
-                        stream() << "\n\tI2C-1 Rx irq: " << flag << std::endl;
+                        // stream() << "\n\tI2C-1 Rx irq: " << flag << std::endl;
                     });
             }
         }
         if ( dir == DMA_Tx || dir == DMA_Both ) {
             if ( __dma_i2c1_tx = new (&__i2c1_tx_dma) dma_channel_t< DMA_I2C1_TX >( dma, 0, 0 ) ) {
                 __dma_i2c1_tx->set_callback( +[]( uint32_t flag ){
-                        stream() << "\n\tI2C-1 Tx irq: " << flag << std::endl;
+                        // stream() << "\n\tI2C-1 Tx irq: " << flag << std::endl;
                     });                
             }
         }

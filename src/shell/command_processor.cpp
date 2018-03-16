@@ -439,7 +439,8 @@ ad5593_test( size_t argc, const char ** argv )
 
     if ( __ad5593 == nullptr ) {
         if ( __ad5593 = new ( __ad5593_allocator__ ) ad5593::AD5593( __i2c0, 0x10 ) )
-            __ad5593->fetch();
+            if ( ! __ad5593->fetch() )
+                stream() << "fetch error\n";
     }
     
     uint8_t i2caddr = 0x10;
@@ -451,8 +452,10 @@ ad5593_test( size_t argc, const char ** argv )
     while ( --argc ) {
         ++argv;
         if ( strcmp( argv[0], "fetch" ) == 0 ) {  // ad5593 dac 0 1 2...
-            __ad5593->fetch();
-            __ad5593->print_config();
+            if ( __ad5593->fetch() )
+                __ad5593->print_config();
+            else
+                stream() << "fetch error\n";
         } else if ( strcmp( argv[0], "reg" ) == 0 ) {  // ad5593 dac 0 1 2...
             if ( argc && std::isdigit( *argv[1] ) ) {
                 reg = strtox( argv[1] );
