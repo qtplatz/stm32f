@@ -42,6 +42,14 @@ strcmp( const char * a, const char * b )
     return *reinterpret_cast< const unsigned char *>(a) - *reinterpret_cast< const unsigned char *>(b);
 }
 
+int
+strncmp( const char * a, const char * b, size_t n )
+{
+    while ( --n && *a && (*a == *b ) )
+        a++, b++;
+    return *reinterpret_cast< const unsigned char *>(a) - *reinterpret_cast< const unsigned char *>(b);
+}
+
 size_t
 strlen( const char * s )
 {
@@ -131,9 +139,8 @@ i2c_test( size_t argc, const char ** argv )
 
     auto& i2cx = ( addr == stm32f103::I2C1_BASE ) ? __i2c0 : __i2c1;
 
-    bool init_dma( false );
     auto it = std::find_if( argv, argv + argc, [](auto a){ return strcmp( a, "dma" ) == 0; } );
-    init_dma = it != ( argv + argc );
+    const bool init_dma = it != ( argv + argc );
 
     using namespace stm32f103;
 
@@ -157,14 +164,35 @@ i2c_test( size_t argc, const char ** argv )
 
     if ( init_dma && !i2cx.has_dma( i2c::DMA_Both ) )
         i2cx.attach( __dma0, i2c::DMA_Both );
-    
-    uint8_t i2caddr = 0x10; // DA5593R
-    std::array< uint8_t, 2 > rxdata;
-    static uint8_t txdata; // = 0x70;
-    if ( txdata == 0 )
-        txdata = 0x71;
 
+    static uint8_t i2caddr;
+    std::array< uint8_t, 32 > rxdata = { 0 };
+    std::array< uint8_t, 32 > txdata = { 0x71, 0 };
+    uint32_t txd = 0;
+
+    if ( i2caddr == 0 )
+        i2caddr = 0x10; // DA5593R
+    
     bool use_dma( false );
+
+    constexpr static std::pair< const char *, size_t > rcmds [] = { { "r", 2 }, { "read", 2 }, {"--rb", 1 }, {"--read", 0 } };
+    constexpr static auto rcmds_end = &rcmds[sizeof( rcmds ) / sizeof( rcmds[0] )];
+
+    constexpr static std::pair< const char *, size_t > wcmds [] = { { "w", 2 }, { "write", 2 }, {"--w1", 1 }, {"--w2", 2 }, {"--w3", 3 }, {"--w4", 4 } };
+    constexpr static auto wcmds_end = &wcmds[sizeof( wcmds ) / sizeof( wcmds[0] )];
+
+    auto rx_print = [&]( stream&& o, size_t read_counts ){
+        o << "\ni2c dma got data: ";
+        std::for_each( rxdata.begin(), rxdata.begin() + read_counts, [](auto x){ stream() << x << ","; } );
+        o << " from " << i2caddr << std::endl;
+    };
+
+    auto tx_print = [&]( stream&& o, size_t write_counts ){
+        o << "\ni2c sending data: ";
+        std::for_each( txdata.begin(), txdata.begin() + write_counts, [](auto x){ stream() << x << ","; } );
+        o << " to" << i2caddr << std::endl;
+    };  
+        
     
     while ( --argc ) {
         ++argv;
@@ -174,45 +202,58 @@ i2c_test( size_t argc, const char ** argv )
             i2cx.reset();
             i2cx.print_status();
         } else if ( std::isdigit( *argv[0] ) ) {
-            txdata = strtox( argv[0] );
-            stream() << "txdata=" << txdata << std::endl;
+            txd = strtox( argv[0] );
         } else if ( strcmp( argv[0], "dma" ) == 0 ) {
             use_dma = true;
         } else if ( strcmp( argv[0], "!dma" ) == 0 ) {
             use_dma = false;
-        } else if ( strcmp( argv[0], "read" ) == 0 || strcmp( argv[0], "r" ) == 0 ) {
+        } else if ( std::find_if( rcmds, rcmds_end, [&](auto& a){ return strcmp( argv[0], a.first ) == 0; } ) != rcmds_end ) {
+            auto it = std::find_if( rcmds, rcmds_end, [&](auto& a){ return strcmp( argv[0], a.first ) == 0; } );
+            size_t read_counts = it->second;
+            if ( read_counts == 0 && argc >= 1 && std::isdigit( *argv[1] ) ) {
+                --argc; ++argv;
+                read_counts = strtod( argv[0] );
+            }
+            read_counts = read_counts == 0 ? 1 : (read_counts < rxdata.size() ? read_counts : rxdata.size() );
+            stream() << "read_counts: " << read_counts << std::endl;
+            
+            rxdata = { 0 };
             if ( use_dma ) {
-                stream() << "--------------- dma recv ----------------" << std::endl;
-                if ( __i2c0.dma_receive(i2caddr, rxdata.data(), 2 ) ) {
-                    stream() << "\ngot data: ";  std::for_each( rxdata.begin(), rxdata.end()
-                                                                , [](auto x){ stream() << x << ","; } ); stream() << std::endl;
+                if ( __i2c0.dma_receive(i2caddr, rxdata.data(), read_counts ) ) {
+                    rx_print( stream(__FILE__,__LINE__), read_counts );
                 } else {
-                    stream(__FILE__,__LINE__,__FUNCTION__) << "\tdma read failed.\n";
+                    stream(__FILE__,__LINE__) << "i2c -- dma read failed. addr=" << i2caddr << std::endl;
                 }
             } else {
-                stream() << "------- i2c read -----------" << std::endl;
-                if ( i2cx.read( i2caddr, rxdata.data(), rxdata.size() ) ) {
-                    stream() << "\ngot data: ";  std::for_each( rxdata.begin(), rxdata.end()
-                                                                , [](auto x){ stream() << x << ","; } ); stream() << std::endl;
+                if ( i2cx.read( i2caddr, rxdata.data(), read_counts ) ) {
+                    rx_print( stream(__FILE__,__LINE__), read_counts );
                 } else {
-                    stream(__FILE__,__LINE__,__FUNCTION__) << "\tread failed.\n";
+                    stream(__FILE__,__LINE__) << "i2c -- polling read failed. addr=" << i2caddr << std::endl;
                 }
             }
-        } else if ( strcmp( argv[0], "write" ) == 0 || strcmp( argv[0], "w" ) == 0 ) {
+        } else if ( std::find_if( wcmds, wcmds_end, [&](auto& a){ return strcmp( argv[0], a.first ) == 0; } ) != wcmds_end ) {
+
+            auto it = std::find_if( rcmds, rcmds_end, [&](auto& a){ return strcmp( argv[0], a.first ) == 0; } );
+            size_t write_counts = it->second;
+            tx_print( stream(__FILE__,__LINE__), write_counts );
+
             if ( use_dma ) {
-                stream() << "\n--------------- dma transfer " << txdata << " ----------------" << std::endl;
-                if ( __i2c0.dma_transfer(i2caddr, &txdata, 1 ) ) {
-                    stream() << "\n--------- " << txdata << " ----- dma transferred\n";
+                if ( __i2c0.dma_transfer(i2caddr, txdata.data(), write_counts ) ) {
+                    stream() << "\nOK";
                 } else {
-                    stream(__FILE__,__LINE__,__FUNCTION__) << "\tdma transfer failed.\n";
+                    stream(__FILE__,__LINE__,__FUNCTION__) << "\tdma transfer to " << i2caddr << " failed.\n";
                 }
             } else {
-                stream() << "\n------- i2c write " << txdata << " -----------" << std::endl;
-                if ( i2cx.write( i2caddr, &txdata, 1 ) ) {
-                    stream() << "\ni2c " << txdata << " sent out." << std::endl;
+                if ( i2cx.write( i2caddr, txdata.data(), write_counts ) ) {
+                    stream() << "\nOK";
                 } else {
-                    stream(__FILE__,__LINE__,__FUNCTION__) << "\tdma write failed.\n";
+                    stream(__FILE__,__LINE__,__FUNCTION__) << "\tpolling transfer to " << i2caddr << " failed.\n";
                 }
+            }
+        } else if ( strcmp( argv[0], "--addr" ) == 0 ) {
+            if ( argc && std::isdigit( *argv[1] ) ) {
+                i2caddr = strtox( argv[ 1 ] );
+                --argc; ++argv;
             }
         }
     }
@@ -734,6 +775,7 @@ command_processor::operator()( size_t argc, const char ** argv ) const
             for ( auto& cmd: command_table ) {
                 if ( strcmp( cmd.arg0_, argv[0] ) == 0 ) {
                     processed = true;
+                    stream() << std::endl;
                     cmd.f_( argc, argv );
                     break;
                 }

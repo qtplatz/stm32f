@@ -6,6 +6,7 @@
 
 #include "bitset.hpp"
 #include "dma.hpp"
+#include "condition_wait.hpp"
 #include "dma_channel.hpp"
 #include "i2c.hpp"
 #include "i2cdebug.hpp"
@@ -89,7 +90,7 @@ namespace stm32f103 {
     };
 
     constexpr uint32_t error_condition = SMB_ALART | TIME_OUT | PEC_ERR | OVR | AF | ARLO | BERR;
-    
+
     struct i2c_status {
         volatile I2C& _;
         i2c_status( volatile I2C& t ) : _( t ) {}
@@ -110,6 +111,33 @@ namespace stm32f103 {
         }
     };
 
+    struct i2c_reset {
+        bool operator()( volatile I2C& i2c, uint8_t own_addr = 0 ) {
+            if ( own_addr == 0 )
+                own_addr = i2c.OAR1 >> 1;
+
+            bitset::reset( i2c.CR1, PE );
+            bitset::set( i2c.CR1, SWRST );
+            while ( i2c.SR1 && i2c.SR2 )
+                ;
+            bitset::reset( i2c.CR1, SWRST );
+            bitset::reset( i2c.CR1, PE );
+            
+            uint16_t freqrange = uint16_t( __pclk1 / 1000'000 /*'*/ ); // souce clk in MHz
+            uint16_t cr2 = freqrange;
+            i2c.CR2 |= cr2;
+            
+            // p784, 
+            i2c.TRISE = freqrange + 1;
+            i2c.OAR1 = own_addr << 1;
+            i2c.OAR2 = 0;
+            
+            uint16_t ccr = __pclk1 / ( i2c_clock_speed * 2 );  // ratio make it 5us for 10us interval clock
+            i2c.CCR = ccr;  // Sm mode
+        }
+    };
+
+    
     // master start
     struct i2c_start {
         volatile I2C& _;
@@ -129,7 +157,7 @@ namespace stm32f103 {
             return count != 0;
         }
     };
-
+#if 0
     struct condition_waiter {
         size_t count;
         condition_waiter() : count( 0xffff ) {}
@@ -139,7 +167,7 @@ namespace stm32f103 {
             return count != 0;
         }
     };
-
+#endif
     struct scoped_i2c_dma_enable {
         volatile I2C& _;
         scoped_i2c_dma_enable( volatile I2C& t ) : _( t ) {
@@ -154,10 +182,13 @@ namespace stm32f103 {
         volatile I2C& _;
         bool success;
         scoped_i2c_start( volatile I2C& t ) : _( t ), success( false ) {}
+
         ~scoped_i2c_start() {
-            if ( success ) {
-                bitset::set( _.CR1, STOP );
-                condition_waiter()( [&](){ return !_.CR1 & STOP; } );
+            if ( _.SR1 & error_condition ) {
+                if (( _.SR1 & AF ) && ( _.SR2 & (BUSY | MSL ) ) ) // this error cannot recover by PE=0
+                    i2c_reset()( _ );
+                else
+                    _.SR1 &= ~error_condition; // clear error condition
             }
         }
         
@@ -188,12 +219,11 @@ namespace stm32f103 {
 
     template<> inline bool i2c_address<Receiver>::operator()( volatile I2C& _, uint8_t address ) {
         _.DR = (address << 1) | 1;
-        return condition_waiter()( [&](){ return _.SR1 & ADDR; } );
+        return condition_wait()( [&](){ return _.SR1 & ADDR; } );
     }
     
     template<> void i2c_address<Receiver>::clear( volatile I2C& _ ) {
-        volatile auto x = _.SR1;
-        volatile auto y = _.SR2;
+        auto x = i2c_status( _ )();
     }
 
     // AN2824, I2C optimized examples en.CD00209826.pdf
@@ -203,88 +233,89 @@ namespace stm32f103 {
         volatile I2C& _;
         polling_master_receiver( volatile I2C& t ) : _( t ) {}
         bool operator()( uint8_t address, uint8_t * data, size_t size ) {
-            if ( i2c_start( _ )() ) {
+            scoped_i2c_start start(_);
+            if ( start() ) {
                 if ( i2c_address< Receiver >()( _, address ) ) {
                     i2c_address<Receiver>().clear( _ );
-                    condition_waiter()( [&](){ return !_.SR1 & ADDR; } );
-                    while ( size > 3 ) {
-                        if ( condition_waiter()( [&](){ return _.SR1 & (RxNE|BTF); } ) ) {
-                            if ( _.SR1 & RxNE )
+                    condition_wait()( [&](){ return !_.SR1 & ADDR; } );
+                    while ( size >= 3 ) {
+                        if ( condition_wait()( [&](){ return _.SR1 & (RxNE|BTF); } ) ) {
+                            if ( _.SR1 & RxNE ) {
                                 *data++ = _.DR;
+                                --size;
+                            }
+                        } else {
+                            stream(__FILE__,__LINE__) << "polling_master_receiver<3> receive timeout" << std::endl;
+                            return false;
                         }
                     }
-                    if ( condition_waiter()( [&](){ return _.SR1 & BTF; } ) ) {
+                    if ( condition_wait()( [&](){ return _.SR1 & BTF; } ) ) {
                         bitset::reset( _.CR1, ACK );
                         // disable irq
                         bitset::set( _.CR1, STOP );
                         *data++ = _.DR;  // Data N-1
                         --size;
+                    } else {
+                        stream(__FILE__,__LINE__) << "polling_master_receiver<3> n-2 receive timeout" << std::endl;
+                        return false;
                     }
-                    if ( condition_waiter()( [&](){ return _.SR1 & RxNE; } ) ) {
+                    if ( condition_wait()( [&](){ return _.SR1 & RxNE; } ) ) {
                         *data++ = _.DR;
                         --size;
-                        if ( condition_waiter()( [&](){ return !_.SR1 & STOP; } ) ) // wait untl STOP is cleard
+                        if ( condition_wait()( [&](){ return !_.SR1 & STOP; } ) ) // wait untl STOP is cleard
                             bitset::set( _.CR1, ACK ); // to be ready for another reception
                         return size == 0;
+                    } else {
+                        stream(__FILE__,__LINE__) << "polling_master_receiver<3> n-1 receive timeout" << std::endl;
+                        return false;                        
                     }
                 } else {
-                    stream(__FILE__,__LINE__) << "polling_master_receiver<3> address failed.\n";
+                    stream(__FILE__,__LINE__) << "polling_master_receiver<3> address failed" << std::endl;
                 }
-            } else {
-                stream(__FILE__,__LINE__) << "polling_master_receiver<3> start failed.\n";
             }
             return false;                
         }
     };
 
     template<> bool polling_master_receiver< 2 >::operator()( uint8_t address, uint8_t * data, size_t size ) {
-        if ( i2c_start( _ )() ) {
+        scoped_i2c_start start(_);
+        if ( start() ) {
             if ( i2c_address< Receiver >()( _, address ) ) {
                 bitset::set( _.CR1, POS );
                 i2c_address<Receiver>().clear( _ );
                 bitset::reset( _.CR1, ACK );
-                if ( condition_waiter()( [&](){ return _.SR1 & BTF; } ) ) {
+                if ( condition_wait()( [&](){ return _.SR1 & BTF; } ) ) {
                     bitset::set( _.CR1, STOP );
                     *data++ = _.DR;
                     --size;
-                    if ( condition_waiter()( [&](){ return _.SR1 & (RxNE|BTF); } ) ) {
+                    if ( condition_wait()( [&](){ return _.SR1 & (RxNE|BTF); } ) ) {
                         *data++ = _.DR;
                         --size;
-                        if ( condition_waiter()( [&](){ return !_.SR1 & STOP; } ) ) { // wait untl STOP is cleard
-                            bitset::reset( _.CR1, POS ); // to be ready for another reception
-                            bitset::set( _.CR1, ACK ); // to be ready for another reception
+                        if ( condition_wait()( [&](){ return !_.SR1 & STOP; } ) ) { // wait untl STOP is cleard
+                            bitset::reset( _.CR1, POS );
                         }
                     }
                 }
                 return size == 0;
-            } else {
-                stream(__FILE__,__LINE__) << "polling_master_receiver<3> address failed.\n";
             }
-        } else {
-            stream(__FILE__,__LINE__) << "polling_master_receiver<3> start failed.\n";
         }
     }
 
     template<> bool polling_master_receiver< 1 >::operator()( uint8_t address, uint8_t * data, size_t size ) {
-        if ( i2c_start( _ )() ) {
+        scoped_i2c_start start(_);
+        if ( start() ) {        
             if ( i2c_address< Receiver >()( _, address ) ) {
-                bitset::reset( _.CR1, ACK );
                 i2c_address<Receiver>().clear( _ );
                 bitset::set( _.CR1, STOP );
-                if ( condition_waiter()( [&](){ return _.SR1 & RxNE; } ) ) {
+                if ( condition_wait()( [&](){ return _.SR1 & RxNE; } ) ) {
                     *data++ = _.DR;
                     --size;
-                    if ( condition_waiter()( [&](){ return !_.SR1 & STOP; } ) ) { // wait untl STOP is cleard
-                        bitset::set( _.CR1, ACK ); // to be ready for another reception
-                    }
+                    condition_wait()( [&](){ return !_.SR1 & STOP; } ); // wait untl STOP is cleard
                 }
+                // don't add error log in order to work with i2cdetect command that is expecting silent error return.
                 return size == 0;
-            } else {
-                stream(__FILE__,__LINE__) << "polling_master_receiver<3> address failed.\n";
             }
-        } else {
-            stream(__FILE__,__LINE__) << "polling_master_receiver<3> start failed.\n";
-        }                
+        }
         return false;
     }
     /////////////////////////////////////////////////////
@@ -297,72 +328,36 @@ namespace stm32f103 {
         inline bool operator << ( uint8_t data ) {
             constexpr size_t byte_transferred = (( TRA | BUSY | MSL ) << 16) | TxE | BTF; // /*0x00070084*/
             _.DR = data;
-            size_t count = 0x7fff;
-            i2c_status st( _ );
-            while ( !st.is_equal( byte_transferred ) && --count )
-                ;
-            return st.is_equal( byte_transferred );
-        }
-
-        inline bool operator >> ( uint8_t& data ) {
-            constexpr size_t byte_received = (( BUSY | MSL ) << 16) | RxNE;
-            size_t count = 0x7fff;
-            i2c_status st( _ );
-            while ( !st.is_equal( byte_received ) && --count )
-                ;
-            if ( st.is_equal( byte_received ) ) {
-                data = _.DR;
-                return true;
-            }
-            return false;
-        }
-    };
-
-    struct i2c_reset {
-        bool operator()( volatile I2C& i2c, uint8_t own_addr ) {
-            if ( own_addr == 0 )
-                own_addr = i2c.OAR1 >> 1;
-
-            bitset::reset( i2c.CR1, PE );
-            bitset::set( i2c.CR1, SWRST );
-            while ( i2c.SR1 && i2c.SR2 )
-                ;
-            bitset::reset( i2c.CR1, SWRST );
-            bitset::reset( i2c.CR1, PE );
-            
-            uint16_t freqrange = uint16_t( __pclk1 / 1000'000 /*'*/ ); // souce clk in MHz
-            uint16_t cr2 = freqrange;
-            i2c.CR2 |= cr2;
-            
-            // p784, 
-            //i2c.TRISE = (freqrange/8) + 1;
-            i2c.TRISE = freqrange + 1;
-            i2c.OAR1 = own_addr << 1;
-            i2c.OAR2 = 0;
-            
-            uint16_t ccr = __pclk1 / ( i2c_clock_speed * 2 );  // ratio make it 5us for 10us interval clock
-            i2c.CCR = ccr;  // Sm mode
+            i2c_status st( _ );            
+            return condition_wait()( [&](){ return st.is_equal( byte_transferred ); } );
         }
     };
 
     struct i2c_ready_wait {
-        volatile I2C& i2c;
+        volatile I2C& _;
         uint8_t own_addr_;
-        i2c_ready_wait( volatile I2C& t, uint8_t own_addr ) : i2c( t ), own_addr_( own_addr ) {}
+        
+        i2c_ready_wait( volatile I2C& t, uint8_t own_addr ) : _( t ), own_addr_( own_addr ) {}
         
         bool operator()( bool reset = false ) const {
-            i2c_status st( i2c );
-            size_t retry = 3;
-            do {
-                size_t count = 3000;
-                while ( ( st.busy() || ( st() & error_condition ) ) && --count ) {
-                    if ( ( i2c.SR1 & error_condition ) && ( i2c.SR2 & (BUSY| MSL) ) )
-                        i2c_reset()( i2c, own_addr_ );
+            i2c_status st( _ );
+
+            if ( _.SR1 & error_condition ) {
+                stream() << "i2c(" << uint32_t( &_ ) << ") has an error condition: " << i2cdebug::status32_to_string( st() ) << std::endl;
+                _.SR1 &= ~error_condition;
+                if ( _.SR1 & error_condition ) {
+                    stream() << "i2c(" << uint32_t( &_ ) << ") still in the error: " << i2cdebug::status32_to_string( st() ) << std::endl;
+                    return false;
+                } else {
+                    stream() << "i2c(" << uint32_t( &_ ) << ") error has been resolved: " << i2cdebug::status32_to_string( st() ) << std::endl;
                 }
-            } while ( st.busy() && --retry );
-            if ( st.busy() && reset ) {
-                stream() << "i2c_ready_wait -- busy -- resetting..." << std::endl;
-                i2c_reset()( i2c, own_addr_ );
+            }
+            
+            if ( ! condition_wait()( [&](){ return !st.busy(); } ) ) {
+                if ( ( _.SR1 & error_condition ) && ( _.SR2 & (BUSY| MSL) ) ) {
+                    i2c_reset()( _, own_addr_ );
+                    stream(__FILE__,__LINE__) << "i2c_ready_wait -- resetting..." << std::endl;
+                }
             }
             return !st.busy();
         }
@@ -523,7 +518,7 @@ i2c::read( uint8_t address, uint8_t * data, size_t size )
     bitset::set( i2c_->CR1, PE );
 
     if ( ! i2c_ready_wait( *i2c_, own_addr_ )() ) {
-        stream() << __FUNCTION__ << " i2c_ready_wait failed\n";
+        stream(__FILE__,__LINE__) << __FUNCTION__ << " i2c_ready_wait failed\n";
         return false;
     }
 
@@ -614,7 +609,7 @@ namespace stm32f103 {
             if ( start() ) { // generate start condition (master start)
                 if ( i2c_address< Receiver >()( _, address ) ) {
                     i2c_address< Receiver >::clear(_);
-                    if ( condition_waiter()( [&](){ return dma_channel.transfer_complete(); } ) ) {
+                    if ( condition_wait()( [&](){ return dma_channel.transfer_complete(); } ) ) {
                         return true;
                     }
                 } else {

@@ -4,10 +4,10 @@
 // Contact: toshi.hondo@qtplatz.com
 //
 
-struct condition_waiter {
+struct condition_wait {
     size_t count;
-    condition_waiter() : count( 0xffff ) {}
-    template< typename functor >  bool operator()( functor condition ) {
+    condition_wait( size_t maxcounts = 0xffff ) : count( maxcounts ) {}
+    template< typename functor >  inline bool operator()( functor condition ) {
         while ( --count && !condition() )
             ;
         return count != 0;
