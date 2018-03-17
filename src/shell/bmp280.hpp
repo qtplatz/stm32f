@@ -32,7 +32,7 @@ namespace bmp280 {
         , press_lsb  = 0xf8  // read only data
         , press_msb  = 0xf7  // read only data
         , config     = 0xf5  // t_sb[2:0], filter[2:0], spi3w_en[0]
-        , ctrl_meas  = 0xf4  // osrs_t[2:0], osrs_p[2:0], mode[1:0]
+        , ctrl_meas  = 0xf4  // osrs_t[7:5], osrs_p[4:2], mode[1:0]
         , status     = 0xf3  // read only
         , reset      = 0xe0  // write only
         , id         = 0xd0  // chip id [7:0], read only
@@ -67,6 +67,10 @@ namespace bmp280 {
 
         bool write( const uint8_t *, size_t size ) const;
         bool read( uint8_t addr, uint8_t *, size_t size ) const;
+
+        template< size_t N >  bool write ( std::array< uint8_t, N >&& a ) const {
+            return write( a.data(), a.size() );
+        }
     };
     
 }
