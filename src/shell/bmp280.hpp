@@ -31,7 +31,7 @@ namespace bmp280 {
         , press_xlsb = 0xf9  // read only data
         , press_lsb  = 0xf8  // read only data
         , press_msb  = 0xf7  // read only data
-        , config     = 0xf5  // t_sb[2:0], filter[2:0], spi3w_en[0]
+        , config     = 0xf5  // t_sb[7:5], filter[4:2], spi3w_en[0]
         , ctrl_meas  = 0xf4  // osrs_t[7:5], osrs_p[4:2], mode[1:0]
         , status     = 0xf3  // read only
         , reset      = 0xe0  // write only
