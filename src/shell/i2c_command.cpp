@@ -5,6 +5,7 @@
 //
 
 #include "i2c.hpp"
+#include "i2cdebug.hpp"
 #include "gpio_mode.hpp"
 #include "stream.hpp"
 #include "stm32f103.hpp"
@@ -90,9 +91,10 @@ i2c_command( size_t argc, const char ** argv )
         i2cx.attach( __dma0, i2c::DMA_Both );
 
     static uint8_t i2caddr;
+    static uint32_t txd;
+    
     std::array< uint8_t, 32 > rxdata = { 0 };
     std::array< uint8_t, 4 > txdata = { 0x71, 0 };
-    uint32_t txd = 0;
 
     if ( i2caddr == 0 )
         i2caddr = 0x10; // DA5593R
@@ -105,17 +107,24 @@ i2c_command( size_t argc, const char ** argv )
     constexpr static std::pair< const char *, size_t > wcmds [] = { { "w", 2 }, { "write", 2 }, {"wb", 1 }, {"w2", 2 }, {"w3", 3 }, {"w4", 4 } };
     constexpr static auto wcmds_end = &wcmds[sizeof( wcmds ) / sizeof( wcmds[0] )];
 
-    auto rx_print = [&]( stream&& o, size_t read_counts ){
+    auto rx_print = [&]( stream&& o, size_t read_counts, uint32_t status ){
         o << "i2c dma got data: (" << read_counts << ")[";
         std::for_each( rxdata.begin(), rxdata.begin() + read_counts, [&](auto x){ o << x << ", "; } );
-        o << "] from " << i2caddr << std::endl;
+        o << "] from " << i2caddr << (status == 0 ? " OK" : "" ) << std::endl;
+        if ( status )
+            i2cdebug::status32_to_string( status );
     };
 
     auto tx_print = [&]( stream&& o, size_t write_counts ){
         o << "i2c sending data: (" << write_counts << ")[";
         std::for_each( txdata.begin(), txdata.begin() + write_counts, [&](auto x){ o << x << ", "; } );
         o << "] to " << i2caddr << std::endl;
-    };  
+    };
+
+    if ( argc == 1 ) {
+        i2cx.print_status();
+        stream() << "i2c command arguments: --addr i2caddr; [0-9a-f*]; wb; w2; w3; w4; rb; --read" << std::endl; 
+    }
     
     while ( --argc ) {
         ++argv;
@@ -142,13 +151,15 @@ i2c_command( size_t argc, const char ** argv )
             rxdata = { 0 };
             if ( use_dma ) {
                 if ( __i2c0.dma_receive(i2caddr, rxdata.data(), read_counts ) ) {
-                    rx_print( stream(__FILE__,__LINE__), read_counts );
+                    rx_print( stream(__FILE__,__LINE__), read_counts, __i2c0.status() );
+
+                    
                 } else {
                     stream(__FILE__,__LINE__) << "i2c -- dma read failed. addr=" << i2caddr << std::endl;
                 }
             } else {
                 if ( i2cx.read( i2caddr, rxdata.data(), read_counts ) ) {
-                    rx_print( stream(__FILE__,__LINE__), read_counts );
+                    rx_print( stream(__FILE__,__LINE__), read_counts, __i2c0.status() );
                 } else {
                     stream(__FILE__,__LINE__) << "i2c -- polling read failed. addr=" << i2caddr << std::endl;
                 }
@@ -166,13 +177,19 @@ i2c_command( size_t argc, const char ** argv )
 
             if ( use_dma ) {
                 if ( __i2c0.dma_transfer(i2caddr, txdata.data(), write_counts ) ) {
-                    stream() << "\nOK";
+                    if ( auto st = __i2c0.status() )
+                        i2cdebug::status32_to_string( st );
+                    else
+                        stream() << "\nOK";
                 } else {
                     stream(__FILE__,__LINE__,__FUNCTION__) << "\tdma transfer to " << i2caddr << " failed.\n";
                 }
             } else {
                 if ( i2cx.write( i2caddr, txdata.data(), write_counts ) ) {
-                    stream() << "\nOK";
+                    if ( auto st = i2cx.status() )
+                        i2cdebug::status32_to_string( st );
+                    else
+                        stream() << "\nOK";
                 } else {
                     stream(__FILE__,__LINE__,__FUNCTION__) << "\tpolling transfer to " << i2caddr << " failed.\n";
                 }

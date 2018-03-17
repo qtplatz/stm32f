@@ -24,14 +24,14 @@ bmp280_command( size_t argc, const char ** argv )
         i2c_command( 1, argv );
     }
 
-    uint8_t id = 0;
+    std::array< uint8_t, 2 > id = { 0 };
     std::array< uint8_t, 3 > status = { 0 };
     std::array< uint8_t, 6 > values = { 0 };
 
-    if ( bmp280.read( 0xd0, &id, 1 ) )
-        stream(__FILE__,__LINE__) << "id=" << id << std::endl;
+    if ( bmp280.read( 0xd0, id.data(), id.size() ) )
+        debug_print( stream(__FILE__,__LINE__), id, id.size(), "bmp280 id : " );
     else
-        stream(__FILE__,__LINE__) << "id=" << id << " failed" << std::endl;
+        stream(__FILE__,__LINE__) << "id failed" << std::endl;
     
     if ( bmp280.read( 0xf3, status.data(), status.size() ) )
         debug_print( stream(__FILE__,__LINE__), status, status.size(), "bmp280 status : " );

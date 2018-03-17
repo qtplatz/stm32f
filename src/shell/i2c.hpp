@@ -64,7 +64,7 @@ namespace stm32f103 {
 
         bool dma_transfer( uint8_t address, const uint8_t *, size_t );
         bool dma_receive( uint8_t address, uint8_t * data, size_t );
-        
+        uint32_t status() const;
         void print_status() const;
         bool start();
         bool stop();

@@ -167,8 +167,10 @@ namespace stm32f103 {
         scoped_i2c_start( volatile I2C& t ) : _( t ), success( false ) {}
 
         ~scoped_i2c_start() {
-            if ( success )
-                bitset::set( _.CR1, STOP );            
+            if ( success ) {
+                bitset::set( _.CR1, STOP );
+                condition_wait()( [&]{ return !bitset::test(_.SR2, BUSY); } );
+            }
 
             if ( _.SR1 & error_condition ) {
                 // following condition may happens when i2cdetect attempt data read for device not on the bus
@@ -308,10 +310,8 @@ namespace stm32f103 {
         i2c_transmitter( volatile I2C& t ) : _( t ) {}
 
         inline bool operator << ( uint8_t data ) {
-            constexpr size_t byte_transferred = (( TRA | BUSY | MSL ) << 16) | TxE | BTF; // /*0x00070084*/
             _.DR = data;
-            i2c_status st( _ );            
-            return condition_wait()( [&](){ return st.is_equal( byte_transferred ); } );
+            return condition_wait()( [&](){ return _.SR1 & TxE|BTF; } );
         }
     };
 
@@ -344,6 +344,73 @@ namespace stm32f103 {
             return !st.busy();
         }
     };
+
+    struct dma_master_transfer {
+        volatile I2C& _;
+        dma_master_transfer( volatile I2C& t ) : _( t ) {
+            _.CR1 |= ACK | PE;  // ACK enable, peripheral enable
+        }
+
+        template< typename T >
+        bool operator()( T& dma_channel, uint8_t address, const uint8_t * data, size_t size ) const {
+            bitset::reset( _.CR2, LAST );
+
+            dma_channel.set_transfer_buffer( data, size );
+            scoped_dma_channel_enable enable_dma_channel( dma_channel );
+            scoped_i2c_dma_enable dma_enable( _ );
+
+            scoped_i2c_start start( _ );
+
+            if ( start() ) { // generate start condition (master start)
+                
+                if ( i2c_address< Transmitter >()( _, address ) ) {
+                    i2c_address< Transmitter >::clear( _ );
+
+                    return condition_wait()( [&]{ return dma_channel.transfer_complete(); } );
+
+                } else {
+                    using namespace i2cdebug;
+                    stream(__FILE__,__LINE__) << "i2c::dma_master_transfer -- address phase failed: " << status32_to_string( i2c_status( _ )() ) << std::endl;
+                }
+            } else {
+                stream(__FILE__,__LINE__) << "i2c::dma_master_transfer() -- can't generate start condition" << std::endl;
+            }
+            return false;
+        }
+    };
+
+    struct dma_master_receiver {
+        volatile I2C& _;
+        dma_master_receiver( volatile I2C& t ) : _( t ) {
+            bitset::set( _.CR1, PE );  // peripheral enable
+        }
+
+        template< typename T >
+        bool operator()( T& dma_channel, uint8_t address, uint8_t * data, size_t size ) const {
+
+            dma_channel.set_receive_buffer( data, size );
+            scoped_dma_channel_enable dma_channel_enable( dma_channel );
+            scoped_i2c_dma_enable dma_enable( _ ); // DMAEN set
+
+            bitset::set( _.CR2, LAST );
+            scoped_i2c_start start( _ );
+            if ( start() ) { // generate start condition (master start)
+                if ( i2c_address< Receiver >()( _, address ) ) {
+                    i2c_address< Receiver >::clear(_);
+                    if ( condition_wait()( [&](){ return dma_channel.transfer_complete(); } ) ) {
+                        return true;
+                    }
+                } else {
+                    stream(__FILE__,__LINE__) << "i2c::dma_master_receiver address failed\n";
+                }
+            } else {
+                stream(__FILE__,__LINE__) << "i2c::dma_master_receiver address failed\n";
+            }
+            return false;
+        }
+        
+    };
+
 }
 
 using namespace stm32f103;
@@ -475,14 +542,20 @@ i2c::has_dma( DMA_Direction dir ) const
     return false;
 }
 
+uint32_t
+i2c::status() const
+{
+    return i2c_status( *i2c_ )();
+}
+
 void
 i2c::print_status() const
 {
-    stream() << "OAR1 : 0x" << i2c_->OAR1 << "\tOwn address: " << int(i2c_->OAR1 >> 1) << std::endl;
+    stream() << "OAR1 : 0x" << i2c_->OAR1 << "\tOwn address: " << int(i2c_->OAR1 >> 1) << "\t";
     stream() << "CCR  : {" << int( i2c_->CCR & 0x7ff ) << "}\t";
     stream() << "TRISE: {" << int( i2c_->TRISE ) << "(" << ((i2c_->TRISE&0x3f)-1)/(i2c_->CR2&0x3f) << "us)}" << std::endl;
     
-    stream() << "CR1,2: [" << i2c_->CR1 << "," << i2c_->CR2 << "]\t" << CR1_to_string( i2c_->CR1 ) << "\t" << CR2_to_string( i2c_->CR2 ) << std::endl;
+    stream() << "CR1,2: [" << i2c_->CR1 << "," << i2c_->CR2 << "]\t" << CR1_to_string( i2c_->CR1 ) << "\t" << CR2_to_string( i2c_->CR2 ) << "\t";
     stream() << "SR1,2: " << status32_to_string( i2c_status( *i2c_ )() ) << std::endl;
 
     int count = 10;
@@ -528,82 +601,25 @@ i2c::write( uint8_t address, const uint8_t * data, size_t size )
     if ( start() ) {    
         if ( i2c_address< Transmitter >()( *i2c_, address ) ) { // address phase
             i2c_transmitter writer( *i2c_ );
-            while ( size && ( writer << *data++ ) )
-                --size;
+            while ( size ) {
+                if ( ( writer << *data++ ) )
+                    --size;
+                else {
+                    stream(__FILE__,__LINE__) << "i2c::write timeout\n";
+                    break;
+                }
+            }
             bitset::set( i2c_->CR1, STOP );
+            if ( size )
+                stream(__FILE__,__LINE__) << "i2c::write remain " << size << " octets\n";
             return size == 0;
+        } else {
+            stream(__FILE__,__LINE__) << "i2c::write address failed\n";
         }
+    } else {
+        stream(__FILE__,__LINE__) << "i2c::write start failed\n";
     }
     return false;
-}
-
-namespace stm32f103 {
-
-    struct dma_master_transfer {
-        volatile I2C& _;
-        dma_master_transfer( volatile I2C& t ) : _( t ) {
-            _.CR1 |= ACK | PE;  // ACK enable, peripheral enable
-        }
-
-        template< typename T >
-        bool operator()( T& dma_channel, uint8_t address, const uint8_t * data, size_t size ) const {
-            bitset::reset( _.CR2, LAST );
-
-            dma_channel.set_transfer_buffer( data, size );
-            scoped_dma_channel_enable enable_dma_channel( dma_channel );
-            scoped_i2c_dma_enable dma_enable( _ );
-
-            scoped_i2c_start start( _ );
-
-            if ( start() ) { // generate start condition (master start)
-                
-                if ( i2c_address< Transmitter >()( _, address ) ) {
-                    i2c_address< Transmitter >::clear( _ );
-
-                    return condition_wait()( [&]{ return dma_channel.transfer_complete(); } );
-
-                } else {
-                    stream(__FILE__,__LINE__) << "i2c::dma_master_transfer -- address phase failed: " << status32_to_string( i2c_status( _ )() ) << std::endl;
-                }
-            } else {
-                stream(__FILE__,__LINE__) << "i2c::dma_master_transfer() -- can't generate start condition" << std::endl;
-            }
-            return false;
-        }
-    };
-
-    struct dma_master_receiver {
-        volatile I2C& _;
-        dma_master_receiver( volatile I2C& t ) : _( t ) {
-            bitset::set( _.CR1, PE );  // peripheral enable
-        }
-
-        template< typename T >
-        bool operator()( T& dma_channel, uint8_t address, uint8_t * data, size_t size ) const {
-
-            dma_channel.set_receive_buffer( data, size );
-            scoped_dma_channel_enable dma_channel_enable( dma_channel );
-            scoped_i2c_dma_enable dma_enable( _ ); // DMAEN set
-
-            bitset::set( _.CR2, LAST );
-            scoped_i2c_start start( _ );
-            if ( start() ) { // generate start condition (master start)
-                if ( i2c_address< Receiver >()( _, address ) ) {
-                    i2c_address< Receiver >::clear(_);
-                    if ( condition_wait()( [&](){ return dma_channel.transfer_complete(); } ) ) {
-                        return true;
-                    }
-                } else {
-                    stream(__FILE__,__LINE__) << "i2c::dma_master_receiver address failed\n";
-                }
-            } else {
-                stream(__FILE__,__LINE__) << "i2c::dma_master_receiver address failed\n";
-            }
-            return false;
-        }
-        
-    };
-
 }
 
 bool
