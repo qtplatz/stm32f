@@ -4,12 +4,11 @@
 // Contact: toshi.hondo@qtplatz.com
 //
 
-struct condition_waiter {
-    size_t count;
-    condition_waiter() : count( 0xffff ) {}
-    template< typename functor >  bool operator()( functor condition ) {
-        while ( --count && !condition() )
-            ;
-        return count != 0;
-    }
-};
+#include <cstdint>
+#include <cstddef>
+
+int strcmp( const char *, const char * b );
+int strncmp( const char *, const char * b, size_t n );
+size_t strlen( const char * s );
+int strtod( const char * s );
+uint32_t strtox( const char * s );
