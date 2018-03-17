@@ -143,31 +143,14 @@ namespace stm32f103 {
         volatile I2C& _;
         i2c_start( volatile I2C& t ) : _( t ) {}
 
-        constexpr static uint32_t master_mode_selected = ( ( BUSY | MSL ) << 16 ) | SB;
-
+        // constexpr static uint32_t master_mode_selected = ( ( BUSY | MSL ) << 16 ) | SB;
+        
         inline bool operator()() const {
-            size_t count = 0x7fff;
-            i2c_status st( _ );
-
             _.CR1 |= START;
-                
-            while( !st.is_equal( master_mode_selected ) && --count )
-                ;
+            return condition_wait()( [&]{ return _.SR1 & SB; } );
+        }
+    };
 
-            return count != 0;
-        }
-    };
-#if 0
-    struct condition_waiter {
-        size_t count;
-        condition_waiter() : count( 0xffff ) {}
-        template< typename functor >  bool operator()( functor condition ) {
-            while ( --count && !condition() )
-                ;
-            return count != 0;
-        }
-    };
-#endif
     struct scoped_i2c_dma_enable {
         volatile I2C& _;
         scoped_i2c_dma_enable( volatile I2C& t ) : _( t ) {
@@ -184,8 +167,12 @@ namespace stm32f103 {
         scoped_i2c_start( volatile I2C& t ) : _( t ), success( false ) {}
 
         ~scoped_i2c_start() {
+            if ( success )
+                bitset::set( _.CR1, STOP );            
+
             if ( _.SR1 & error_condition ) {
-                if (( _.SR1 & AF ) && ( _.SR2 & (BUSY | MSL ) ) ) // this error cannot recover by PE=0
+                // following condition may happens when i2cdetect attempt data read for device not on the bus
+                if (( _.SR1 & AF ) && ( _.SR2 & ( BUSY | MSL ) ) ) // this error cannot recover by PE=0
                     i2c_reset()( _ );
                 else
                     _.SR1 &= ~error_condition; // clear error condition
@@ -205,16 +192,12 @@ namespace stm32f103 {
         inline bool operator()( volatile I2C& _, uint8_t address ) {
             
             _.DR = ( address << 1 );
-            
-            constexpr uint32_t byte_transmitting = (( TRA | BUSY | MSL) << 16 ) | TxE;
-            i2c_status st( _ );
-            size_t count = 0x7fff;
-            while( !st.is_equal( byte_transmitting ) && --count )
-                ;
-            return st.is_equal( byte_transmitting );
-            return true;
+            return condition_wait()( [&]{ return _.SR1 & ADDR; } );
         }
-        void static clear( volatile I2C& ) {}
+        
+        void static clear( volatile I2C& _ ) {
+            auto x = i2c_status( _ )();
+        }
     };
 
     template<> inline bool i2c_address<Receiver>::operator()( volatile I2C& _, uint8_t address ) {
@@ -262,8 +245,7 @@ namespace stm32f103 {
                     if ( condition_wait()( [&](){ return _.SR1 & RxNE; } ) ) {
                         *data++ = _.DR;
                         --size;
-                        if ( condition_wait()( [&](){ return !_.SR1 & STOP; } ) ) // wait untl STOP is cleard
-                            bitset::set( _.CR1, ACK ); // to be ready for another reception
+                        bitset::set( _.CR1, ACK ); // to be ready for another reception
                         return size == 0;
                     } else {
                         stream(__FILE__,__LINE__) << "polling_master_receiver<3> n-1 receive timeout" << std::endl;
@@ -548,6 +530,7 @@ i2c::write( uint8_t address, const uint8_t * data, size_t size )
             i2c_transmitter writer( *i2c_ );
             while ( size && ( writer << *data++ ) )
                 --size;
+            bitset::set( i2c_->CR1, STOP );
             return size == 0;
         }
     }
@@ -565,22 +548,20 @@ namespace stm32f103 {
         template< typename T >
         bool operator()( T& dma_channel, uint8_t address, const uint8_t * data, size_t size ) const {
             bitset::reset( _.CR2, LAST );
+
+            dma_channel.set_transfer_buffer( data, size );
+            scoped_dma_channel_enable enable_dma_channel( dma_channel );
+            scoped_i2c_dma_enable dma_enable( _ );
+
             scoped_i2c_start start( _ );
+
             if ( start() ) { // generate start condition (master start)
                 
-                dma_channel.set_transfer_buffer( data, size );
-                scoped_dma_channel_enable enable_dma_channel( dma_channel );
-
                 if ( i2c_address< Transmitter >()( _, address ) ) {
+                    i2c_address< Transmitter >::clear( _ );
 
-                    scoped_i2c_dma_enable dma_enable( _ );
-                                    
-                    size_t count = 0x7fff;
-                    while ( --count && !dma_channel.transfer_complete() )
-                        ;
-                    if ( count == 0 )
-                        stream(__FILE__,__LINE__) << "dma_master_transfer timeout\n";
-                    return count != 0;
+                    return condition_wait()( [&]{ return dma_channel.transfer_complete(); } );
+
                 } else {
                     stream(__FILE__,__LINE__) << "i2c::dma_master_transfer -- address phase failed: " << status32_to_string( i2c_status( _ )() ) << std::endl;
                 }
