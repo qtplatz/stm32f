@@ -56,6 +56,8 @@ bmp280_command( size_t argc, const char ** argv )
             } else {
                 stream(__FILE__,__LINE__) << "config FAILED" << std::endl;
             }
+        } else if ( strcmp( argv[0], "trim" ) == 0 ) {
+            bmp280.trimming_parameter_readout();
         } else if ( strcmp( argv[0], "start" ) == 0 ) {
             bmp280.measure();
             sleep = 30;

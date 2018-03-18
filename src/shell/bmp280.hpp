@@ -62,6 +62,13 @@ namespace bmp280 {
 #endif
         const int address_;
         bool has_callback_;
+        bool has_trimming_parameter_;
+        uint16_t dig_T1;
+        int16_t dig_T2, dig_T3;
+        uint16_t dig_P1;
+        int16_t dig_P2, dig_P3, dig_P4, dig_P5, dig_P6, dig_P7, dig_P8, dig_P9;
+        int32_t t_fine;
+        
         BMP280( const BMP280& ) = delete;
         BMP280& operator = ( const BMP280& ) = delete;
         static BMP280 * __instance;
@@ -78,13 +85,16 @@ namespace bmp280 {
         bool read( uint8_t addr, uint8_t *, size_t size ) const;
 
         template< size_t N > bool write ( std::array< uint8_t, N >&& a ) const { return write( a.data(), a.size() ); }
-
+        
+        void trimming_parameter_readout();
         void measure();
         void stop();
         inline bool is_active() const { return has_callback_; }
-
+        int32_t compensate_temperature_int32( int32_t v_uncomp_temperature_s32 );
+        uint32_t compensate_pressure_int32( uint32_t v_uncomp_pressure_s32 );
+            
     private:
-        std::pair< uint64_t, uint64_t> readout();
+        std::pair< uint32_t, uint32_t> readout();
         static void handle_timer();
     };
     
