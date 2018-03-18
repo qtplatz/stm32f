@@ -45,32 +45,47 @@ namespace bmp280 {
         , NORMAL_MODE = 0x03
     };
 
+    enum BMP280_OSRS_P {
+        PRESSURE_MEASUREMENT_SKIPPED
+        , ULTRA_LOW_POWER
+        , LOW_POWER
+        , STANDARD_RESOLUTION
+        , HIGH_RESOLUTION
+        , ULTRA_HIGH_RESOLUTION
+    };
+
     class BMP280 {
 #if defined __linux        
         std::unique_ptr< i2c_linux::i2c > i2c_;
 #else
         stm32f103::i2c * i2c_;
 #endif
-        bool dirty_;
         const int address_;
-    public:
-#if defined __linux
-        BMP280( const char * device = "/dev/i2c-2", int address = 0x10 );
-#else
+        bool has_callback_;
+        BMP280( const BMP280& ) = delete;
+        BMP280& operator = ( const BMP280& ) = delete;
+        static BMP280 * __instance;
         BMP280( stm32f103::i2c& t, int address = 0x76 );  // or 0x77
-#endif
-        ~BMP280();
+    public:
 
-        const std::system_error& error_code() const;
+        ~BMP280();
+        static BMP280 * instance( stm32f103::i2c& t, int address = 0x76 );  // or 0x77
+        static BMP280 * instance();
 
         operator bool () const;
 
         bool write( const uint8_t *, size_t size ) const;
         bool read( uint8_t addr, uint8_t *, size_t size ) const;
 
-        template< size_t N >  bool write ( std::array< uint8_t, N >&& a ) const {
-            return write( a.data(), a.size() );
-        }
+        template< size_t N > bool write ( std::array< uint8_t, N >&& a ) const { return write( a.data(), a.size() ); }
+
+        void measure();
+        void stop();
+        inline bool is_active() const { return has_callback_; }
+
+    private:
+        std::pair< uint64_t, uint64_t> readout();
+        static void handle_timer();
     };
     
 }

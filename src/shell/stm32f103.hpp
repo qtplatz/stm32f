@@ -7,6 +7,10 @@
 #pragma once
 
 #ifdef __cplusplus
+#include <cstdint>
+#endif
+
+#ifdef __cplusplus
 namespace stm32f103 {  // as known as Blue Pill
 #endif
 
@@ -81,6 +85,26 @@ namespace stm32f103 {  // as known as Blue Pill
     {  // p49, Table 3
         DMA1_BASE	    = 0x40020000  // 0x4002 0000 - 0x4002 03FF
         , DMA2_BASE	    = 0x40020400  // 0x4002 0400 - 0x4002 07FF
+    };
+
+#ifdef __cplusplus    
+    enum TIM_BASE : uint32_t
+#else
+    enum TIM_BASE
+#endif
+    {  // p49, Table 3
+        TIM2_BASE     = 0x40000000 //- 0x4000 03FF TIM2 timer; 15.4.19 page 422
+        , TIM3_BASE   = 0x40000400 //- 0x4000 07FF TIM3 timer
+        , TIM4_BASE   = 0x40000800 //- 0x4000 0BFF TIM4 timer
+        , TIM5_BASE   = 0x40000C00 //- 0x4000 0FFF TIM5 timer
+        , TIM6_BASE   = 0x40001000 //- 0x4000 13FF TIM6 timer
+        , TIM7_BASE   = 0x40001400 //- 0x4000 17FF TIM7 timer
+        , TIM12_BASE  = 0x40001800 //- 0x4000 1BFF TIM12 timer
+        , TIM13_BASE  = 0x40001C00 //- 0x4000 1FFF TIM13 timer
+        // 0x4001 2C00 - 0x4001 2FFF TIM1 timer Section 14.4.21 on page 362
+        // 0x4001 3400 - 0x4001 37FF TIM8 timer Section 14.4.21 on page 362
+        // 0x4001 5000 - 0x4001 53FF TIM10 timer Section 16.5.11 on page 467
+        // 0x4001 5400 - 0x4001 57FF TIM11 timer Section 16.5.11 on page 467
     };
     
     enum GPIO_CNF {

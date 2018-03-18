@@ -6,6 +6,7 @@
 
 #include "stream.hpp"
 #include "uart.hpp"
+#include <atomic>
 #include <type_traits>
 #include <typeinfo>
 
@@ -37,7 +38,6 @@ public:
         o_ << ++p;
     }
 };
-
 
 stream::stream( uart& t ) : uart_( t )
 {

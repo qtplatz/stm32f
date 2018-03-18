@@ -25,6 +25,7 @@ extern void __i2c1_event_handler(void);
 extern void __i2c1_error_handler(void);
 extern void __i2c2_event_handler(void);
 extern void __i2c2_error_handler(void);
+extern void __tim2_handler(void);
 extern void __spi1_handler(void);
 extern void __spi2_handler(void);
 extern void __usart1_handler(void);
@@ -95,7 +96,7 @@ void ( * const vector_table [] )() __attribute__ ((section(".vect"))) = {
 	0,                              /* 0x0A4 TIM1 Update                     */
 	0,                              /* 0x0A8 TIM1 Trigger and Communication  */
 	0,                              /* 0x0AC TIM1 Capture Compare            */
-	0,                              /* 0x0B0 TIM2                            */
+	__tim2_handler,                 /* 0x0B0 TIM2                            */
 	0,                              /* 0x0B4 TIM3                            */
 	0,                              /* 0x0B8 TIM4                            */
 	__i2c1_event_handler,           /* 0x0BC I2C1 event                      */

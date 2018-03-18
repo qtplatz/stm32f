@@ -13,13 +13,14 @@ class stream;
 
 namespace std {
     constexpr const char * endl = "\n";
+    extern stream cout;
 }
 
 namespace stm32f103 {
     class uart;
 }
 
-extern stm32f103::uart __uart0;    
+extern stm32f103::uart __uart0;
 
 class stream {
     stm32f103::uart& uart_;
@@ -32,7 +33,6 @@ public:
             stream() << function << "()\t";
     }
     void flush();
-
     stream& operator << ( const char );
     stream& operator << ( const char * );
     stream& operator << ( const int8_t );

@@ -15,6 +15,7 @@
 #include "spi.hpp"
 #include "stream.hpp"
 #include "stm32f103.hpp"
+#include "timer.hpp"
 #include "utility.hpp"
 #include <atomic>
 #include <algorithm>
@@ -32,6 +33,11 @@ void i2c_command( size_t argc, const char ** argv );
 void i2cdetect( size_t argc, const char ** argv );
 void bmp280_command( size_t argc, const char ** argv );
 void ad5593_command( size_t argc, const char ** argv );
+void rcc_status( size_t argc, const char ** argv );
+void rcc_enable( size_t argc, const char ** argv );
+void timer_command( size_t argc, const char ** argv );
+void gpio_command( size_t argc, const char ** argv );
+void timer_command( size_t argc, const char ** argv );
 
 int
 strcmp( const char * a, const char * b )
@@ -92,7 +98,7 @@ strtox( const char * s )
 }
 
 void
-spi_test( size_t argc, const char ** argv )
+spi_command( size_t argc, const char ** argv )
 {
     auto id = ( strcmp( argv[0], "spi") == 0 ) ? 0 : ( strcmp( argv[0], "spi2" ) == 0 ) ? 1 : (-1);
     auto& spix = ( id == 0 ) ? __spi0 : __spi1;
@@ -201,61 +207,7 @@ alt_test( size_t argc, const char ** argv )
 }
 
 void
-gpio_test( size_t argc, const char ** argv )
-{
-    using namespace stm32f103;
-
-    const size_t replicates = 0x7fffff;
-    
-    if ( argc >= 2 ) {
-        const char * pin = argv[1];
-        int no = 0;
-        if (( pin[0] == 'P' && ( 'A' <= pin[1] && pin[1] <= 'C' ) ) && ( pin[2] >= '0' && pin[2] <= '9' ) ) {
-            no = pin[2] - '0';
-            if ( pin[3] >= '0' && pin[3] <= '9' )
-                no = no * 10 + pin[3] - '0';
-
-            stream() << "Pulse out to P" << pin[1] << no << std::endl;
-
-            switch( pin[1] ) {
-            case 'A':
-                gpio_mode()( static_cast< GPIOA_PIN >(no), GPIO_CNF_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_50M );
-                stream() << pin << ": " << gpio_mode::toString( gpio_mode()( static_cast< GPIOA_PIN >(no) ) ) << std::endl;
-                for ( size_t i = 0; i < replicates; ++i )
-                    gpio< GPIOA_PIN >( static_cast< GPIOA_PIN >( no ) ) = bool( i & 01 );
-                break;
-            case 'B':
-                gpio_mode()( static_cast< GPIOB_PIN >(no), GPIO_CNF_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_50M );
-                stream() << pin << ": " << gpio_mode::toString( gpio_mode()( static_cast< GPIOB_PIN >(no) ) ) << std::endl;
-                for ( size_t i = 0; i < replicates; ++i )
-                    gpio< GPIOB_PIN >( static_cast< GPIOB_PIN >( no ) ) = bool( i & 01 );
-                break;                
-            case 'C':
-                gpio_mode()( static_cast< GPIOC_PIN >(no), GPIO_CNF_OUTPUT_PUSH_PULL, GPIO_MODE_OUTPUT_50M );
-                stream() << pin << ": " << gpio_mode::toString( gpio_mode()( static_cast< GPIOC_PIN >(no) ) ) << std::endl;
-                for ( size_t i = 0; i < replicates; ++i )
-                    gpio< GPIOC_PIN >( static_cast< GPIOC_PIN >( no ) ) = bool( i & 01 );
-                break;                                
-            }
-            
-        } else {
-            stream() << "gpio 2nd argment format mismatch" << std::endl;
-        }
-    } else {
-        for ( int i = 0; i < 16;  ++i )
-            stream() << "PA" << i << ":\t" << gpio_mode::toString( gpio_mode()( static_cast< GPIOA_PIN >(i) ) ) << std::endl;
-        for ( int i = 0; i < 16;  ++i )
-            stream() << "PB" << i << ":\t" << gpio_mode::toString( gpio_mode()( static_cast< GPIOB_PIN >(i) ) ) << std::endl;
-        for ( int i = 13; i < 16;  ++i )
-            stream() << "PC" << i << ":\t" << gpio_mode::toString( gpio_mode()( static_cast< GPIOC_PIN >(i) ) ) << std::endl;
-        
-        stream() << "gpio <pin#>" << std::endl;
-    }
-}
-
-
-void
-adc_test( size_t argc, const char ** argv )
+adc_command( size_t argc, const char ** argv )
 {
     size_t count = 1;
 
@@ -302,69 +254,10 @@ adc_test( size_t argc, const char ** argv )
     }
 }
 
-static const char * __apbenr__ [] = {
-    "DMA1",     "DMA2",  "SRAM",  nullptr,  "FLITF", nullptr,  "CRCEN",  nullptr
-    ,  nullptr, nullptr, nullptr, nullptr,  "OTGFS",  nullptr, "ETHMAC", "ETHMAC_TX"
-    , "ETHMAC_RX"
-};
 
-static const char * __apb2enr__ [] = {
-    "AFIO",    nullptr, "IOPA",  "IOPB",  "IOPC",  "IOPD",  "IOPE",  "IOPF"
-    , "IOPG",  "ADC1",  "ADC2",  "TIM1",  "SPI1",  "TIM8",  "USART1","ADC3"
-    , nullptr, nullptr, nullptr, "TIM9",  "TIM10", "TIM11"
-};
-
-static const char * __apb1enr__ [] = {
-    "TIM2",     "TIM3",  "TIM4", "TIM5",  "TIM6",  "TIM7",  "TIM12", "TIM13"
-    , "TIM14", nullptr, nullptr, "WWDG",  nullptr, nullptr, "SPI2",  "SPI3"
-    , nullptr,"USART2","USART3", "USART4","USART5","I2C1",  "I2C2",  "USB"
-    , nullptr,   "CAN", nullptr, "BPK",   "PWR",    "DAC"
-};
 
 void
-rcc_status( size_t argc, const char ** argv )
-{
-    if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
-        stream() << "APB2, APB1 peripheral clock enable register (p112-116, RM0008, Rev 17) " << std::endl;
-        stream() << "\tRCC->APB2ENR : " << RCC->APB2ENR << std::endl;
-        stream() << "\tRCC->APB1ENR : " << RCC->APB1ENR << std::endl;
-
-        {
-            stream() << "\tEnables : ";
-            int i = 0;
-            for ( auto& p: __apbenr__ ) {
-                if ( p && ( RCC->APB2ENR & (1<<i) ) )
-                    stream() << p << ", ";                    
-                ++i;
-            }
-            stream() << "\n";
-        }
-        
-        {
-            stream() << "\tEnables : ";
-            int i = 0;
-            for ( auto& p: __apb2enr__ ) {
-                if ( p && ( RCC->APB2ENR & (1<<i) ) )
-                    stream() << p << ", ";                    
-                ++i;
-            }
-            stream() << "\n";
-        }
-        {
-            stream() << "\tEnables : ";
-            int i = 0;
-            for ( auto& p: __apb1enr__ ) {
-                if ( p && ( RCC->APB1ENR & (1<<i) ) )
-                    stream() << p << ", ";
-                ++i;
-            }
-        }
-        stream() << std::endl;
-    }
-}
-
-void
-dma_test( size_t argc, const char ** argv )
+dma_command( size_t argc, const char ** argv )
 {
     uint32_t channel = 1;
 
@@ -402,79 +295,7 @@ afio_test( size_t argc, const char ** argv )
     }
 }
 
-void
-rcc_enable( size_t argc, const char ** argv )
-{
-    const char * myname = argv[ 0 ];
-    
-    if ( argc == 1 ) {
-        int n = 0;
-        for ( auto& p: __apb2enr__ ) {
-            if ( p ) {
-                if ( ( ++n % 8 ) == 0 )
-                    stream() << std::endl;
-                stream() << p << " | ";
-            }
-        }
-        stream() << std::endl;
-        n = 0;
-        for ( auto& p: __apb1enr__ ) {
-            if ( p ) {
-                if ( ( ++n % 8 ) == 0 )
-                    stream() << std::endl;                
-                stream() << p << " | ";
-            }
-        }
-        return;
-    }
-    --argc;
-    ++argv;
-    uint32_t flags1( 0 ), flags2( 0 );
-    while ( argc-- ) {
-        stream() << "looking for : " << argv[ 0 ] << std::endl;
-        uint32_t i = 0;
-        for ( auto& p: __apb2enr__ ) {
-            if ( strcmp( p, argv[ 0 ] ) == 0 ) {
-                flags2 |= (1 << i);
-                stream() << "\tfound on APB2ENR: " << flags2 << std::endl;
-            }
-            ++i;
-        }
-        i = 0;
-        for ( auto& p: __apb1enr__ ) {
-            if ( strcmp( p, argv[ 0 ] ) == 0 ) {
-                flags1 |= (1 << i);
-                stream() << "\tfound on APB1ENR: " << flags1 << std::endl;
-            }
-            ++i;
-        }
-        ++argv;
-    }
-    if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
-        auto prev1 = RCC->APB1ENR;
-        auto prev2 = RCC->APB2ENR;
-        stream() << myname << " : " << flags2 << ", " << flags1 << std::endl;
-        if ( strcmp( myname, "enable" ) == 0 ) {
-            if ( flags2 ) {
-                RCC->APB2ENR |= flags2;
-                stream() << "APB2NER: " << prev2 << " | " << flags2 << "->" << RCC->APB2ENR << std::endl;
-            }
-            if ( flags1 ) {
-                RCC->APB1ENR |= flags1;
-                stream() << "APB1NER: " << prev1 << " | " << flags2 << "->" << RCC->APB1ENR << std::endl;
-            }
-        } else {
-            if ( flags2 ) {
-                RCC->APB2ENR &= ~flags2;
-                stream() << "APB2NER: " << prev2 << " & " << ~flags2 << "->" << RCC->APB2ENR << std::endl;
-            }
-            if ( flags1 ) {
-                RCC->APB1ENR &= ~flags1;
-                stream() << "APB1NER: " << prev1 << " & " << ~flags1 << "->" << RCC->APB1ENR << std::endl;
-            }
-        }
-    }
-}
+
 
 ///////////////////////////////////////////////////////
 
@@ -490,21 +311,22 @@ public:
 };
 
 static const premitive command_table [] = {
-    { "spi",    spi_test,       " spi [replicates]" }
-    , { "spi2", spi_test,       " spi2 [replicates]" }
+    { "spi",    spi_command,    " spi [replicates]" }
+    , { "spi2", spi_command,    " spi2 [replicates]" }
     , { "alt",  alt_test,       " spi [remap]" }
-    , { "gpio", gpio_test,      " pin# (toggle PA# as GPIO, where # is 0..12)" }
-    , { "adc",  adc_test,       " replicates (1)" }
+    , { "gpio", gpio_command,   " pin# (toggle PA# as GPIO, where # is 0..12)" }
+    , { "adc",  adc_command,    " replicates (1)" }
     , { "rcc",  rcc_status,     " RCC clock enable register list" }
     , { "disable", rcc_enable,  " reg1 [reg2...] Disable clock for specified peripheral." }
     , { "enable", rcc_enable,   " reg1 [reg2...] Enable clock for specified peripheral." }
     , { "afio", afio_test,      " AFIO MAPR list" }
-    , { "i2c",  i2c_command,       " I2C-1 test" }
-    , { "i2c2", i2c_command,       " I2C-2 test" }
+    , { "i2c",  i2c_command,    " I2C-1 test" }
+    , { "i2c2", i2c_command,    " I2C-2 test" }
     , { "i2cdetect", i2cdetect, " i2cdetect [0|1]" }
     , { "ad5593", ad5593_command,  " ad5593" }
-    , { "dma",    dma_test,     " dma" }
+    , { "dma",    dma_command,     " dma" }
     , { "bmp",    bmp280_command,     "" }
+    , { "timer",  timer_command,     "" }    
 };
 
 bool

@@ -188,6 +188,9 @@ main()
         // I2C clock enable
         RCC->APB1ENR |= (1 << 21); // I2C 1 clock enable
         RCC->APB1ENR |= (1 << 22); // I2C 2 clock enable
+
+        // TIM2
+        RCC->APB1ENR |= 1;  // TIM2 General purpose timer
     }
 
     atomic_jiffies = 0;

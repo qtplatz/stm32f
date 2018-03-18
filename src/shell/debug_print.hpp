@@ -9,7 +9,7 @@
 #include <algorithm>
 
 template<typename stream_type, typename array_type>
-const char * debug_print( stream_type&& o, const array_type& a, size_t count, const char * preamble, const char * postamble = "\n" ) {
+const char * array_print( stream_type&& o, const array_type& a, size_t count, const char * preamble, const char * postamble = "\n" ) {
     o << preamble;
     std::for_each( a.begin(), a.begin() + count, [&](auto x){ o << x << ","; } );
     o << postamble;

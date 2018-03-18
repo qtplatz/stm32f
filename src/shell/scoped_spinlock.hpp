@@ -4,6 +4,8 @@
 // Contact: toshi.hondo@qtplatz.com
 //
 
+#pragma once
+
 #include <atomic>
 
 template< typename T = std::atomic_flag >

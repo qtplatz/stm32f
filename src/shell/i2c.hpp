@@ -82,6 +82,5 @@ namespace stm32f103 {
         static void interrupt_event_handler( i2c * );
         static void interrupt_error_handler( i2c * );
     };
-
 }
 

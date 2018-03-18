@@ -24,6 +24,10 @@
 
 #include "bmp280.hpp"
 #include "i2c.hpp"
+#include "timer.hpp"
+#include "scoped_spinlock.hpp"
+#include "stm32f103.hpp"
+#include <atomic>
 #if defined __linux
 #include <iostream>
 #include <unistd.h>
@@ -36,33 +40,40 @@
 #else
 #include "stream.hpp"
 #endif
+#include "debug_print.hpp"
 
 namespace bmp280 {
-
-}
-
+    std::atomic_flag __flag, __once_flag;
+    BMP280 * BMP280::__instance;
+    static uint8_t __bmp280_allocator[ sizeof(BMP280) ];
+};
 
 using namespace bmp280;
+
+BMP280 *
+BMP280::instance()
+{
+    return __instance;
+}
+
+// static
+BMP280 *
+BMP280::instance( stm32f103::i2c& t, int address )  // or 0x77
+{
+    if ( ! __once_flag.test_and_set() )
+        __instance = new (__bmp280_allocator) BMP280( t, address );
+    return __instance;    
+}
 
 BMP280::~BMP280()
 {
 }
 
-#if defined __linux
-BMP280::BMP280( const char * device
-                , int address ) : i2c_( std::make_unique< i2c_linux::i2c >() )
-                                , address_( address )
-                                , dirty_( true )
-{
-    i2c_->init( device, address );
-}
-#else
 BMP280::BMP280( stm32f103::i2c& t, int address ) : i2c_( &t )
                                                  , address_( address )
-                                                 , dirty_( true )
+                                                 , has_callback_( false )
 {
 }
-#endif
 
 #if defined __linux
 const std::system_error&
@@ -77,9 +88,31 @@ BMP280::operator bool () const
     return *i2c_;
 }
 
+void
+BMP280::measure()
+{
+    constexpr uint8_t meas = 1 << 5 | 1 << 2 | 3;
+    constexpr uint8_t config = 1 << 5 | 1 << 2;
+    // oversampling temp[7:5], press[4:2], power mode[1:0]
+    if ( write( std::array< uint8_t, 4 >( { 0xf4, meas, 0xf5, config } ) ) ) {
+        has_callback_ = true;
+        stm32f103::timer_t< stm32f103::TIM2_BASE >().set_callback( handle_timer );
+    }
+}
+
+void
+BMP280::stop()
+{
+    if ( has_callback_ ) {
+        stm32f103::timer_t< stm32f103::TIM2_BASE >::clear_callback();
+        has_callback_ = false;
+    }
+}
+
 bool
 BMP280::write( const uint8_t * data, size_t size ) const
 {
+    scoped_spinlock<> lock( __flag );
     if ( i2c_ ) {
         if ( i2c_->has_dma( stm32f103::i2c::DMA_Tx ) ) {
             return i2c_->dma_transfer( address_, data, size );
@@ -93,6 +126,7 @@ BMP280::write( const uint8_t * data, size_t size ) const
 bool
 BMP280::read(  uint8_t addr, uint8_t * data, size_t size ) const
 {
+    scoped_spinlock<> lock( __flag );
     if ( i2c_ ) {
         bool success( false );
 
@@ -115,5 +149,22 @@ BMP280::read(  uint8_t addr, uint8_t * data, size_t size ) const
         }
     }
     return false;
+}
+
+std::pair< uint64_t, uint64_t > 
+BMP280::readout()
+{
+    std::array< uint8_t, 6 > data;
+    if ( read( 0xf7, data.data(), data.size() ) ) {
+        array_print( stream(__FILE__,__LINE__), data, data.size(), "bmp280 values : " );        
+    }
+}
+
+//static
+void
+BMP280::handle_timer()
+{
+    if ( auto p = instance() )
+        auto pair = p->readout();
 }
 
