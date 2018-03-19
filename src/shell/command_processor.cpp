@@ -23,8 +23,6 @@
 #include <functional>
 
 extern stm32f103::i2c __i2c0, __i2c1;
-extern stm32f103::spi __spi0, __spi1;
-extern stm32f103::adc __adc0;
 extern std::atomic< uint32_t > atomic_jiffies;
 extern void mdelay( uint32_t ms );
 
@@ -99,8 +97,9 @@ strtox( const char * s )
 void
 spi_command( size_t argc, const char ** argv )
 {
+    using namespace stm32f103;
     auto id = ( strcmp( argv[0], "spi") == 0 ) ? 0 : ( strcmp( argv[0], "spi2" ) == 0 ) ? 1 : (-1);
-    auto& spix = ( id == 0 ) ? __spi0 : __spi1;
+    auto& spix = ( id == 0 ) ? *spi_t< SPI1_BASE >::instance() : *spi_t< SPI2_BASE >::instance();
 
     // spi num
     size_t count = 1024;
@@ -133,9 +132,9 @@ spi_command( size_t argc, const char ** argv )
             gpio_mode()( stm32f103::PB15, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // MOSI
 
             if ( spi_ss_soft )
-                spix.init( stm32f103::SPI2_BASE, 'B', 12 );
+                spix.setup( 'B', 12 );
             else
-                spix.init( stm32f103::SPI2_BASE );
+                spix.setup( 0, 0 );
             
         } else {
             // SPI 1
@@ -145,16 +144,16 @@ spi_command( size_t argc, const char ** argv )
             gpio_mode()( stm32f103::PA7, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // MOSI
 
             if ( spi_ss_soft )
-                __spi0.init( stm32f103::SPI1_BASE, 'A', 4 );
+                spi_t< SPI1_BASE >::instance()->setup( 'A', 4 );
             else
-                __spi0.init( stm32f103::SPI1_BASE );
+                spi_t< SPI1_BASE >::instance()->setup( 0, 0 );
 
             gpio_mode()( stm32f103::PB12, stm32f103::GPIO_CNF_INPUT_FLOATING,       stm32f103::GPIO_MODE_INPUT ); // ~SS
             gpio_mode()( stm32f103::PB13, stm32f103::GPIO_CNF_INPUT_FLOATING,       stm32f103::GPIO_MODE_INPUT ); // SCLK
             gpio_mode()( stm32f103::PB14, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // MISO
             gpio_mode()( stm32f103::PB15, stm32f103::GPIO_CNF_INPUT_FLOATING,       stm32f103::GPIO_MODE_INPUT ); // MOSI
 
-            __spi1.slave_init( stm32f103::SPI2_BASE );
+            spi_t< SPI1_BASE >::instance()->slave_setup();
         }
     }
     
@@ -219,7 +218,9 @@ adc_command( size_t argc, const char ** argv )
     auto it = std::find_if( argv, argv + argc, [](auto a){ return strcmp( a, "dma" ) == 0; } );
     use_dma = it != ( argv + argc );
 
-    if ( !__adc0 ) {
+    auto& __adc = *stm32f103::adc::instance();
+
+    if ( !__adc ) {
         using namespace stm32f103;
         
         stream() << "adc0 not initialized." << std::endl;
@@ -227,15 +228,14 @@ adc_command( size_t argc, const char ** argv )
         // it must be initalized in main though, just in case
         gpio_mode()( stm32f103::PA0, GPIO_CNF_INPUT_ANALOG, GPIO_MODE_INPUT ); // ADC1 (0,0)
         
-        __adc0.init( stm32f103::ADC1_BASE );
-        stream() << "adc reset & calibration: status " << (( __adc0.cr2() & 0x0c ) == 0 ? " PASS" : " FAIL" )  << std::endl;
+        stream() << "adc reset & calibration: status " << (( __adc.cr2() & 0x0c ) == 0 ? " PASS" : " FAIL" )  << std::endl;
     }
 
     if ( use_dma ) {
 
-        __adc0.attach( *stm32f103::dma_t< stm32f103::DMA1_BASE >::instance() );
-        if ( __adc0.start_conversion() ) { // software trigger
-            uint32_t d = __adc0.data(); // can't read twince
+        __adc.attach( *stm32f103::dma_t< stm32f103::DMA1_BASE >::instance() );
+        if ( __adc.start_conversion() ) { // software trigger
+            uint32_t d = __adc.data(); // can't read twince
             stream() << "adc data= 0x" << d
                      << "\t" << int(d) << "(mV)"
                      << std::endl;
@@ -243,8 +243,8 @@ adc_command( size_t argc, const char ** argv )
         
     } else {
         for ( size_t i = 0; i < count; ++i ) {
-            if ( __adc0.start_conversion() ) { // software trigger
-                uint32_t d = __adc0.data(); // can't read twince
+            if ( __adc.start_conversion() ) { // software trigger
+                uint32_t d = __adc.data(); // can't read twince
                 stream() << "[" << int(i) << "] adc data= 0x" << d
                          << "\t" << int(d) << "(mV)"
                          << std::endl;

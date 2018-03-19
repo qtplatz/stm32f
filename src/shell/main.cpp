@@ -38,9 +38,8 @@ std::atomic< uint32_t > atomic_seconds;          // 1s      (136.1925 years)
 
 static std::atomic_flag __lock_flag;
 
-stm32f103::adc __adc0;
+//stm32f103::adc __adc0;
 stm32f103::i2c __i2c0, __i2c1;
-stm32f103::spi __spi0, __spi1;
 stm32f103::uart __uart0;
 
 extern void uart1_handler();
@@ -328,7 +327,7 @@ systick_handler()
 void
 __adc1_handler(void)
 {
-    stm32f103::adc::interrupt_handler( &__adc0 );
+    stm32f103::adc::interrupt_handler( stm32f103::adc::instance() );
 }
 
 void
@@ -379,13 +378,13 @@ __i2c2_error_handler()
 void
 __spi1_handler(void)
 {
-    stm32f103::spi::interrupt_handler( &__spi0 );    
+    stm32f103::spi::interrupt_handler( stm32f103::spi_t<stm32f103::SPI1_BASE>::instance() );    
 }
 
 void
 __spi2_handler(void)
 {
-    stm32f103::spi::interrupt_handler( &__spi1 );    
+    stm32f103::spi::interrupt_handler( stm32f103::spi_t<stm32f103::SPI2_BASE>::instance() );
 }
 
 void

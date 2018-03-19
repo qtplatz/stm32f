@@ -22,11 +22,10 @@ namespace stm32f103 {
         std::atomic_flag lock_;
         std::atomic_bool flag_;
         std::atomic< uint16_t > data_;
-
-    public:
         adc();
         ~adc();
         void init( PERIPHERAL_BASE );
+    public:
         void attach( dma& );
         operator bool () const { return adc_; }
 
@@ -38,6 +37,7 @@ namespace stm32f103 {
 
         void handle_interrupt();
         static void interrupt_handler( adc * _this );
+        static adc * instance();
     };
     
 }

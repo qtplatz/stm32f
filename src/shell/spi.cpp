@@ -93,47 +93,50 @@ spi::init( stm32f103::SPI_BASE base, uint8_t gpio, uint32_t ss_n )
 }
 
 void
-spi::slave_init( stm32f103::SPI_BASE base )
+spi::slave_setup()
 {
-    lock_.clear();
     rxd_ = 0;
-
     gpio_ = 0;
     ss_n_ = 0;
 
-    if ( auto SPI = reinterpret_cast< volatile stm32f103::SPI * >( base ) ) {
-        spi_ = SPI;
-        SPI->CR1 = ( cr1 | SPE ) & ~MSTR;
-        SPI->CR2 = (3 << 5);
-            
-        switch( base ) {
-        case SPI1_BASE:
-            enable_interrupt( stm32f103::SPI1_IRQn );
-            break;
-        case SPI2_BASE:
-            enable_interrupt( stm32f103::SPI2_IRQn );
-            break;
-        case SPI3_BASE:
-            enable_interrupt( stm32f103::SPI3_IRQn );
-            break;
-        }
-        cr1_ = spi_->CR1;
-    }
+    spi_->CR1 = ( cr1 | SPE ) & ~MSTR;
+    spi_->CR2 = (3 << 5);
+    cr1_ = spi_->CR1;
 }
 
 void
-spi::init( SPI_BASE base, dma& dma )
+spi::setup( uint8_t gpio, uint32_t ss_n )
 {
-    // dma_channel_t< DMA_SPI1_TX > tx_dma( dma );
-    //dma_ = &dma;
-    //dma_channel_ = channel;
-    if ( auto SPI = reinterpret_cast< volatile stm32f103::SPI * >( base ) ) {
-        spi_ = SPI;        
-        spi_->CR1 = cr1 | SPE;
-        spi_->CR2 = SSOE;
-        cr1_ = spi_->CR1;
+    gpio_ = gpio;
+    ss_n_ = ss_n;
+
+    scoped_spinlock<> lock( lock_ );
+        
+    if ( gpio ) {
+        spi_->CR1 = cr1 | SPE | SSM;
+        spi_->CR2 = (3 << 5);        // SS output disable, IRQ {Rx buffer not empty, Error}
+    } else {
+        spi_->CR1 = cr1 | SPE; // | BIDIMODE | BIDIOE;
+        spi_->CR2 = (3 << 5) | SSOE; // SS output enable, IRQ {Rx buffer not empty, Error}
     }
+    cr1_ = spi_->CR1;
+
+    (*this) = true;  // ~SS -> H
 }
+
+// void
+// spi::init( SPI_BASE base, dma& dma )
+// {
+//     // dma_channel_t< DMA_SPI1_TX > tx_dma( dma );
+//     //dma_ = &dma;
+//     //dma_channel_ = channel;
+//     if ( auto SPI = reinterpret_cast< volatile stm32f103::SPI * >( base ) ) {
+//         spi_ = SPI;        
+//         spi_->CR1 = cr1 | SPE;
+//         spi_->CR2 = SSOE;
+//         cr1_ = spi_->CR1;
+//     }
+// }
 
 void
 spi::operator = ( bool flag ) {

@@ -177,3 +177,13 @@ adc::interrupt_handler( adc * _this )
 {
     _this->handle_interrupt();
 }
+
+adc *
+adc::instance()
+{
+    static std::atomic_flag __once_flag;
+    static adc __instance;
+    if ( !__once_flag.test_and_set() )
+        __instance.init( stm32f103::ADC1_BASE );
+    return &__instance;
+}

@@ -26,11 +26,12 @@ namespace stm32f103 {
         uint32_t cr1_;
         dma * dma_;
         uint32_t dma_channel_;
-    public:
         void init( SPI_BASE, uint8_t gpio = 0, uint32_t ss_n = 0 );
-        void slave_init( SPI_BASE );
-
-        void init( SPI_BASE, dma& );
+        template< SPI_BASE > friend struct spi_t;
+    public:
+        // void init( SPI_BASE, dma& );
+        void setup( uint8_t gpio = 0, uint32_t ss_n = 0 );
+        void slave_setup();
 
         inline operator bool () const { return spi_; };
         
@@ -43,11 +44,18 @@ namespace stm32f103 {
         static void interrupt_handler( spi * );
     };
 
-    template< typename GPIO_PIN_type >
-    class spi_t : public spi {
-        GPIO_PIN_type ss_n_;
-    public:
-        template< GPIO_PIN_type > void init( SPI_BASE, GPIO_PIN_type ss_n );
+    template< SPI_BASE base >
+    struct spi_t {
+        static std::atomic_flag once_flag_;
+
+        static inline spi * instance() {
+            static spi __instance;
+            if ( !once_flag_.test_and_set() )
+                __instance.init( base );            
+            return &__instance;
+        }
     };
+
+    template< SPI_BASE base > std::atomic_flag spi_t< base >::once_flag_;
 }
 
