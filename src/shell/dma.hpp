@@ -41,13 +41,12 @@ namespace stm32f103 {
         std::atomic< uint32_t  > interrupt_status_;
         std::array< void(*)( uint32_t ), 7 > callbacks_;
 
+        dma();
         dma( const dma& ) = delete;
         dma& operator = ( const dma& ) = delete;
-        
-    public:
-        dma();
-        
         void init( DMA_BASE );
+        template< DMA_BASE > friend struct dma_t;
+    public:
 
         volatile DMAChannel& dmaChannel( uint32_t );
 
@@ -85,5 +84,18 @@ namespace stm32f103 {
         void handle_interrupt( uint32_t );
     };
 
+    template< DMA_BASE base > struct dma_t {
+
+        static std::atomic_flag once_flag_;
+
+        static inline dma * instance() {
+            static dma __instance;
+            if ( !once_flag_.test_and_set() )
+                __instance.init( base );            
+            return &__instance;
+        }
+    };
+    
+    template< DMA_BASE base > std::atomic_flag dma_t< base >::once_flag_;
 }
 

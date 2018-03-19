@@ -1,8 +1,11 @@
 
-all: 2018-03-18.pdf
+all: 2018-03-19.pdf temp.pdf
 
-2018-03-18.tex: bmp280.gnuplot 2018-03-18.txt
-	gnuplot -c $< $@ $(basename $@).txt $(basename $@)
+2018-03-19.tex: 2018-03-19.txt bmp280.gnuplot 
+	gnuplot -c bmp280.gnuplot $@ $< $(basename $@)
+
+temp.tex: ${HOME}/temp.txt bmp280.gnuplot 
+	gnuplot -c bmp280.gnuplot $@ $< $(basename $@)
 
 %.pdf: %.tex ; pdflatex $<
 

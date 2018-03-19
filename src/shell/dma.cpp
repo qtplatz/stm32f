@@ -37,12 +37,9 @@ namespace stm32f103 {
         , CTCIF  = 1 << 1  // Channel x transfer complete clear
         , CGIF   = 1       // Channel x global interrupt clear
     };
-
 }
 
 using namespace stm32f103;
-
-extern dma __dma0;
 
 dma::dma() : dma_( 0 )
 {

@@ -5,6 +5,7 @@
 //
 
 #include "i2c.hpp"
+#include "dma.hpp"
 #include "i2cdebug.hpp"
 #include "gpio_mode.hpp"
 #include "stream.hpp"
@@ -13,7 +14,6 @@
 #include <algorithm>
 
 extern stm32f103::i2c __i2c0, __i2c1;
-extern stm32f103::dma __dma0;
 
 void i2c_command( size_t argc, const char ** argv );
 
@@ -88,7 +88,7 @@ i2c_command( size_t argc, const char ** argv )
     }
 
     if ( init_dma && !i2cx.has_dma( i2c::DMA_Both ) )
-        i2cx.attach( __dma0, i2c::DMA_Both );
+        i2cx.attach( *dma_t< DMA1_BASE >::instance(), i2c::DMA_Both );
 
     static uint8_t i2caddr;
     static uint32_t txd;

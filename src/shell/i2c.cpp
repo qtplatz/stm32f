@@ -26,8 +26,6 @@ extern "C" {
     void enable_interrupt( stm32f103::IRQn_type IRQn );
 }
 
-extern stm32f103::dma __dma0;
-
 // bits in the status register
 namespace stm32f103 {
 

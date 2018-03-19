@@ -52,20 +52,21 @@ OCDCFG = -f /usr/share/openocd/scripts/interface/stlink-v2.cfg -f /usr/share/ope
 
 OBJS = crt0.o main.o prf.o spi.o uart.o stream.o command_processor.o can.o gpio.o gpio_mode.o atexit.o adc.o memset.o i2c.o \
 	rcc.o dma.o i2cdebug.o ad5593.o ad5593_command.o bmp280.o bmp280_command.o i2c_command.o timer.o \
-	rcc_status.o gpio_command.o timer_command.o
+	rcc_status.o gpio_command.o timer_command.o rtc.o
 
 all: shell.elf shell.dump shell.bin
 
 main.o: tokenizer.hpp gpio_mode.hpp stm32f103.hpp
 gpio_mode.o: gpio_mode.hpp stm32f103.hpp
-can.o: can.hpp stm32f103.hpp
-adc.o: adc.hpp stm32f103.hpp
-i2c.o: i2c.hpp stm32f103.hpp dma.hpp dma_channel.hpp
-rcc.o: rcc.hpp
-dma.o: dma.hpp dma_channel.hpp
-ad5593.o: ad5593.hpp
-bmp280.o: bmp280.hpp
-timer.o: timer.hpp
+can.o: can.hpp stm32f103.hpp stm32f103.hpp
+adc.o: adc.hpp stm32f103.hpp stm32f103.hpp
+i2c.o: i2c.hpp stm32f103.hpp dma.hpp dma_channel.hpp stm32f103.hpp
+rcc.o: rcc.hpp stm32f103.hpp
+rtc.o: rtc.hpp stm32f103.hpp
+dma.o: dma.hpp dma_channel.hpp stm32f103.hpp
+ad5593.o: ad5593.hpp stm32f103.hpp
+bmp280.o: bmp280.hpp stm32f103.hpp
+timer.o: timer.hpp stm32f103.hpp
 
 shell.dump:	shell.elf
 	$(DUMP) shell.elf >shell.dump

@@ -53,6 +53,48 @@ namespace bmp280 {
             p += sizeof(T);
         }
     };
+
+    
+    //	Table 5, section 3.3.2 p12
+    //	temp oversampling 0xf4 [7:5]
+    //  press oversampling 0xf4 [4:2]
+    enum BMP280_OVERSAMP_SKIPPED {
+        BMP280_OVERSAMP_SKIPPED = 0
+        , BMP280_OVERSAMP_1X = 1
+        , BMP280_OVERSAMP_2X = 2
+        , BMP280_OVERSAMP_4X = 3
+        , BMP280_OVERSAMP_8X = 4
+        , BMP280_OVERSAMP_16X = 5
+    };
+    
+    // 0xf4, bit [1:0] 
+    enum BMP280_POWER_MODE {
+        BMP280_SLEEP_MODE    = 0
+        , BMP280_FORCED_MODE = 1
+        , BMP280_NORMAL_MODE = 3
+    };
+
+    enum BMP280_STANDBYTIME { 
+        BMP280_STANDBYTIME_1_MS       =    0x00
+        , BMP280_STANDBYTIME_63_MS    =    0x01
+        , BMP280_STANDBYTIME_125_MS   =    0x02
+        , BMP280_STANDBYTIME_250_MS   =    0x03
+        , BMP280_STANDBYTIME_500_MS   =    0x04
+        , BMP280_STANDBYTIME_1000_MS  =    0x05
+        , BMP280_STANDBYTIME_2000_MS  =    0x06
+        , BMP280_STANDBYTIME_4000_MS  =    0x07
+    };
+
+    // 0xf5 [4:2]
+    // 3.4, p14 Table 7
+    enum BMP280_FILTER_COEFF {
+        BMP280_FILTER_COEFF_OFF  = 0
+        , BMP280_FILTER_COEFF_2  = 1
+        , BMP280_FILTER_COEFF_4  = 2
+        , BMP280_FILTER_COEFF_8  = 3
+        , BMP280_FILTER_COEFF_16 = 4
+    };
+
 };
 
 extern std::atomic< uint32_t > atomic_seconds;
@@ -132,13 +174,25 @@ BMP280::trimming_parameter_readout()
     }
 }
 
+/*
+ * ------------------|------------------
+ *	0x00             | BMP280_SLEEP_MODE
+ *	0x01 and 0x02    | BMP280_FORCED_MODE
+ *	0x03             | BMP280_NORMAL_MODE
+ */
+
 void
 BMP280::measure()
 {
-    constexpr uint8_t meas = 1 << 5 | 1 << 2 | 3;
-    constexpr uint8_t config = 1 << 5 | 1 << 2;
-    // oversampling temp[7:5], press[4:2], power mode[1:0]
-    if ( write( std::array< uint8_t, 4 >( { 0xf4, meas, 0xf5, config } ) ) ) {
+    // 0xf4 ctrl_meas
+    // oversampling temp[7:5], press[4:2], power mode[1:0]   
+    constexpr uint8_t ctrl_meas = BMP280_OVERSAMP_8X << 5 | BMP280_OVERSAMP_8X << 2 | BMP280_NORMAL_MODE;
+
+    // 0xf5 config (section 4.3.5, p26)
+    // t_sb[7:5] (standby time), filter[4:2], spi3w_en[0]
+    constexpr uint8_t config = BMP280_STANDBYTIME_500_MS << 5 | BMP280_FILTER_COEFF_16 << 2;
+    
+    if ( write( std::array< uint8_t, 4 >( { 0xf4, ctrl_meas, 0xf5, config } ) ) ) {
         has_callback_ = true;
         stm32f103::timer_t< stm32f103::TIM2_BASE >().set_callback( handle_timer );
     }
@@ -209,7 +263,7 @@ BMP280::readout()
         auto minor = temp % 100;
                 
         stream() << int( atomic_seconds.load() )
-                 << "\t" << int( press / 100 ) << " (Pa)"
+                 << "\t" << int( press ) << " (Pa)"
                  << "\t" << int( temp / 100 ) << "." << ( minor < 10 ? "0" : "") << minor << " (degC)";
         
         stream() << std::endl;

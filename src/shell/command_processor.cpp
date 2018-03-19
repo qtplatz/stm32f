@@ -25,7 +25,6 @@
 extern stm32f103::i2c __i2c0, __i2c1;
 extern stm32f103::spi __spi0, __spi1;
 extern stm32f103::adc __adc0;
-extern stm32f103::dma __dma0;
 extern std::atomic< uint32_t > atomic_jiffies;
 extern void mdelay( uint32_t ms );
 
@@ -234,7 +233,7 @@ adc_command( size_t argc, const char ** argv )
 
     if ( use_dma ) {
 
-        __adc0.attach( __dma0 );
+        __adc0.attach( *stm32f103::dma_t< stm32f103::DMA1_BASE >::instance() );
         if ( __adc0.start_conversion() ) { // software trigger
             uint32_t d = __adc0.data(); // can't read twince
             stream() << "adc data= 0x" << d
@@ -272,12 +271,12 @@ dma_command( size_t argc, const char ** argv )
     using namespace stm32f103;
     constexpr uint32_t ccr = MEM2MEM | PL_High | 2 << 10 | 2 << 8 | MINC | PINC;
 
-    __dma0.init_channel( DMA_CHANNEL(channel), reinterpret_cast< uint32_t >( src ), reinterpret_cast< uint8_t * >( dst ), 4, ccr );
+    dma_t< DMA1_BASE >::instance()->init_channel( DMA_CHANNEL(channel), reinterpret_cast< uint32_t >( src ), reinterpret_cast< uint8_t * >( dst ), 4, ccr );
 
-    stm32f103::scoped_dma_channel_enable<stm32f103::dma> enable_dma_channel( __dma0, channel );
+    stm32f103::scoped_dma_channel_enable<stm32f103::dma> enable_dma_channel( *dma_t< DMA1_BASE >::instance(), channel );
 
     size_t count = 2000;
-    while ( ! __dma0.transfer_complete( DMA_CHANNEL(channel) ) && --count)
+    while ( ! dma_t< DMA1_BASE >::instance()->transfer_complete( DMA_CHANNEL(channel) ) && --count)
         ;
 
     for ( int i = 0; i < 4; ++i )

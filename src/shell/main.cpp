@@ -39,11 +39,9 @@ std::atomic< uint32_t > atomic_seconds;          // 1s      (136.1925 years)
 static std::atomic_flag __lock_flag;
 
 stm32f103::adc __adc0;
-stm32f103::can __can0;
 stm32f103::i2c __i2c0, __i2c1;
 stm32f103::spi __spi0, __spi1;
 stm32f103::uart __uart0;
-stm32f103::dma __dma0, __dma1;
 
 extern void uart1_handler();
 
@@ -196,8 +194,8 @@ main()
     atomic_milliseconds = 0;
     atomic_seconds = 0;
 
-    __dma0.init( stm32f103::DMA1_BASE );
-    __dma1.init( stm32f103::DMA2_BASE );
+    //__dma0.init( stm32f103::DMA1_BASE );
+    //__dma1.init( stm32f103::DMA2_BASE );
 
     {
         stm32f103::gpio_mode gpio_mode;
@@ -336,13 +334,13 @@ __adc1_handler(void)
 void
 __can1_tx_handler(void)
 {
-    __can0.handle_tx_interrupt();
+    // __can0.handle_tx_interrupt();
 }
 
 void
 __can1_rx0_handler(void)
 {
-    __can0.handle_rx0_interrupt();
+    // __can0.handle_rx0_interrupt();
 }
 
 void
@@ -406,73 +404,73 @@ __systick_handler( void )
 void
 __dma1_ch1_handler( void )
 {
-    __dma0.handle_interrupt( 0 );
+    stm32f103::dma_t< stm32f103::DMA1_BASE >::instance()->handle_interrupt( 0 );
 }
 
 void
 __dma1_ch2_handler( void )
 {
-    __dma0.handle_interrupt( 1 );
+    stm32f103::dma_t< stm32f103::DMA1_BASE >::instance()->handle_interrupt( 1 );
 }
 
 void
 __dma1_ch3_handler( void )
 {
-    __dma0.handle_interrupt( 2 );
+    stm32f103::dma_t< stm32f103::DMA1_BASE >::instance()->handle_interrupt( 2 );
 }
 
 void
 __dma1_ch4_handler( void )
 {
-    __dma0.handle_interrupt( 3 );
+    stm32f103::dma_t< stm32f103::DMA1_BASE >::instance()->handle_interrupt( 3 );
 }
 
 void
 __dma1_ch5_handler( void )
 {
-    __dma0.handle_interrupt( 4 );
+    stm32f103::dma_t< stm32f103::DMA1_BASE >::instance()->handle_interrupt( 4 );
 }
 
 void
 __dma1_ch6_handler( void )
 {
-    __dma0.handle_interrupt( 5 );
+    stm32f103::dma_t< stm32f103::DMA1_BASE >::instance()->handle_interrupt( 5 );
 }
 
 void
 __dma1_ch7_handler( void )
 {
-    __dma0.handle_interrupt( 6 );
+    stm32f103::dma_t< stm32f103::DMA1_BASE >::instance()->handle_interrupt( 6 );
 }
 
 void
 __dma2_ch1_handler( void )
 {
-    __dma1.handle_interrupt( 0 );
+    stm32f103::dma_t< stm32f103::DMA2_BASE >::instance()->handle_interrupt( 0 );
 }
 
 void
 __dma2_ch2_handler( void )
 {
-    __dma1.handle_interrupt( 1 );
+    stm32f103::dma_t< stm32f103::DMA2_BASE >::instance()->handle_interrupt( 1 );
 }
 
 void
 __dma2_ch3_handler( void )
 {
-    __dma1.handle_interrupt( 2 );
+    stm32f103::dma_t< stm32f103::DMA2_BASE >::instance()->handle_interrupt( 2 );
 }
 
 void
 __dma2_ch4_handler( void )
 {
-    __dma1.handle_interrupt( 3 );
+    stm32f103::dma_t< stm32f103::DMA2_BASE >::instance()->handle_interrupt( 3 );
 }
 
 void
 __dma2_ch5_handler( void )
 {
-    __dma1.handle_interrupt( 4 );
+    stm32f103::dma_t< stm32f103::DMA2_BASE >::instance()->handle_interrupt( 4 );
 }
 
 namespace std {

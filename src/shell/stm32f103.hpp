@@ -24,20 +24,21 @@ namespace stm32f103 {  // as known as Blue Pill
     enum PERIPHERAL_BASE
 #endif
     {
-        PERIPH_BASE       = 0x40000000
-        , SRAM_BASE       = 0x20000000
-        , APB1PERIPH_BASE = PERIPH_BASE
-        , APB2PERIPH_BASE = ( PERIPH_BASE + 0x10000 )
-        , AHBPERIPH_BASE  = ( PERIPH_BASE + 0x20000 )
-        , RCC_BASE        = ( AHBPERIPH_BASE + 0x1000 )  //   RCC base address is 0x40021000
-        , FLASH_BASE      = ( AHBPERIPH_BASE + 0x2000 )  // FLASH base address is 0x40022000
-        , AFIO_BASE       = ( APB2PERIPH_BASE + 0x0000 ) //  AFIO base address is 0x40010000
-        , SYSTICK_BASE	  = 0xe000e010
-        , NVIC_BASE       = 0xe000e100
+        SRAM_BASE         = 0x20000000
+        , PERIPH_BASE     = 0x40000000
+        , RTC_BASE        = 0x40002800 // -- 0x40002bff
+        // , APB1PERIPH_BASE = PERIPH_BASE
+        //, AHBPERIPH_BASE  = ( PERIPH_BASE + 0x20000 )
+        , RCC_BASE        = 0x40021000 // ( AHBPERIPH_BASE + 0x1000 )  //   RCC base address is 0x40021000
+        , FLASH_BASE      = 0x40022000 // ( AHBPERIPH_BASE + 0x2000 )  // FLASH base address is 0x40022000
+        , APB2PERIPH_BASE = 0x40010000 // ( PERIPH_BASE + 0x10000 )
+        , AFIO_BASE       = 0x40010000 // ( APB2PERIPH_BASE + 0x0000 ) //  AFIO base address is 0x40010000
         , CAN1_BASE       = 0x40006400
         , CAN2_BASE       = 0x40006800
         , ADC1_BASE	      = 0x40012400  // Table 3. p50, RM0008, Rev 17
-        , ADC2_BASE	      = 0x40012800  
+        , ADC2_BASE	      = 0x40012800
+        , SYSTICK_BASE	  = 0xe000e010
+        , NVIC_BASE       = 0xe000e100
     };
 
     enum GPIO_BASE {
@@ -106,7 +107,7 @@ namespace stm32f103 {  // as known as Blue Pill
         // 0x4001 5000 - 0x4001 53FF TIM10 timer Section 16.5.11 on page 467
         // 0x4001 5400 - 0x4001 57FF TIM11 timer Section 16.5.11 on page 467
     };
-    
+
     enum GPIO_CNF {
         GPIO_CNF_OUTPUT_PUSH_PULL = 0
         , GPIO_CNF_OUTPUT_ODRAIN  = 1
