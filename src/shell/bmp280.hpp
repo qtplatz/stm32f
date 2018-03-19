@@ -67,7 +67,6 @@ namespace bmp280 {
         int16_t dig_T2, dig_T3;
         uint16_t dig_P1;
         int16_t dig_P2, dig_P3, dig_P4, dig_P5, dig_P6, dig_P7, dig_P8, dig_P9;
-        int32_t t_fine;
         
         BMP280( const BMP280& ) = delete;
         BMP280& operator = ( const BMP280& ) = delete;
@@ -89,12 +88,13 @@ namespace bmp280 {
         void trimming_parameter_readout();
         void measure();
         void stop();
-        inline bool is_active() const { return has_callback_; }
-        int32_t compensate_temperature_int32( int32_t v_uncomp_temperature_s32 );
-        uint32_t compensate_pressure_int32( uint32_t v_uncomp_pressure_s32 );
-            
-    private:
         std::pair< uint32_t, uint32_t> readout();
+        
+        inline bool is_active() const { return has_callback_; }
+    private:
+        uint32_t compensate_P32( uint32_t adc_P, int32_t t_fine ) const;
+        uint32_t compensate_P64( uint32_t adc_P, int32_t t_fine ) const;
+        int32_t compensate_T( int32_t adc_T, int32_t& t_fine ) const;
         static void handle_timer();
     };
     

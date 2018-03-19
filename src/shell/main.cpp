@@ -84,7 +84,6 @@ extern "C" {
     void __spi2_handler( void );
     void __usart1_handler( void );
     void __systick_handler( void );
-
     int main();
 }
 
@@ -479,8 +478,3 @@ __dma2_ch5_handler( void )
 namespace std {
     void __throw_out_of_range_fmt( char const *, ... ) { while( true ); }
 };
-
-extern "C" {
-    void __aeabi_unwind_cpp_pr0 ( int, int *, int * ) {}
-    void __aeabi_unwind_cpp_pr1 ( int, int *, int * ) {}
-}

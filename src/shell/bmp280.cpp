@@ -49,11 +49,13 @@ namespace bmp280 {
 
     struct trimming_parameter {
         template< typename T > void operator()( T& d, const uint8_t *& p ) const {
-            d = uint16_t( p[0] ) | uint16_t( p[1] ) << 8;
+            d = T( uint16_t( p[0] ) | uint16_t( p[1] ) << 8 );
             p += sizeof(T);
         }
     };
 };
+
+extern std::atomic< uint32_t > atomic_seconds;
 
 using namespace bmp280;
 
@@ -84,7 +86,6 @@ BMP280::BMP280( stm32f103::i2c& t, int address ) : i2c_( &t )
                                                  , dig_P1(0), dig_P2(0), dig_P3(0), dig_P4(0)
                                                  , dig_P5(0), dig_P6(0), dig_P7(0), dig_P8(0)
                                                  , dig_P9(0)
-                                                 , t_fine(0)
 {
     trimming_parameter_readout();
 }
@@ -123,12 +124,11 @@ BMP280::trimming_parameter_readout()
         trimming_parameter()( dig_P8, p );
         trimming_parameter()( dig_P9, p );
 
-        array_print( stream(__FILE__,__LINE__), data, data.size(), "trimming_parameter\t" );
-        
-        stream(__FILE__,__LINE__) << dig_T1 << ", " << dig_T2 << ", " << dig_T3 << std::endl;
-        stream(__FILE__,__LINE__) << dig_P1 << ", " << dig_P2 << ", " << dig_P3 << ", " << dig_P4 << std::endl;
-        stream(__FILE__,__LINE__) << dig_P5 << ", " << dig_P6 << ", " << dig_P7 << ", " << dig_P8 << std::endl;
-        stream(__FILE__,__LINE__) << dig_P9 << std::endl;
+        // array_print( stream(__FILE__,__LINE__), data, data.size(), "trimming_parameter\t" );
+        // stream(__FILE__,__LINE__) << dig_T1 << ", " << dig_T2 << ", " << dig_T3 << std::endl;
+        // stream(__FILE__,__LINE__) << dig_P1 << ", " << dig_P2 << ", " << dig_P3 << ", " << dig_P4 << std::endl;
+        // stream(__FILE__,__LINE__) << dig_P5 << ", " << dig_P6 << ", " << dig_P7 << ", " << dig_P8 << std::endl;
+        // stream(__FILE__,__LINE__) << dig_P9 << std::endl;
     }
 }
 
@@ -200,12 +200,20 @@ BMP280::readout()
 {
     std::array< uint8_t, 6 > data;
     if ( read( 0xf7, data.data(), data.size() ) ) {
-        uint32_t press = uint32_t( data[0] ) << 12 | uint32_t( data[1] ) << 4 | data[2] & 0x0f;
-        uint32_t temp  = uint32_t( data[3] ) << 12 | uint32_t( data[4] ) << 4 | data[5] & 0x0f;
-        auto comp_temp = compensate_temperature_int32( temp );
-        auto comp_press = compensate_pressure_int32( press );
-        stream(__FILE__,__LINE__) << "press: " << int(press) << "/" << int( comp_press )
-                                  << "\ttemp: " << int(temp) << "/" << int( comp_temp ) << std::endl;
+        uint32_t adc_P = uint32_t( data[0] ) << 12 | uint32_t( data[1] ) << 4 | data[2] & 0x0f;
+        uint32_t adc_T  = uint32_t( data[3] ) << 12 | uint32_t( data[4] ) << 4 | data[5] & 0x0f;
+        int32_t t_fine = 0;
+        auto temp = compensate_T( adc_T, t_fine );
+        auto press = compensate_P32( adc_P, t_fine );
+
+        auto minor = temp % 100;
+                
+        stream() << int( atomic_seconds.load() )
+                 << "\t" << int( press / 100 ) << " (Pa)"
+                 << "\t" << int( temp / 100 ) << "." << ( minor < 10 ? "0" : "") << minor << " (degC)";
+        
+        stream() << std::endl;
+        
         return { press, temp };
     }
     return { -1, -1 };
@@ -225,39 +233,21 @@ BMP280::handle_timer()
  *	@note Returns the value in 0.01 degree Centigrade
  *	@note Output value of "5123" equals 51.23 DegC.
  *
+ *  @param adc_T : value of uncompensated temperature
  *
- *
- *  @param v_uncomp_temperature_s32 : value of uncompensated temperature
- *
- *
- *
- *  @return Actual temperature output as s32
+ *  @return Actual temperature output as int32_t
  *
  */
 int32_t
-BMP280::compensate_temperature_int32( int32_t temp )
+BMP280::compensate_T( int32_t adc_T, int32_t& t_fine ) const
 {
-	int32_t v_x1_u32r(0);
-	int32_t v_x2_u32r(0);
-	int32_t temperature(0);
+    int32_t var1 = ((((adc_T>>3) - (int32_t(dig_T1)<<1))) * (int32_t(dig_T2))) >> 11;
+    int32_t var2 = (((((adc_T>>4) - (int32_t(dig_T1))) * ((adc_T>>4) - (int32_t(dig_T1)))) >> 12) * (int32_t(dig_T3))) >> 14;
 
-	/* calculate true temperature*/
-	/*calculate x1*/
+    t_fine = var1 + var2;
+    int32_t T = (t_fine * 5 + 128) >> 8;
 
-	v_x1_u32r = ((((temp >> 3) - (static_cast<int32_t>(dig_T1) << 1))) * (static_cast<int32_t>(dig_T2))) >> 11;
-
-	/*calculate x2*/
-	v_x2_u32r = ( ((( (temp >> 4) - static_cast<int32_t>(dig_T1) )
-                    * ( (temp >> 4) - static_cast<int32_t>(dig_T1) ) ) >> 12 )
-                  * static_cast<int32_t>(dig_T3)) >> 14;
-
-	/*calculate t_fine*/
-	t_fine = v_x1_u32r + v_x2_u32r;
-
-	/*calculate temperature*/
-	temperature = (t_fine * 5 + 128)  >> 8;
-
-	return temperature;
+    return T;
 }
 
 /*!
@@ -266,60 +256,73 @@ BMP280::compensate_temperature_int32( int32_t temp )
  *	@note Output value of "96386" equals 96386 Pa =
  *	963.86 hPa = 963.86 millibar
  *
- *
- *
- *
- *  @param  v_uncomp_pressure_s32: value of uncompensated pressure
- *
- *
+ *  @param  adc_P: value of uncompensated pressure
  *
  *  @return Returns the Actual pressure out put as s32
- *
  */
 uint32_t
-BMP280::compensate_pressure_int32( uint32_t press )
+BMP280::compensate_P32( uint32_t adc_P, int32_t t_fine ) const
 {
-	int32_t v_x1_u32r(0);
-	int32_t v_x2_u32r(0);
-	uint32_t v_pressure_u32(0);
+	int32_t var1(0);
+	int32_t var2(0);
+	uint32_t P(0);
 
-	/* calculate x1*/
-	v_x1_u32r = (( int32_t(t_fine) ) >> 1 ) - 64000;
+	var1 = (( int32_t(t_fine) ) >> 1 ) - 64000;
 
-	/* calculate x2*/
-	v_x2_u32r = (((v_x1_u32r >> 02)  * (v_x1_u32r >> 02)) >> 11) * (int32_t(dig_P6));
-	v_x2_u32r = v_x2_u32r + ((v_x1_u32r * (int32_t(dig_P5))) << 01 );
-	v_x2_u32r = (v_x2_u32r >> 02) + (( int32_t(dig_P4)) << 16);
+	var2 = (((var1 >> 02)  * (var1 >> 02)) >> 11) * (int32_t(dig_P6));
+	var2 = var2 + ((var1 * int32_t(dig_P5) ) << 01 );
+	var2 = (var2 >> 02) + (( int32_t(dig_P4)) << 16);
 
-	/* calculate x1*/
-	v_x1_u32r = (((dig_P3 * (((v_x1_u32r >> 02) * (v_x1_u32r >> 02)) >> 13))  >> 03) + ((( int32_t(dig_P2)) * v_x1_u32r) >> 01 ))  >> 18;
-	v_x1_u32r = ((((32768 + v_x1_u32r)) * ( int32_t(dig_P1))) >> 15);
+	var1 = (((dig_P3 * (((var1 >> 02) * (var1 >> 02)) >> 13))  >> 03) + (( dig_P2 * var1 ) >> 01 ))  >> 18;
+	var1 = ((((32768 + var1)) * ( int32_t(dig_P1))) >> 15);
     
-	/* calculate pressure*/
-	v_pressure_u32 = (( uint32_t((1048576) - press) - (v_x2_u32r >> 12))) * 3125;
-
-	/* check overflow*/
-	if ( v_pressure_u32 < 0x80000000)
-		/* Avoid exception caused by division by zero */
-		if ( v_x1_u32r != 0 )
-			v_pressure_u32 = (v_pressure_u32 << 01) / ( uint32_t(v_x1_u32r));
+	// calculate pressure
+	P = (( uint32_t((1048576) - adc_P) - (var2 >> 12))) * 3125;
+    
+	// check overflow
+	if ( P < 0x80000000) {
+		if ( var1 != 0 )
+			P = (P << 01) / ( uint32_t(var1));
 		else
 			return 0; // invalid
-	else
-        /* Avoid exception caused by division by zero */
-        if ( v_x1_u32r != 0 )
-            v_pressure_u32 = (v_pressure_u32 / uint32_t(v_x1_u32r)) * 2;
+    } else {
+        if ( var1 != 0 )
+            P = (P / uint32_t(var1)) * 2;
         else
-            return 0; // BMP280_INVALID_DATA;
+            return 0; // invalid
+    }
 
-	/* calculate x1*/
-	v_x1_u32r = (( int32_t(dig_P9)) * (int32_t(  ((v_pressure_u32 >> 03) * (v_pressure_u32 >> 03)) >> 13))) >> 12;
+	var1 = (( int32_t(dig_P9)) * (int32_t(  ((P >> 03) * (P >> 03)) >> 13))) >> 12;
 
-	/* calculate x2*/
-	v_x2_u32r = ( ( int32_t(v_pressure_u32 >> 02)) * ( int32_t(dig_P8) ) )  >> 13;
+	var2 = ( ( int32_t(P >> 02)) * ( int32_t(dig_P8) ) )  >> 13;
 
-	/* calculate true pressure*/
-	v_pressure_u32 = int32_t(v_pressure_u32) + ( (v_x1_u32r + v_x2_u32r + dig_P7) >> 04 );
+	// calculate true pressure
+	P = int32_t(P) + ( (var1 + var2 + dig_P7) >> 04 );
     
-	return v_pressure_u32;
+	return P;
 }
+
+#if 0
+uint32_t
+BMP280::compensate_P64( uint32_t adc_P, int32_t t_fine ) const
+{
+    int64_t var1 = int64_t(t_fine) - 128000;
+    int64_t var2 = var1 * var1 * int64_t(dig_P6);
+    var2 = var2 + ((var1 * int64_t(dig_P5))<<17);
+    var2 = var2 + (int64_t(dig_P4) << 35);
+    var1 = ((var1 * var1 * int64_t(dig_P3)) >> 8 ) + ((var1 * int64_t(dig_P2)) << 12);
+    var1 = (( ( 1ll << 47 ) + var1 )) * int64_t(dig_P1) >> 33;
+    if (var1 == 0)
+        return 0; // avoid exception caused by division by zero
+    int64_t p = 1048576ll - adc_P;
+
+    p = (( ( p << 31 ) - var2 ) * 3125) / int32_t( var1 );  // <-- 64bit div
+    //p = div64_s64( (( ( p << 31 ) - var2 ) * 3125), var1);
+    
+    var1 = (int64_t(dig_P9) * (p >> 13) * (p >> 13)) >> 25;
+    var2 = (int64_t(dig_P8) * p) >> 19;
+    p = ((p + var1 + var2) >> 8) + (int64_t(dig_P7) << 4);
+    return p;
+}
+
+#endif

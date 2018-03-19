@@ -45,9 +45,8 @@ OBJCOPY = $(CROSSCOMPILE)objcopy
 ####################################################################
 
 CFLAGS   = -mcpu=cortex-m3 -mthumb -Wno-implicit-function-declaration -nostdlib -nodefaultlibs -g -O2
-CXXFLAGS = -mcpu=cortex-m3 -mthumb -std=c++17 -fno-threadsafe-statics -fno-exceptions -g -O2
-#LDFLAGS = -Tstm32.ld -g -Wl,-Map=shell.map,--cref -nostdlib -nostartfiles -static -Xlinker --gc-sections -fno-exceptions
-LDFLAGS = -Tstm32.ld -g -Wl,-Map=shell.map,--cref -static -nostartfiles -Xlinker --gc-sections -fno-exceptions
+CXXFLAGS = -mcpu=cortex-m3 -mthumb -std=c++17 -fno-threadsafe-statics -fno-exceptions -fno-unwind-tables -g -O2 -I../
+LDFLAGS = -Tstm32.ld -g -Wl,-Map=shell.map,--cref -nostdlib -nostartfiles -static -Xlinker --gc-sections -fno-exceptions
 
 OCDCFG = -f /usr/share/openocd/scripts/interface/stlink-v2.cfg -f /usr/share/openocd/scripts/target/stm32f1x.cfg
 
@@ -76,8 +75,6 @@ shell.bin:	shell.elf
 
 shell.elf: $(OBJS) stm32.ld
 	$(CXX) $(LDFLAGS) -o shell.elf $(OBJS) 
-
-#$(LD) -T stm32.ld -o shell.elf $(OBJS) -Map=shell.map
 
 .PHONY: clean
 clean:
