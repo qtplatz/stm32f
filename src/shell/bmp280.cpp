@@ -23,6 +23,7 @@
 **************************************************************************/
 
 #include "bmp280.hpp"
+#include "clock.hpp"
 #include "i2c.hpp"
 #include "timer.hpp"
 #include "scoped_spinlock.hpp"
@@ -262,7 +263,7 @@ BMP280::readout()
 
         auto minor = temp % 100;
                 
-        stream() << int( atomic_seconds.load() )
+        stream() << int( std::chrono::duration_cast< std::chrono::seconds >( clock::now() - clock::epoch ).count() )
                  << "\t" << int( press ) << " (Pa)"
                  << "\t" << int( temp / 100 ) << "." << ( minor < 10 ? "0" : "") << minor << " (degC)";
         
