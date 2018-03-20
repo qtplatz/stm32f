@@ -26,8 +26,10 @@ SECTIONS {
                 __text_start = .;
         	KEEP(*(.vect))     /* Vector table */
                 *(.text*)          /* Program code */
+                __data_start = .;
                 *(.rodata*)        /* Read only data */
 		. = ALIGN(4);
+                __data_end = .;
 	} > flash
 	.bss :	{
                  __bss_start = . ;        

@@ -39,11 +39,7 @@ std::atomic< uint32_t > atomic_milliseconds;     // 1000us  (49.71 days)
 std::atomic< uint32_t > atomic_250_milliseconds;
 std::atomic< uint32_t > atomic_seconds;          // 1s      (136.1925 years)
 
-static std::atomic_flag __lock_flag;
-
-//stm32f103::adc __adc0;
 stm32f103::i2c __i2c0, __i2c1;
-//stm32f103::uart __uart0;
 
 extern void uart1_handler();
 
@@ -170,14 +166,11 @@ main()
         RCC->APB2ENR |= 0x0010;     // IOPC EN := GPIO C enable
 
         RCC->APB2ENR |= (01 << 9);    // ADC1
-        // RCC->APB2ENR |= (1 << 11); // TIM1
 
         RCC->APB2ENR |= (01 << 12);   // SPI1 enable;
 
         RCC->APB1ENR |= 1 << 14;      // SPI2 (based on PCLK1, not equal to SPI1)
 
-        // RCC->APB2ENR |= (1 << 13); // TIM8
-        
         RCC->APB2ENR |= (01 << 14);   // UART1 enable;
 
         // 7.3.8 p114 (APB1 peripheral clock enable register)
@@ -252,24 +245,6 @@ main()
     }
 
     init_systick( 7200, true ); // 100us tick
-
-    //__can0.init( stm32f103::CAN1_BASE );  // experimental, not working yet
-    //__spi0.init( stm32f103::SPI1_BASE );  // experimental, not working yet -- strange, no data out on MOSI line
-
-    // CAN is experimental, not working yet.
-    CanMsg msg;
-    msg.IDE = CAN_ID_STD;
-    msg.RTR = CAN_RTR_DATA;
-    msg.ID  = 0x55;
-    msg.DLC = 8;
-    msg.Data[ 0 ] = 0xaa;
-    msg.Data[ 1 ] = 0x55;
-    msg.Data[ 2 ] = 0;
-    msg.Data[ 3 ] = 0;
-    msg.Data[ 4 ] = 0;
-    msg.Data[ 5 ] = 0;
-    msg.Data[ 6 ] = 0;
-    msg.Data[ 7 ] = 0;
 
     {
         int x = 0;

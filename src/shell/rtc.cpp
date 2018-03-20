@@ -68,7 +68,7 @@ namespace stm32f103 {
     };
 
     template< rtc_clock_source > struct rtc_clock { constexpr static uint32_t clk = 0; };
-    template<> struct rtc_clock< rtc_clock_source_lsi > { constexpr static uint32_t clk = 32000; }; // 32kHz
+    template<> struct rtc_clock< rtc_clock_source_lsi > { constexpr static uint32_t clk = 41025; }; // calibrated with stop watch
     template<> struct rtc_clock< rtc_clock_source_lse > { constexpr static uint32_t clk = 32768; }; // 32.768kHz
     template<> struct rtc_clock< rtc_clock_source_hse > { constexpr static uint32_t clk = 8000000/128; }; // 8MHz/128
 
