@@ -44,13 +44,9 @@ extern void __dma2_ch3_handler( void );
 extern void __dma2_ch4_handler( void );
 extern void __dma2_ch5_handler( void );
 
-/*************************************************
-* Vector Table
-*************************************************/
-// Attribute puts table in beginning of .vector section
-//   which is the beginning of .text section in the linker script
-// Add other vectors in order here
-// Vector table can be found on page 197 in RM0008
+/////////////////////////////////////
+// Table 62, p200 in RM0008
+////////////////////////////////////
 
 void ( * const vector_table [] )() __attribute__ ((section(".vect"))) = {
 	(void (*)()) STACKINIT,         /* 0x000 Stack Pointer                   */

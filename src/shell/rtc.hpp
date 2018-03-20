@@ -16,16 +16,15 @@ namespace stm32f103 {
     class rtc {
         rtc( const rtc& ) = delete;
         rtc& operator = ( const rtc& ) = delete;
-    public:
         rtc();
+        static void init();        
+    public:
         bool enable();
+        void reset();
         
         static rtc * instance();
-
         static void print_registers();
         void handle_interrupt() const;
-    private:
-        static void init();
     };
 }
 

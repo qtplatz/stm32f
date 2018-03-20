@@ -298,7 +298,16 @@ afio_test( size_t argc, const char ** argv )
 void
 rtc_status( size_t argc, const char ** argv )
 {
-    stm32f103::rtc::print_registers();
+    if ( argc == 1 )
+        stm32f103::rtc::print_registers();
+    while ( --argc ) {
+        ++argv;
+        if ( strcmp( argv[0], "reset" ) == 0 ) {
+            stm32f103::rtc::instance()->reset();
+        } else if ( strcmp( argv[0], "enable" ) == 0 ) {
+            stm32f103::rtc::instance()->enable();
+        }
+    }
 }
 
 ///////////////////////////////////////////////////////
