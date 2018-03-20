@@ -20,7 +20,7 @@ main( int argc, char ** argv )
     for ( auto& p: inputs ) {
         auto save( p );
         int year, month, day, hour, min, second, tzoffs;
-        auto status = parse_date( p, year, month, day, hour, min, second, tzoffs );
+        auto status = date_time::parse_date( p, year, month, day, hour, min, second, tzoffs );
         std::cout << save << "\t->\t";
         if ( status.first )
             std::cout << year << "-" << month << "-" << day << " ";

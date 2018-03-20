@@ -1,4 +1,7 @@
-//
+// Copyright (C) 2018 MS-Cheminformatics LLC
+// Licence: CC BY-NC
+// Author: Toshinobu Hondo, Ph.D.
+// Contact: toshi.hondo@qtplatz.com
 
 #pragma once
 
@@ -28,8 +31,12 @@ struct scanner {
     }
 };
 
-bool parse_time( const char * s, int& hour, int& min, int& second, int& tzoffs );
+class date_time {
+public:
+    static bool parse_time( const char * s, int& hour, int& min, int& second, int& tzoffs );    
 
-std::pair< bool, bool > parse_date( const char * s
-                                    , int& year, int& month, int& day
-                                    , int& hour, int& min, int& second, int& tzoffs );
+    static std::pair< bool, bool >
+    parse_date( const char * s
+                , int& year, int& month, int& day
+                , int& hour, int& min, int& second, int& tzoffs );
+};

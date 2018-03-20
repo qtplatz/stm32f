@@ -1,9 +1,14 @@
+// Copyright (C) 2018 MS-Cheminformatics LLC
+// Licence: CC BY-NC
+// Author: Toshinobu Hondo, Ph.D.
+// Contact: toshi.hondo@qtplatz.com
 //
+
 
 #include "date_time.hpp"
 
 bool
-parse_time( const char * s, int& hour, int& min, int& second, int& tzoffs )
+date_time::parse_time( const char * s, int& hour, int& min, int& second, int& tzoffs )
 {
     tzoffs = 0;
     if ( scanner().read( hour, s, 2 ) ) {          // hour
@@ -24,9 +29,9 @@ parse_time( const char * s, int& hour, int& min, int& second, int& tzoffs )
 }
 
 std::pair< bool, bool >
-parse_date( const char * s
-            , int& year, int& month, int& day
-            , int& hour, int& min, int& second, int& tzoffs )
+date_time::parse_date( const char * s
+                       , int& year, int& month, int& day
+                       , int& hour, int& min, int& second, int& tzoffs )
 {
     year = month = day = hour = min = second = tzoffs = 0;
 
