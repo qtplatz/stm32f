@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cctype>
 #include <algorithm>
+#include <ctime>
 
 struct scanner {
     template< typename T >
@@ -32,11 +33,18 @@ struct scanner {
 };
 
 class date_time {
-public:
     static bool parse_time( const char * s, int& hour, int& min, int& second, int& tzoffs );    
 
     static std::pair< bool, bool >
     parse_date( const char * s
                 , int& year, int& month, int& day
                 , int& hour, int& min, int& second, int& tzoffs );
+
+public:
+    enum parse_state { date_time_none = 0
+                       , date_time_date = 1
+                       , date_time_time = 2
+                       , date_time_both = date_time_date | date_time_time };
+
+    static parse_state parse( const char * s, tm& );
 };
