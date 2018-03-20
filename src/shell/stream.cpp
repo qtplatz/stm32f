@@ -5,6 +5,7 @@
 //
 
 #include "stream.hpp"
+#include "stm32f103.hpp"
 #include "uart.hpp"
 #include <atomic>
 #include <type_traits>
@@ -39,8 +40,19 @@ public:
     }
 };
 
+stream::stream() : uart_( *stm32f103::uart_t< stm32f103::USART1_BASE >::instance() )
+{
+}
+
 stream::stream( uart& t ) : uart_( t )
 {
+}
+
+stream::stream( const char * file, const int line, const char * function ) : uart_( *uart_t< USART1_BASE >::instance() )
+{
+    (*this) << file << " " << line << ": ";
+    if ( function )
+        (*this) << function << "\t";
 }
 
 stream&

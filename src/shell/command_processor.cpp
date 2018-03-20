@@ -11,7 +11,7 @@
 #include "gpio.hpp"
 #include "gpio_mode.hpp"
 #include "i2c.hpp"
-#include "printf.h"
+#include "rtc.hpp"
 #include "spi.hpp"
 #include "stream.hpp"
 #include "stm32f103.hpp"
@@ -31,6 +31,7 @@ void i2cdetect( size_t argc, const char ** argv );
 void bmp280_command( size_t argc, const char ** argv );
 void ad5593_command( size_t argc, const char ** argv );
 void rcc_status( size_t argc, const char ** argv );
+void rtc_status( size_t argc, const char ** argv );
 void rcc_enable( size_t argc, const char ** argv );
 void timer_command( size_t argc, const char ** argv );
 void gpio_command( size_t argc, const char ** argv );
@@ -294,7 +295,11 @@ afio_test( size_t argc, const char ** argv )
     }
 }
 
-
+void
+rtc_status( size_t argc, const char ** argv )
+{
+    stm32f103::rtc::print_registers();
+}
 
 ///////////////////////////////////////////////////////
 
@@ -316,6 +321,7 @@ static const premitive command_table [] = {
     , { "gpio", gpio_command,   " pin# (toggle PA# as GPIO, where # is 0..12)" }
     , { "adc",  adc_command,    " replicates (1)" }
     , { "rcc",  rcc_status,     " RCC clock enable register list" }
+    , { "rtc",  rtc_status,     " RTC register print" }
     , { "disable", rcc_enable,  " reg1 [reg2...] Disable clock for specified peripheral." }
     , { "enable", rcc_enable,   " reg1 [reg2...] Enable clock for specified peripheral." }
     , { "afio", afio_test,      " AFIO MAPR list" }

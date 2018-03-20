@@ -12,19 +12,20 @@
 namespace stm32f103 {
 
     enum RTC_BASE : uint32_t;
-    
+
     class rtc {
         rtc( const rtc& ) = delete;
         rtc& operator = ( const rtc& ) = delete;
-        static std::atomic_flag once_flag_;
     public:
         rtc();
-        static bool enable();
-        static void handle_interrupt();
+        bool enable();
+        
+        static rtc * instance();
+
+        static void print_registers();
+        void handle_interrupt() const;
     private:
         static void init();
-        static void print_registers();
-        
     };
 }
 

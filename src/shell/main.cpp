@@ -14,6 +14,7 @@
 #include "gpio_mode.hpp"
 #include "i2c.hpp"
 #include "rcc.hpp"
+#include "rtc.hpp"
 #include "spi.hpp"
 #include "stm32f103.hpp"
 #include "stream.hpp"
@@ -40,7 +41,7 @@ static std::atomic_flag __lock_flag;
 
 //stm32f103::adc __adc0;
 stm32f103::i2c __i2c0, __i2c1;
-stm32f103::uart __uart0;
+//stm32f103::uart __uart0;
 
 extern void uart1_handler();
 
@@ -155,7 +156,6 @@ main()
         // DMA
         RCC->AHBENR |= 0x01; // DMA1 enable
         // 
-
         ///////////////////////////////////////////////////////
     }
 
@@ -193,19 +193,20 @@ main()
     atomic_milliseconds = 0;
     atomic_seconds = 0;
 
-    //__dma0.init( stm32f103::DMA1_BASE );
-    //__dma1.init( stm32f103::DMA2_BASE );
+    // enable RTC
+    stm32f103::rtc::instance()->enable();
+
+    // enable serial console
+    stm32f103::uart_t< stm32f103::USART1_BASE >::instance()->enable( stm32f103::PA9, stm32f103::PA10 );
 
     {
         stm32f103::gpio_mode gpio_mode;
         
-        // initialize UART0 for debug output
-        gpio_mode( stm32f103::PA9, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // (2,3)
-        gpio_mode( stm32f103::PA10, stm32f103::GPIO_CNF_INPUT_PUSH_PULL,     stm32f103::GPIO_MODE_INPUT );
-        __uart0.init( stm32f103::USART1_BASE, stm32f103::uart::parity_even, 8, 115200, 72000000 );
-
         // ADC  (0)
         gpio_mode( stm32f103::PA0, stm32f103::GPIO_CNF_INPUT_ANALOG,         stm32f103::GPIO_MODE_INPUT ); // ADC1 (0,0)
+        gpio_mode( stm32f103::PA1, stm32f103::GPIO_CNF_INPUT_ANALOG,         stm32f103::GPIO_MODE_INPUT ); // ADC2
+        gpio_mode( stm32f103::PA2, stm32f103::GPIO_CNF_INPUT_ANALOG,         stm32f103::GPIO_MODE_INPUT ); // ADC3
+        gpio_mode( stm32f103::PA3, stm32f103::GPIO_CNF_INPUT_ANALOG,         stm32f103::GPIO_MODE_INPUT ); // ADC4
         
         // SPI
         // (see RM0008, p166, Table 25)
@@ -289,13 +290,13 @@ main()
 void
 serial_puts( const char * s )
 {
-    __uart0 << s;
+    (*stm32f103::uart_t< stm32f103::USART1_BASE >::instance()) << s;
 }
 
 void
 serial_putc( int c )
 {
-    __uart0.putc( c );
+    stm32f103::uart_t< stm32f103::USART1_BASE >::instance()->putc( c );
 }
 
 void
@@ -390,7 +391,7 @@ __spi2_handler(void)
 void
 __usart1_handler(void)
 {
-    stm32f103::uart::interrupt_handler( &__uart0 );    
+    stm32f103::uart_t< stm32f103::USART1_BASE >::instance()->handle_interrupt();
 }
 
 void

@@ -20,18 +20,13 @@ namespace stm32f103 {
     class uart;
 }
 
-extern stm32f103::uart __uart0;
-
 class stream {
     stm32f103::uart& uart_;
 public:
     stream( stm32f103::uart& );
-    stream() : uart_( __uart0 ) {}
-    stream( const char * file, const int line, const char * function = 0 ) : uart_( __uart0 ) {
-        stream() << file << " " << line << ": ";
-        if ( function )
-            stream() << function << "()\t";
-    }
+    stream();
+    stream( const char * file, const int line, const char * function = 0 );
+
     void flush();
     stream& operator << ( const char );
     stream& operator << ( const char * );

@@ -4,6 +4,10 @@
 // Contact: toshi.hondo@qtplatz.com
 //
 
+#pragma once
+
+#include <cstddef>
+
 struct condition_wait {
     size_t count;
     condition_wait( size_t maxcounts = 0xffff ) : count( maxcounts ) {}

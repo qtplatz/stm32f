@@ -25,6 +25,7 @@ extern void __i2c1_event_handler(void);
 extern void __i2c1_error_handler(void);
 extern void __i2c2_event_handler(void);
 extern void __i2c2_error_handler(void);
+extern void __rtc_handler(void);
 extern void __tim2_handler(void);
 extern void __spi1_handler(void);
 extern void __spi2_handler(void);
@@ -71,7 +72,7 @@ void ( * const vector_table [] )() __attribute__ ((section(".vect"))) = {
 	0,                              /* 0x040 Window watchdog                  0 */
 	0,                              /* 0x044 PVD through EXTI Line detection */
 	0,                              /* 0x048 Tamper                          */
-	0,                              /* 0x04C RTC global                      */
+	__rtc_handler,                  /* 0x04C RTC global                      */
 	0,                              /* 0x050 FLASH global                    */
 	0,                              /* 0x054 RCC global                      */
 	0,                              /* 0x058 EXTI Line0                      */

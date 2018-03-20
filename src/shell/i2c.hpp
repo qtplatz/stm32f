@@ -4,6 +4,7 @@
 // Contact: toshi.hondo@qtplatz.com
 //
 
+#pragma once
 
 #include <array>
 #include <atomic>

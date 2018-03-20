@@ -1,11 +1,11 @@
 // Copyright (C) 2018 MS-Cheminformatics LLC
 
+#include "gpio_mode.hpp"
+#include "stm32f103.hpp"
 #include "uart.hpp"
 #include <array>
 #include <atomic>
 #include <mutex>
-#include "stm32f103.hpp"
-#include "printf.h"
 
 // bits in the status register
 enum UART_CR1_MASK {
@@ -52,28 +52,28 @@ namespace stm32f103 {
 
 using namespace stm32f103;
 
-extern uart __uart0;
-
 uart::uart() : usart_( 0 )
              , baud_( 115200 )
 {
 }
 
 bool
-uart::init( stm32f103::USART_BASE addr, parity parity, int nbits, uint32_t baud, uint32_t pclk )
+uart::init( stm32f103::USART_BASE addr )
 {
     usart_ = reinterpret_cast< stm32f103::USART * >( addr );
+    return true;
+}
+
+bool
+uart::config( parity parity, int nbits, uint32_t baud, uint32_t pclk )
+{
     baud_ = baud;
-
-    __input_lock.clear();
-    __input_char = 0;
-
     if ( usart_ ) {
         uint32_t flag( UE | TE | RE ); // uart enable, transmitter enable, receiver enable
         if ( parity != parity_none )
             flag |= ( PCE | ( parity << 8 ) ) & 0x0600;  // parity enable, [even|odd] parity
 
-        if ( addr == stm32f103::USART1_BASE )        
+        if ( reinterpret_cast< uint32_t >( usart_ ) == stm32f103::USART1_BASE )        
             flag |= RXNEIE; // rx interrupt enable
 
         usart_->CR1  = flag;
@@ -82,12 +82,29 @@ uart::init( stm32f103::USART_BASE addr, parity parity, int nbits, uint32_t baud,
         usart_->GTPR = 0;
         usart_->BRR  = pclk / baud;  // 72000000 / 115200
 
-        if ( addr == stm32f103::USART1_BASE )
+        if ( reinterpret_cast< uint32_t >( usart_ ) == stm32f103::USART1_BASE ) {
             enable_interrupt( stm32f103::USART1_IRQn );
+        }
 
         return true;
     }
     return false;
+}
+
+template<> bool uart::enable( GPIOA_PIN pa9, GPIOA_PIN pa10, parity parity, int nbits, uint32_t baud, uint32_t pclk )
+{
+    stm32f103::gpio_mode gpio_mode;    
+    gpio_mode( pa9, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // (2,3)
+    gpio_mode( pa10, stm32f103::GPIO_CNF_INPUT_PUSH_PULL,     stm32f103::GPIO_MODE_INPUT );
+    return config( parity, nbits, baud, pclk );
+}
+
+template<> bool uart::enable( GPIOB_PIN tx, GPIOB_PIN rx, parity parity, int nbits, uint32_t baud, uint32_t pclk )
+{
+    stm32f103::gpio_mode gpio_mode;    
+    gpio_mode( tx, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // (2,3)
+    gpio_mode( rx, stm32f103::GPIO_CNF_INPUT_PUSH_PULL,     stm32f103::GPIO_MODE_INPUT );
+    return config( parity, nbits, baud, pclk );
 }
 
 uart&
@@ -120,7 +137,7 @@ uart::getc()
     __input_char = 0;
     __input_lock.clear(); // release lock
 
-    __uart0.putc( c ); // echo
+    uart_t< USART1_BASE >::instance()->putc( c ); // echo
     
     return c;
 }
@@ -129,9 +146,11 @@ uart::getc()
 size_t
 uart::gets( char * s, size_t size )
 {
+    auto& uart0 = *uart_t< USART1_BASE >::instance();
+    
     char * p = s;
     while ( size > 0 ) {
-        uint8_t c = __uart0.getc() & 0x7f;
+        uint8_t c = uart0.getc() & 0x7f;
         if ( c == '\r' ) {
             *p++ = '\n';
             break;
@@ -150,23 +169,9 @@ uart::gets( char * s, size_t size )
     return size_t( p - s );
 }
 
-// void
-// uart1_handler()
-// {
-//     auto usart = reinterpret_cast< stm32f103::USART * >( stm32f103::USART1_BASE );
-//     __input_char = usart->DR & 0xff;
-// }
-
 void
 uart::handle_interrupt()
 {
     __input_char = usart_->DR & 0xff;
-}
-
-// static
-void
-uart::interrupt_handler( uart * _this )
-{
-    _this->handle_interrupt();
 }
 

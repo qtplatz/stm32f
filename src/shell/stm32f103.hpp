@@ -35,6 +35,8 @@ namespace stm32f103 {  // as known as Blue Pill
         , AFIO_BASE       = 0x40010000 // ( APB2PERIPH_BASE + 0x0000 ) //  AFIO base address is 0x40010000
         , CAN1_BASE       = 0x40006400
         , CAN2_BASE       = 0x40006800
+        , BKP_BASE        = 0x40006C00 // Backup registers, p51; Section 6.4.5 on page 84
+        , PWR_BASE        = 0x40007000 // Power control; Section 5.4.3 on page 79
         , ADC1_BASE	      = 0x40012400  // Table 3. p50, RM0008, Rev 17
         , ADC2_BASE	      = 0x40012800
         , SYSTICK_BASE	  = 0xe000e010

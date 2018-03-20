@@ -3,11 +3,13 @@
 // Author: Toshinobu Hondo, Ph.D.
 // Contact: toshi.hondo@qtplatz.com
 //
-
+#include "debug_print.hpp"
+#include "rcc.hpp"
 #include "stream.hpp"
 #include "stm32f103.hpp"
 #include "utility.hpp"
 #include <algorithm>
+#include <bitset>
 #include <cctype>
 
 static const char * __apbenr__ [] = {
@@ -68,6 +70,13 @@ rcc_status( size_t argc, const char ** argv )
             }
         }
         stream() << std::endl;
+
+        if ( RCC->APB1ENR & stm32f103::RCC_APB1ENR_PWREN ) {
+            std::bitset< 17 > bits( RCC->BDCR );
+            print()( stream(), bits, "RCC_BDCR") << "\t" << RCC->BDCR << std::endl;
+        }
+        std::bitset< 32 > bits( RCC->CSR );
+        print()( stream(), bits, "RCC_CSR") << "\t" << RCC->CSR << " LSION(" << bool(RCC->CSR&1) << ")" << std::endl;
     }
 }
 
@@ -143,4 +152,6 @@ rcc_enable( size_t argc, const char ** argv )
             }
         }
     }
+
+    
 }

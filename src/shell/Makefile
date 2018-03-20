@@ -62,6 +62,7 @@ can.o: can.hpp stm32f103.hpp stm32f103.hpp
 adc.o: adc.hpp stm32f103.hpp stm32f103.hpp
 i2c.o: i2c.hpp stm32f103.hpp dma.hpp dma_channel.hpp stm32f103.hpp
 rcc.o: rcc.hpp stm32f103.hpp
+rcc_status.o: rcc.hpp stm32f103.hpp debug_print.hpp
 rtc.o: rtc.hpp stm32f103.hpp
 dma.o: dma.hpp dma_channel.hpp stm32f103.hpp
 ad5593.o: ad5593.hpp stm32f103.hpp
