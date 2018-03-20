@@ -72,6 +72,11 @@ namespace stm32f103 {
     template<> struct rtc_clock< rtc_clock_source_lse > { constexpr static uint32_t clk = 32768; }; // 32.768kHz
     template<> struct rtc_clock< rtc_clock_source_hse > { constexpr static uint32_t clk = 8000000/128; }; // 8MHz/128
 
+    // it seems that HSE and LSE clock not working on STM32F103C8 Blue Pills
+    //constexpr rtc_clock_source clock_source = rtc_clock_source_hse;
+    //constexpr rtc_clock_source clock_source = rtc_clock_source_lse;
+    constexpr rtc_clock_source clock_source = rtc_clock_source_lsi;
+    
     template< rtc_clock_source > struct rtc_clock_enabler {
         static bool enable() {}
     };
@@ -134,11 +139,6 @@ rtc::reset()
 bool
 rtc::enable()
 {
-    constexpr rtc_clock_source clock_source = rtc_clock_source_lsi;
-    // it seems that HSE and LSE clock not working on STM32F103C8 Blue Pills
-    //constexpr rtc_clock_source clock_source = rtc_clock_source_hse;
-    //constexpr rtc_clock_source clock_source = rtc_clock_source_lse;
-
     if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
         using namespace stm32f103;
         RCC->APB1ENR |= RCC_APB1ENR_PWREN;
@@ -173,14 +173,23 @@ rtc::enable()
         if ( auto PWR = reinterpret_cast< volatile stm32f103::PWR * >( stm32f103::PWR_BASE ) )
             stm32f103::bitset::reset( PWR->CR, 0x100 ); // disable access to RTC registers
     }
+
     return true;
+}
+
+int64_t
+rtc::now() const
+{
+    auto RTC = reinterpret_cast< volatile stm32f103::RTC * >( stm32f103::RTC_BASE );
+    return int64_t( RTC->CNTH ) << 26 | RTC->CNTL << 10 | ( RTC->DIVL * 1024 / rtc_clock< clock_source >::clk );
 }
 
 void
 rtc::handle_interrupt() const
 {
     if ( auto RTC = reinterpret_cast< volatile stm32f103::RTC * >( stm32f103::RTC_BASE ) ) {
-        stream(__FILE__,__LINE__,__FUNCTION__) << "rtc: " << int( RTC->CNTL ) << std::endl;
+        // stream(__FILE__,__LINE__,__FUNCTION__) << "rtc: " << int( RTC->CNTL ) << ":" << int( RTC->DIVL )
+        //                                        << "\t" << now() << std::endl;
     }
 }
 

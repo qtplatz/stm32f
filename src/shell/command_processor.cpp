@@ -6,6 +6,7 @@
 
 #include "command_processor.hpp"
 #include "adc.hpp"
+#include "clock.hpp"
 #include "dma.hpp"
 #include "dma_channel.hpp"
 #include "gpio.hpp"
@@ -20,7 +21,7 @@
 #include <atomic>
 #include <algorithm>
 #include <cctype>
-#include <functional>
+#include <chrono>
 
 extern stm32f103::i2c __i2c0, __i2c1;
 extern std::atomic< uint32_t > atomic_jiffies;
@@ -254,7 +255,13 @@ adc_command( size_t argc, const char ** argv )
     }
 }
 
-
+void
+date_command( size_t argc, const char ** argv )
+{
+    extern clock::time_point __uptime;
+    stream() << int( std::chrono::duration_cast< std::chrono::seconds >(clock::now() - clock::epoch).count() ) << std::endl;
+    stream() << int( std::chrono::duration_cast< std::chrono::milliseconds >(clock::now() - clock::epoch).count() ) << std::endl;
+}
 
 void
 dma_command( size_t argc, const char ** argv )
@@ -306,6 +313,13 @@ rtc_status( size_t argc, const char ** argv )
             stm32f103::rtc::instance()->reset();
         } else if ( strcmp( argv[0], "enable" ) == 0 ) {
             stm32f103::rtc::instance()->enable();
+        } else if ( strcmp( argv[0], "now" ) == 0 ) {
+            int64_t prev = 0;
+            for ( int i = 0; i < 100; ++i ) {
+                auto tp = stm32f103::rtc::instance()->now();
+                stream() << "[" << i << "]" << tp << " delta=" << int( prev - tp ) << std::endl;
+                prev = tp;
+            }
         }
     }
 }
@@ -340,7 +354,8 @@ static const premitive command_table [] = {
     , { "ad5593", ad5593_command,  " ad5593" }
     , { "dma",    dma_command,     " dma" }
     , { "bmp",    bmp280_command,     "" }
-    , { "timer",  timer_command,     "" }    
+    , { "timer",  timer_command,     "" }
+    , { "date",   date_command,     "" }    
 };
 
 bool

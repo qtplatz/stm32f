@@ -21,6 +21,8 @@ namespace stm32f103 {
     public:
         bool enable();
         void reset();
+
+        int64_t now() const;
         
         static rtc * instance();
         static void print_registers();

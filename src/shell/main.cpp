@@ -9,6 +9,7 @@
 #include "adc.hpp"
 #include "can.hpp"
 #include "command_processor.hpp"
+#include "clock.hpp"
 #include "dma.hpp"
 #include "gpio.hpp"
 #include "gpio_mode.hpp"
@@ -31,6 +32,7 @@ extern uint32_t __bss_start, __bss_end;
 
 uint32_t __system_clock;
 uint32_t __pclk1, __pclk2;
+clock::time_point __uptime;
 
 std::atomic< uint32_t > atomic_jiffies;          //  100us  (4.97 days)
 std::atomic< uint32_t > atomic_milliseconds;     // 1000us  (49.71 days)
@@ -198,6 +200,8 @@ main()
 
     // enable RTC
     stm32f103::rtc::instance()->enable();
+
+    __uptime = clock::now();
     
     {
         stm32f103::gpio_mode gpio_mode;
