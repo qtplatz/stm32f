@@ -27,6 +27,8 @@ constexpr const char * inputs [] = {
     , "2038-01-19 03:14:07+0000"
     , "2058-12-31 8:03:35-0800"
     , "3001-12-31 8:03:35-0800"
+    , "2018-01-01T00:00:00"
+    , "2018-03-21T18:30:00"
 };
 
 int
@@ -70,6 +72,7 @@ main( int argc, char ** argv )
         // revserse conversion ( tm -> time_t )
         std::time_t t = date_time::time( tm );
         std::strftime( str2.data(), str2.size(), "%FT%TZ", gmtime(&t) );
+
         std::cout << "\t\t\t\t\t\t\t\t\t        : " <<  str2.data()
                   << ( ( std::string( str.data() ) == std::string( str2.data() ) ) ? "\tOK" : "\tFAIL" )
                   << "\t"; //std::endl;
@@ -79,7 +82,7 @@ main( int argc, char ** argv )
         std::strftime( str3.data(), str3.size(), "%FT%TZ", date_time::gmtime( t, tm2 ) );
         std::cout << "\t" <<  str3.data()
                   << ( ( std::string( str3.data() ) == std::string( str2.data() ) ) ? "\tOK" : "\tFAIL" )
-                  << std::endl;
+                  << "\t" << std::hex << t << std::endl;
     }
 }
 

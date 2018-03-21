@@ -6,6 +6,7 @@
 
 #include "system_clock.hpp"
 #include "rtc.hpp"
+#include "stream.hpp"
 
 namespace stm32f103 {
 
@@ -26,6 +27,6 @@ namespace stm32f103 {
     std::time_t
     system_clock::to_time_t( const time_point& t ) noexcept
     {
-        return ( t - zero ).count() + epoch_compensation;
+        return std::chrono::duration_cast< std::chrono::seconds >( t - zero ).count() + stm32f103::rtc::__epoch_offset__; // 2018-JAN-01 00:00 UTC
     }
 }

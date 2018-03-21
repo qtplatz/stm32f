@@ -6,6 +6,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <cctype>
 #include <algorithm>
 #if __arm__
@@ -54,6 +55,7 @@ public:
     static std::time_t time( const tm& );
 
     static const char * to_string( char *, size_t, const tm&, bool gmtoffs = false );
+    static const char * to_string( char *, size_t, const std::time_t&, bool gmtoffs = false );
 
     static std::tm * gmtime( const std::time_t& timer, std::tm& );
 };

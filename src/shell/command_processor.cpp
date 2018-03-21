@@ -37,6 +37,8 @@ void rcc_enable( size_t argc, const char ** argv );
 void timer_command( size_t argc, const char ** argv );
 void gpio_command( size_t argc, const char ** argv );
 void timer_command( size_t argc, const char ** argv );
+void date_command( size_t argc, const char ** argv );
+void hwclock_command( size_t argc, const char ** argv );
 
 int
 strcmp( const char * a, const char * b )
@@ -94,6 +96,25 @@ strtox( const char * s )
         ++s;
     }
     return xnum;
+}
+
+char *
+strncpy( char * dst, const char * src, size_t size )
+{
+    auto save(dst);
+    while ( size-- && ( *dst++ = *src++ ) )
+        ;
+    return save;
+}
+
+char *
+strncat( char * dst, const char * src, size_t size )
+{
+    auto save(dst);
+    while ( size-- && *dst++ )
+        ;
+    strncpy( --dst, src, size + 1 );
+    return save;
 }
 
 void
@@ -256,14 +277,6 @@ adc_command( size_t argc, const char ** argv )
 }
 
 void
-date_command( size_t argc, const char ** argv )
-{
-    using stm32f103::system_clock;
-    stream() << int( std::chrono::duration_cast< std::chrono::seconds >( system_clock::now() - system_clock::zero).count() ) << std::endl;
-    stream() << int( std::chrono::duration_cast< std::chrono::milliseconds >( system_clock::now() - system_clock::zero).count() ) << std::endl;
-}
-
-void
 dma_command( size_t argc, const char ** argv )
 {
     uint32_t channel = 1;
@@ -278,7 +291,7 @@ dma_command( size_t argc, const char ** argv )
 
     using namespace stm32f103;
     constexpr uint32_t ccr = MEM2MEM | PL_High | 2 << 10 | 2 << 8 | MINC | PINC;
-
+    
     dma_t< DMA1_BASE >::instance()->init_channel( DMA_CHANNEL(channel), reinterpret_cast< uint32_t >( src ), reinterpret_cast< uint8_t * >( dst ), 4, ccr );
 
     stm32f103::scoped_dma_channel_enable<stm32f103::dma> enable_dma_channel( *dma_t< DMA1_BASE >::instance(), channel );
@@ -344,11 +357,12 @@ static const premitive command_table [] = {
     , { "i2c",  i2c_command,    " I2C-1 test" }
     , { "i2c2", i2c_command,    " I2C-2 test" }
     , { "i2cdetect", i2cdetect, " i2cdetect [0|1]" }
-    , { "ad5593", ad5593_command,  " ad5593" }
-    , { "dma",    dma_command,     " dma" }
-    , { "bmp",    bmp280_command,     "" }
-    , { "timer",  timer_command,     "" }
-    , { "date",   date_command,     "" }    
+    , { "ad5593", ad5593_command,  "ad5593" }
+    , { "dma",    dma_command,     "mem2mem dma copy teset" }
+    , { "bmp",    bmp280_command,  "" }
+    , { "timer",  timer_command,   "" }
+    , { "date",   date_command,     "show current date time; date --set 'iso format date'" }
+    , { "hwclock", hwclock_command, "" }    
 };
 
 bool

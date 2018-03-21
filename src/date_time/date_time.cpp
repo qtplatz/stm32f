@@ -125,14 +125,18 @@ date_time::gmtime( const std::time_t& time, tm& tm )
 {
     tm = { 0 };
 
+    if ( time & 0xffffffff00000000ll ) {  // overflow -- Cortex M3 has no signed 64bit div 
+        return &tm;
+    }
+
     if ( time >= 0 ) {
-        int day_seconds = time % (3600*24);
+        int day_seconds = uint32_t( time ) % (3600*24);                  // workaround
 
         tm.tm_sec = day_seconds % 60;
         tm.tm_min =  ( day_seconds % 3600 ) / 60;
         tm.tm_hour =  day_seconds / 3600;
 
-        int days = time / ( 24 * 3600 );
+        int days = uint32_t ( time ) / ( 24 * 3600 );                    // workaround
         int year = 1970;
 
         while ( days >= ( is_leap_year( year ) ? 366 : 365 ) )
@@ -149,13 +153,13 @@ date_time::gmtime( const std::time_t& time, tm& tm )
         tm.tm_mday = days + 1;  // 1-origin
         
     } else {
-        int day_seconds = (3600*24) - (-time % (3600*24));
+        int day_seconds = (3600*24) - (uint32_t( -time ) % (3600*24));   // workaround
         
         tm.tm_sec = day_seconds % 60;
         tm.tm_min =  ( day_seconds % 3600 ) / 60;
         tm.tm_hour =  day_seconds / 3600;
 
-        int days = (-time) / ( 24 * 3600 );
+        int days = uint32_t(-time) / ( 24 * 3600 );                      // workaround
         int year = 1969;
 
         while ( days >= ( is_leap_year( year ) ? 366 : 365 ) )
@@ -174,6 +178,8 @@ date_time::gmtime( const std::time_t& time, tm& tm )
         }
         tm.tm_mday = days;
     }
+
+    tm.tm_wday = dayofweek( tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday );
 
     return &tm;
 }
@@ -246,3 +252,9 @@ date_time::to_string( char * str, size_t size, const tm& tm, bool gmtoffs )
     return save;
 }
 
+const char *
+date_time::to_string( char * str, size_t size, const std::time_t& time, bool gmtoffs )
+{
+    std::tm tm;
+    return to_string( str, size, *gmtime( time, tm ), gmtoffs );
+}

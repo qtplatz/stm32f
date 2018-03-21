@@ -12,3 +12,5 @@ int strncmp( const char *, const char * b, size_t n );
 size_t strlen( const char * s );
 int strtod( const char * s );
 uint32_t strtox( const char * s );
+char * strncpy( char * dst, const char * src, size_t size );
+char * strncat( char * dst, const char * src, size_t size );

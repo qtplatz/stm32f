@@ -14,31 +14,39 @@
 using namespace stm32f103;
 
 class stream_t {
+    constexpr const static char * __chars__ = "0123456789abcdef";
 public:
     template<typename T>
     void operator()( uart& o_, T d ) const {
-        const static char * __chars__ = "0123456789abcdef";
-        char buf[ 22 ];
-        char * p = &buf[21];
-        *p-- = '\0';
-        int base = 16;
-        
         if ( std::is_signed< T >::value ) {
-            base = 10;
+            // signed int -- output in decimal numbers
+            char buf[ 22 ];
+            char * p = &buf[21];
+            *p-- = '\0';
+            
             if ( d < 0 ) {
                 o_.putc( '-' );
                 d = -d;
             }
+            do  {
+                *p-- = __chars__[ d % 10 ];
+                d /= 10;
+            } while ( d );
+            o_ << ++p;            
+
+        } else {
+            // unsigned values always output in hex
+            for ( size_t i = 0; i < sizeof(T) * 2; ++i )
+                o_.putc( __chars__[ ( d >> (( sizeof(T) * 2 - 1 - i )*4) ) & 0x0f ] );
         }
-
-        do  {
-            *p-- = __chars__[ d % base ];
-            d /= base;
-        } while ( d );
-
-        o_ << ++p;
     }
 };
+
+template<> void stream_t::operator()( uart& o, uint64_t d ) const {
+    for ( size_t i = 0; i < 16; ++i )
+        o.putc( __chars__[ ( d >> (( 15 - i )*4) ) & 0x0f ] );
+}
+
 
 stream::stream() : uart_( *stm32f103::uart_t< stm32f103::USART1_BASE >::instance() )
 {
@@ -115,16 +123,14 @@ stream::operator << ( const uint32_t d )
 stream&
 stream::operator << ( const int64_t d )
 {
-    stream_t()( uart_, static_cast< const uint32_t > (d) );
-    stream_t()( uart_, static_cast< const uint32_t > (d >> 32) );
+    stream_t()( uart_, uint64_t( d ) );
     return *this;
 }
 
 stream&
 stream::operator << ( const uint64_t d )
 {
-    stream_t()( uart_, static_cast< const uint32_t > (d) );
-    stream_t()( uart_, static_cast< const uint32_t > (d >> 32) );    
+    stream_t()( uart_, d );
     return *this;
 }
 
