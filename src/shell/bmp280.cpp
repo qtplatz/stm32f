@@ -263,7 +263,7 @@ BMP280::readout()
 
         auto minor = temp % 100;
                 
-        stream() << int( std::chrono::duration_cast< std::chrono::seconds >( clock::now() - clock::epoch ).count() )
+        stream() << int( std::chrono::duration_cast< std::chrono::seconds >( clock::now() - clock::zero ).count() )
                  << "\t" << int( press ) << " (Pa)"
                  << "\t" << int( temp / 100 ) << "." << ( minor < 10 ? "0" : "") << minor << " (degC)";
         

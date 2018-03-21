@@ -21,9 +21,8 @@ namespace stm32f103 {
     public:
         bool enable();
         void reset();
-
-        int64_t now() const;
-        
+        static constexpr uint32_t clock_rate(); // Hz
+        static uint32_t clock( uint32_t& div );
         static rtc * instance();
         static void print_registers();
         void handle_interrupt() const;

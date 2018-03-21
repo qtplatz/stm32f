@@ -100,19 +100,6 @@ namespace stm32f103 {
                 stream(__FILE__,__LINE__,__FUNCTION__) << "\t##### time out #####\n";
         }
     };    
-    
-
-    constexpr uint32_t __rtc_period = 1000;
-    // constexpr uint32_t __rtc_time_h = 12;
-    // constexpr uint32_t __rtc_time_m = 0;
-    // constexpr uint32_t __rtc_time_s = 0;
-    // constexpr uint32_t __rtc_cnt_tics = __rtc_time_h * 3600ul + __rtc_time_m * 60ul + __rtc_time_s;
-    // constexpr uint32_t __rtc_cnt = __rtc_cnt_tics * 1000ul/__rtc_period;
-    // constexpr uint32_t __rtc_alarm_h = 12;
-    // constexpr uint32_t __rtc_alarm_m = 0;
-    // constexpr uint32_t __rtc_alarm_s = 0;
-    // constexpr uint32_t __rtc_alr_tics = __rtc_alarm_h * 3600ul + __rtc_alarm_m * 60ul + __rtc_alarm_s;
-    // constexpr uint32_t __rtc_alr = __rtc_alr_tics * 1000ul/__rtc_period;
 }
 
 using namespace stm32f103;
@@ -177,11 +164,18 @@ rtc::enable()
     return true;
 }
 
-int64_t
-rtc::now() const
+constexpr uint32_t
+rtc::clock_rate()
+{
+    return rtc_clock< clock_source >::clk;
+}
+
+uint32_t
+rtc::clock( uint32_t& div )
 {
     auto RTC = reinterpret_cast< volatile stm32f103::RTC * >( stm32f103::RTC_BASE );
-    return int64_t( RTC->CNTH ) << 26 | RTC->CNTL << 10 | ( RTC->DIVL * 1024 / rtc_clock< clock_source >::clk );
+    div = (( RTC->DIVH << 16 ) | RTC->DIVL );
+    return int32_t( RTC->CNTH ) << 16 | RTC->CNTL;
 }
 
 void

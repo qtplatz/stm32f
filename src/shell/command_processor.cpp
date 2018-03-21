@@ -259,8 +259,8 @@ void
 date_command( size_t argc, const char ** argv )
 {
     extern clock::time_point __uptime;
-    stream() << int( std::chrono::duration_cast< std::chrono::seconds >(clock::now() - clock::epoch).count() ) << std::endl;
-    stream() << int( std::chrono::duration_cast< std::chrono::milliseconds >(clock::now() - clock::epoch).count() ) << std::endl;
+    stream() << int( std::chrono::duration_cast< std::chrono::seconds >(clock::now() - clock::zero).count() ) << std::endl;
+    stream() << int( std::chrono::duration_cast< std::chrono::milliseconds >(clock::now() - clock::zero).count() ) << std::endl;
 }
 
 void
@@ -313,13 +313,6 @@ rtc_status( size_t argc, const char ** argv )
             stm32f103::rtc::instance()->reset();
         } else if ( strcmp( argv[0], "enable" ) == 0 ) {
             stm32f103::rtc::instance()->enable();
-        } else if ( strcmp( argv[0], "now" ) == 0 ) {
-            int64_t prev = 0;
-            for ( int i = 0; i < 100; ++i ) {
-                auto tp = stm32f103::rtc::instance()->now();
-                stream() << "[" << i << "]" << tp << " delta=" << int( prev - tp ) << std::endl;
-                prev = tp;
-            }
         }
     }
 }

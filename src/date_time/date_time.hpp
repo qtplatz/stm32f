@@ -8,6 +8,9 @@
 #include <cstddef>
 #include <cctype>
 #include <algorithm>
+#if __arm__
+# define __TM_GMTOFF tm_gmtoff // arm-none-eabi-g++ has not been declard tm_gmtoff by default
+#endif
 #include <ctime>
 
 struct scanner {
@@ -47,4 +50,6 @@ public:
                        , date_time_both = date_time_date | date_time_time };
 
     static parse_state parse( const char * s, tm& );
+
+    static std::time_t time( const tm& );
 };

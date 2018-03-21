@@ -10,6 +10,10 @@
 clock::time_point
 clock::now() noexcept
 {
-    return time_point{duration{ stm32f103::rtc::instance()->now() }};
+    uint32_t div;
+    auto seconds = stm32f103::rtc::instance()->clock(div);
+    auto tp = seconds * 1000 + ( div * 1000 / stm32f103::rtc::clock(div) );
+
+    return time_point{ duration{ tp } };
 }
 

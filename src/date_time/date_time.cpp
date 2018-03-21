@@ -3,22 +3,22 @@
 // Author: Toshinobu Hondo, Ph.D.
 // Contact: toshi.hondo@qtplatz.com
 //
-
+// Prepared for STM32F103 bare metal 
 
 #include "date_time.hpp"
 #include <numeric>
 
 static constexpr int __days_in_month [2][12] = {
     // Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec
-    {   31,  28,  31,  30,  31,  30,  31,  31,  30,  31,  31,  31 }
-    , { 31,  29,  31,  30,  31,  30,  31,  31,  30,  31,  31,  31 }
+    {   31,  28,  31,  30,  31,  30,  31,  31,  30,  31,  30,  31 }
+    , { 31,  29,  31,  30,  31,  30,  31,  31,  30,  31,  30,  31 }
 };
 
 // Reference: https://groups.google.com/forum/#!msg/comp.lang.c/GPA5wwrVnVw/hi2wB0TXGkAJ
 
 static inline int dayofweek( int y, int m, int d )  /* 1 <= m <= 12,  y > 1752 (in the U.K.) */
 {
-    static int t[] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};
+    static int t[] = { 0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4 };
     y -= m < 3;
     return (y + y/4 - y/100 + y/400 + t[m-1] + d) % 7;
 }
@@ -93,8 +93,8 @@ date_time::parse( const char * s, tm& tm )
         tm.tm_isdst = (-1);        // no information avilable
         tm.tm_gmtoff = gmtoff;
         tm.tm_wday = dayofweek( year, month, tm.tm_mday );
-        size_t leap = is_leap_year(year) ? 1 : 0;
-        
+
+        auto leap = is_leap_year(year) ? 1 : 0;
         tm.tm_yday = std::accumulate( __days_in_month[ leap ], __days_in_month[ leap ] + tm.tm_mon, tm.tm_mday );
     }
 
@@ -102,3 +102,21 @@ date_time::parse( const char * s, tm& tm )
         : ( status.first && !status.second ) ? date_time_date
         : ( !status.first && status.second ) ? date_time_time : date_time_none;
 }
+
+std::time_t
+date_time::time( const tm& tm )
+{
+    int days = 0;
+    if ( tm.tm_year < 70 ) {
+        for ( int year = 1970; year > ( 1900 + tm.tm_year + 1 ); --year )
+            days -= is_leap_year( year ) ? 366 : 365;
+        days -= ( is_leap_year( tm.tm_year + 1900 ) ? 366 : 365 ) - tm.tm_yday;
+        return std::time_t( days - 1 ) * 24 * 3600 + (tm.tm_hour * 3600 + tm.tm_min * 60 + tm.tm_sec);
+    } else {
+        for ( int year = 1970; year < ( 1900 + tm.tm_year ); ++year )
+            days += is_leap_year( year ) ? 366 : 365;
+        days += tm.tm_yday;
+        return std::time_t( days - 1 ) * 24 * 3600 + (tm.tm_hour * 3600 + tm.tm_min * 60 + tm.tm_sec);
+    }
+}
+

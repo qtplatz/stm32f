@@ -18,6 +18,5 @@ struct clock {
     static constexpr bool is_steady = true;
 
     static time_point now() noexcept;
-
-    static constexpr time_point epoch = time_point{ duration{ 0 } };
+    static constexpr time_point zero = time_point{ duration{ 0 } };
 };
