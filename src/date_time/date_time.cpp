@@ -127,6 +127,7 @@ date_time::gmtime( const std::time_t& time, tm& tm )
 
     if ( time >= 0 ) {
         int day_seconds = time % (3600*24);
+
         tm.tm_sec = day_seconds % 60;
         tm.tm_min =  ( day_seconds % 3600 ) / 60;
         tm.tm_hour =  day_seconds / 3600;
@@ -148,7 +149,30 @@ date_time::gmtime( const std::time_t& time, tm& tm )
         tm.tm_mday = days + 1;  // 1-origin
         
     } else {
-        // TODO...
+        int day_seconds = (3600*24) - (-time % (3600*24));
+        
+        tm.tm_sec = day_seconds % 60;
+        tm.tm_min =  ( day_seconds % 3600 ) / 60;
+        tm.tm_hour =  day_seconds / 3600;
+
+        int days = (-time) / ( 24 * 3600 );
+        int year = 1969;
+
+        while ( days >= ( is_leap_year( year ) ? 366 : 365 ) )
+            days -= is_leap_year( year-- ) ? 366 : 365;
+
+        tm.tm_year = year - 1900;
+        tm.tm_yday = ( is_leap_year( year ) ? 366 : 365 ) - days;
+
+        days = tm.tm_yday; // flip to positive (forwad) value
+        tm.tm_mon = 0;
+        for ( auto& mdays: __days_in_month[ is_leap_year( year ) ] ) {
+            if ( days <= mdays )
+                break;
+            days -= mdays;
+            tm.tm_mon++;
+        }
+        tm.tm_mday = days;
     }
 
     return &tm;
