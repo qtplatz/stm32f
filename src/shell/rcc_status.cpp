@@ -73,8 +73,8 @@ rcc_status( size_t argc, const char ** argv )
 
         if ( RCC->APB1ENR & stm32f103::RCC_APB1ENR_PWREN ) {
             std::bitset< 17 > bits( RCC->BDCR );
-            print()( stream(), bits, "RCC_BDCR") << "\t";
-            stream() << "BDRST("  << bits.test( 16 ) << "),";
+            print()( stream(), bits, "RCC_BDCR") << "\t\t" << RCC->BDCR;
+            stream() << " BDRST("  << bits.test( 16 ) << "),";
             stream() << "RTCEN("  << bits.test( 15 ) << "),";
             stream() << "RTCEN("  << bits.test( 9 ) << bits.test( 8 ) << "),";
             stream() << "LSEBYP(" << bits.test( 2 ) << "),";
@@ -84,19 +84,19 @@ rcc_status( size_t argc, const char ** argv )
         }
         {
             std::bitset< 32 > bits( RCC->CSR );
-            print()( stream(), bits, "RCC_CSR") << "\t";
+            print()( stream(), bits, "RCC_CSR") << "\t" << RCC->CSR << " ";
             stream() << "LSIRDY("  << bits.test( 1 ) << "),";
             stream() << "LSION("  << bits.test( 0 ) << "),";
             stream() << std::endl;
         }
         {
             std::bitset< 24 > bits( RCC->CIR );
-            print()( stream(), bits, "RCC_CIR") << "\t";
-            stream() << "PLL("  << bits.test( 12 ) << "),";
-            stream() << "HSE("  << bits.test( 11 ) << "),";
-            stream() << "HSI("  << bits.test( 10 ) << "),";
-            stream() << "LSE("  << bits.test( 9 ) << "),";
-            stream() << "LSI("  << bits.test( 8 ) << "),";
+            print()( stream(), bits, "RCC_CIR") << "\t\t" << RCC->CIR << " ";
+            stream() << "PLL RDY("  << bits.test( 4 ) << "),";
+            stream() << "HSE RDY("  << bits.test( 3 ) << "),";
+            stream() << "HSI RDY("  << bits.test( 2 ) << "),";
+            stream() << "LSE RDY("  << bits.test( 1 ) << "),";
+            stream() << "LSI RDY("  << bits.test( 0 ) << "),";
             stream() << std::endl;
         }
     }

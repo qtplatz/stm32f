@@ -80,6 +80,7 @@ extern "C" {
     void __spi2_handler( void );
     void __usart1_handler( void );
     void __systick_handler( void );
+    void __rcc_handler( void );
     int main();
 }
 
@@ -137,6 +138,9 @@ main()
         while ( ! RCC->CR & ( 1 << 17 ) )                             // Wait until HSE settles down (HSE RDY)
             ;
         RCC->CFGR |= 0x02;                      // SW(0b10, pll selected as system clock)
+
+        RCC->CIR = (3 << 8); // HSI, LSE, LSI
+        enable_interrupt( stm32f103::RCC_IRQn );
 
         // pclk1 (APB low speed clock) should be 720000 / 2  := 32000000Hz
         // pclk2 (APB high-speed clock) is HCLK not divided, := 72000000Hz
@@ -450,6 +454,18 @@ void
 __dma2_ch5_handler( void )
 {
     stm32f103::dma_t< stm32f103::DMA2_BASE >::instance()->handle_interrupt( 4 );
+}
+
+void
+__rcc_handler( void )
+{
+    if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
+        uint32_t cir = RCC->CIR;
+        stream(__FILE__,__LINE__,__FUNCTION__) << "##### RCC CIR: " << cir << std::endl;
+        RCC->CIR &= ~((cir & 0x7f) << 8);
+        stream(__FILE__,__LINE__,__FUNCTION__) << "##### RCC CIR: " << cir << std::endl;
+    }
+    disable_interrupt( stm32f103::RCC_IRQn );
 }
 
 namespace std {
