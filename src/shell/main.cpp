@@ -190,10 +190,10 @@ main()
 
     // enable serial console
     stm32f103::uart_t< stm32f103::USART1_BASE >::instance()->enable( stm32f103::PA9, stm32f103::PA10 );
-
+    
     // enable RTC
     stm32f103::rtc::instance()->enable();
-
+    
     __uptime = stm32f103::system_clock::now();
     
     {

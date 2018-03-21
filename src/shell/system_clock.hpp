@@ -28,8 +28,10 @@ namespace stm32f103 {
         static std::time_t to_time_t( const time_point& t ) noexcept;
 
         static constexpr time_point zero = time_point{ duration{ 0 } };
+
+        static void set_epoch_compensation( uint32_t );
     private:
-        static time_t epoch_compensation;
+        static uint32_t epoch_compensation;
     };
 
 }

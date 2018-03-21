@@ -4,10 +4,8 @@
 // Contact: toshi.hondo@qtplatz.com
 //
 
-#include <array>
-#include <atomic>
 #include <cstdint>
-#include "scoped_spinlock.hpp"
+#include <ctime>
 
 namespace stm32f103 {
 
@@ -26,6 +24,8 @@ namespace stm32f103 {
         static rtc * instance();
         static void print_registers();
         void handle_interrupt() const;
+
+        static void set_hwclock( const time_t& );  // <-- set current time_t value
 
         constexpr static uint32_t __epoch_offset__ = 1514764800; // duration (seconds) from 1970-JAN-01 00:00 UTC to 2018-JAN-01 UTC
     };

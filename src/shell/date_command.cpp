@@ -8,6 +8,7 @@
 #include "system_clock.hpp"
 #include "rtc.hpp"
 #include "utility.hpp"
+#include <array>
 #include <date_time/date_time.hpp>
 
 void
@@ -17,8 +18,9 @@ date_command( size_t argc, const char ** argv )
     if ( argc == 1 )  {
         std::time_t time = system_clock::to_time_t( system_clock::now() );
         std::array< char, 30 > str;
-        stream(__FILE__,__LINE__,__FUNCTION__) << date_time::to_string( str.data(), str.size(), time, true )
-                                               << std::endl;
+
+        //stream(__FILE__,__LINE__,__FUNCTION__) <<
+        stream() << date_time::to_string( str.data(), str.size(), time, true ) << std::endl;
     }
     
     while ( --argc ) {
@@ -43,7 +45,10 @@ date_command( size_t argc, const char ** argv )
                 std::array< char, 30 > dstr;
                 date_time::to_string( dstr.data(), dstr.size(), tm, true );
                 std::time_t time = date_time::time( tm );
-                stream() << "parsed: " << dstr.data() << "\t" << time << "\t" << (time - stm32f103::rtc::__epoch_offset__) << std::endl;
+
+                stream() << "parsed: " << dstr.data() << "\t" << time << std::endl;
+                
+                stm32f103::rtc::set_hwclock( time );
             }
         }
     }
