@@ -52,7 +52,7 @@ OCDCFG = -f /usr/share/openocd/scripts/interface/stlink-v2.cfg -f /usr/share/ope
 
 OBJS = crt0.o main.o prf.o spi.o uart.o stream.o command_processor.o can.o gpio.o gpio_mode.o atexit.o adc.o memset.o i2c.o \
 	rcc.o dma.o i2cdebug.o ad5593.o ad5593_command.o bmp280.o bmp280_command.o i2c_command.o timer.o \
-	rcc_status.o gpio_command.o timer_command.o rtc.o clock.o \
+	rcc_status.o gpio_command.o timer_command.o rtc.o system_clock.o \
 	date_time.o
 
 all: shell.elf shell.dump shell.bin
@@ -69,7 +69,7 @@ dma.o: dma.hpp dma_channel.hpp stm32f103.hpp
 ad5593.o: ad5593.hpp stm32f103.hpp
 bmp280.o: bmp280.hpp stm32f103.hpp
 timer.o: timer.hpp stm32f103.hpp
-clock.o: clock.hpp
+system_clock.o: system_clock.hpp
 
 date_time.o: ../date_time/date_time.cpp ../date_time/date_time.hpp
 	$(CXX) $(CXXFLAGS) -o date_time.o -c $<

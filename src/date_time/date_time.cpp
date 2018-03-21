@@ -120,3 +120,105 @@ date_time::time( const tm& tm )
     }
 }
 
+std::tm *
+date_time::gmtime( const std::time_t& time, tm& tm )
+{
+    tm = { 0 };
+
+    if ( time >= 0 ) {
+        int day_seconds = time % (3600*24);
+        tm.tm_sec = day_seconds % 60;
+        tm.tm_min =  ( day_seconds % 3600 ) / 60;
+        tm.tm_hour =  day_seconds / 3600;
+
+        int days = time / ( 24 * 3600 );
+        int year = 1970;
+
+        while ( days >= ( is_leap_year( year ) ? 366 : 365 ) )
+            days -= is_leap_year( year++ ) ? 366 : 365;
+        tm.tm_year = year - 1900;
+        tm.tm_yday = days;
+        for( auto& mdays: __days_in_month[ is_leap_year( year ) ] ) {
+            if ( days < mdays )
+                break;
+            days -= mdays;
+            tm.tm_mon++;
+        };
+
+        tm.tm_mday = days + 1;  // 1-origin
+        
+    } else {
+        // TODO...
+    }
+
+    return &tm;
+}
+
+static inline bool
+append_char( char *& sp, size_t& size, const char c )
+{
+    if ( size ) {
+        --size;
+        *sp++ = c;
+    }
+    return size;
+}
+
+static bool
+make_string( char *& sp, size_t& size, int d, int width )
+{
+    const static char * __chars__ = "0123456789";
+
+    if ( width >= size )
+        return false;
+
+    size -= width;
+    sp += width;
+
+    auto p = sp;
+    
+    // ignore sign
+    if ( d < 0 )
+        d = -d;
+
+    while ( width-- ) {
+        *--p = __chars__[ d % 10 ];
+        d /= 10;
+    };
+    return size;
+}
+
+const char *
+date_time::to_string( char * str, size_t size, const tm& tm, bool gmtoffs )
+{
+    auto save( str );
+
+    if ( make_string( str, size, tm.tm_year + 1900, 4 ) ) {
+        append_char( str, size, '-' );
+        if ( make_string( str, size, tm.tm_mon + 1, 2 ) ) {
+            append_char( str, size, '-' );
+            if ( make_string( str, size, tm.tm_mday, 2 ) ) {
+                append_char( str, size, 'T');
+                if ( make_string( str, size, tm.tm_hour, 2 ) ) {
+                    append_char( str, size, ':');
+                    if ( make_string( str, size, tm.tm_min, 2 ) ) {
+                        append_char( str, size, ':');
+                        if ( make_string( str, size, tm.tm_sec, 2 ) ) {
+                            if ( gmtoffs ) {
+                                append_char( str, size, tm.tm_gmtoff >= 0 ? '+' : '-' );
+                                if ( make_string( str, size, tm.tm_gmtoff, 4 ) ) {
+                                    append_char( str, size, '\0' );
+                                }
+                            } else {
+                                append_char( str, size, 'Z' );
+                                append_char( str, size, '\0' );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return save;
+}
+

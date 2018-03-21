@@ -23,11 +23,11 @@
 **************************************************************************/
 
 #include "bmp280.hpp"
-#include "clock.hpp"
 #include "i2c.hpp"
 #include "timer.hpp"
 #include "scoped_spinlock.hpp"
 #include "stm32f103.hpp"
+#include "system_clock.hpp"
 #include <atomic>
 #if defined __linux
 #include <iostream>
@@ -262,8 +262,9 @@ BMP280::readout()
         auto press = compensate_P32( adc_P, t_fine );
 
         auto minor = temp % 100;
-                
-        stream() << int( std::chrono::duration_cast< std::chrono::seconds >( clock::now() - clock::zero ).count() )
+
+        using stm32f103::system_clock;
+        stream() << int( std::chrono::duration_cast< std::chrono::seconds >( system_clock::now() - system_clock::zero ).count() )
                  << "\t" << int( press ) << " (Pa)"
                  << "\t" << int( temp / 100 ) << "." << ( minor < 10 ? "0" : "") << minor << " (degC)";
         

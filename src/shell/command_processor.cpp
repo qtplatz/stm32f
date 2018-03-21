@@ -6,7 +6,6 @@
 
 #include "command_processor.hpp"
 #include "adc.hpp"
-#include "clock.hpp"
 #include "dma.hpp"
 #include "dma_channel.hpp"
 #include "gpio.hpp"
@@ -16,6 +15,7 @@
 #include "spi.hpp"
 #include "stream.hpp"
 #include "stm32f103.hpp"
+#include "system_clock.hpp"
 #include "timer.hpp"
 #include "utility.hpp"
 #include <atomic>
@@ -258,9 +258,9 @@ adc_command( size_t argc, const char ** argv )
 void
 date_command( size_t argc, const char ** argv )
 {
-    extern clock::time_point __uptime;
-    stream() << int( std::chrono::duration_cast< std::chrono::seconds >(clock::now() - clock::zero).count() ) << std::endl;
-    stream() << int( std::chrono::duration_cast< std::chrono::milliseconds >(clock::now() - clock::zero).count() ) << std::endl;
+    using stm32f103::system_clock;
+    stream() << int( std::chrono::duration_cast< std::chrono::seconds >( system_clock::now() - system_clock::zero).count() ) << std::endl;
+    stream() << int( std::chrono::duration_cast< std::chrono::milliseconds >( system_clock::now() - system_clock::zero).count() ) << std::endl;
 }
 
 void

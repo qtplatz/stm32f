@@ -8,11 +8,13 @@
 #include <iomanip>
 
 constexpr const char * inputs [] = {
-    "1970-01-01 00:00:00"             // epoch
-    , "1970-12-01 00:00:00"           
-    , "1971-01-01 00:00:00"             // epoch + 1    
+    "1969-12-31 09:00:00+0000"
+    , "1752-12-31 18:00:00+0000"
+    , "1970-01-01 00:00:00"             // epoch
+    , "1970-12-01 00:00:10"           
+    , "1971-01-01 00:00:15"             // epoch + 1    
     , "2018-03-20 18:03:30"
-    , "2018-03-20\t18:03:30"
+    , "2018-03-20\t18:03:45"
     , "2019-04-20T8:03:35"
     , "2020-05-20"
     , "9:15"
@@ -25,8 +27,6 @@ constexpr const char * inputs [] = {
     , "2038-01-19 03:14:07+0000"
     , "2058-12-31 8:03:35-0800"
     , "3001-12-31 8:03:35-0800"
-    , "1969-12-31 09:00:00+0000"
-    , "1752-12-31 18:00:00+0000"
 };
 
 int
@@ -60,12 +60,25 @@ main( int argc, char ** argv )
         
         std::array< char, 30 > str, str2;
         std::strftime( str.data(), str.size(), "%FT%TZ", &tm );
-        std::cout << "\tstrftime: " << str.data() << std::endl;
+        std::cout << "\tstrftime: " << str.data();// << std::endl;
 
+        std::array< char, 30 > tstr;
+        date_time::to_string( tstr.data(), tstr.size(), tm );
+        std::cout << "\t" << tstr.data()
+                  << ( ( std::string( str.data() ) == std::string( tstr.data() ) ) ? "\tOK" : "\tFAIL" ) << std::endl;
+
+        // revserse conversion ( tm -> time_t )
         std::time_t t = date_time::time( tm );
         std::strftime( str2.data(), str2.size(), "%FT%TZ", gmtime(&t) );
         std::cout << "\t\t\t\t\t\t\t\t\t        : " <<  str2.data()
                   << ( ( std::string( str.data() ) == std::string( str2.data() ) ) ? "\tOK" : "\tFAIL" )
+                  << "\t"; //std::endl;
+
+        struct tm tm2;
+        std::array< char, 30 > str3;
+        std::strftime( str3.data(), str3.size(), "%FT%TZ", date_time::gmtime( t, tm2 ) );
+        std::cout << "\t" <<  str3.data()
+                  << ( ( std::string( str3.data() ) == std::string( str2.data() ) ) ? "\tOK" : "\tFAIL" )
                   << std::endl;
     }
 }
