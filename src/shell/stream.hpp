@@ -28,6 +28,7 @@ public:
     stream( const char * file, const int line, const char * function = 0 );
 
     void flush();
+    stream& operator << ( const bool );
     stream& operator << ( const char );
     stream& operator << ( const char * );
     stream& operator << ( const int8_t );

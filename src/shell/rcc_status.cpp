@@ -76,7 +76,7 @@ rcc_status( size_t argc, const char ** argv )
             print()( stream(), bits, "RCC_BDCR") << "\t\t" << RCC->BDCR;
             stream() << " BDRST("  << bits.test( 16 ) << "),";
             stream() << "RTCEN("  << bits.test( 15 ) << "),";
-            stream() << "RTCEN("  << bits.test( 9 ) << bits.test( 8 ) << "),";
+            stream() << "RTCSEL("  << bits.test( 9 ) << bits.test( 8 ) << "),";
             stream() << "LSEBYP(" << bits.test( 2 ) << "),";
             stream() << "LSERDY(" << bits.test( 1 ) << "),";
             stream() << "LSEON("  << bits.test( 0 ) << ")";
@@ -150,6 +150,7 @@ rcc_enable( size_t argc, const char ** argv )
         }
         ++argv;
     }
+    
     if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
         auto prev1 = RCC->APB1ENR;
         auto prev2 = RCC->APB2ENR;

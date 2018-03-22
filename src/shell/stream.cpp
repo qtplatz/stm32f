@@ -64,6 +64,13 @@ stream::stream( const char * file, const int line, const char * function ) : uar
 }
 
 stream&
+stream::operator << ( const bool c )
+{
+    uart_.putc( c ? '1' : '0' );
+    return *this;    
+}
+
+stream&
 stream::operator << ( const char c )
 {
     uart_.putc( c );

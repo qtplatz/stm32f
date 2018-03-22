@@ -140,7 +140,7 @@ main()
         RCC->CFGR |= 0x02;                      // SW(0b10, pll selected as system clock)
 
         // RCC->CIR = (3 << 8); // HSI, LSE, LSI
-        enable_interrupt( stm32f103::RCC_IRQn );
+        // enable_interrupt( stm32f103::RCC_IRQn );
 
         // pclk1 (APB low speed clock) should be 720000 / 2  := 32000000Hz
         // pclk2 (APB high-speed clock) is HCLK not divided, := 72000000Hz
@@ -192,11 +192,11 @@ main()
     atomic_milliseconds = 0;
     atomic_seconds = 0;
 
-    // enable RTC
-    stm32f103::rtc::instance()->enable();
-    
     // enable serial console
     stm32f103::uart_t< stm32f103::USART1_BASE >::instance()->enable( stm32f103::PA9, stm32f103::PA10 );
+    
+    // enable RTC
+    stm32f103::rtc::instance()->enable();
     
     __uptime = stm32f103::system_clock::now();
     

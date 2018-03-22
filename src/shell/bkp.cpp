@@ -20,10 +20,32 @@ bkp::bkp()
 {
 }
 
-// static
 void
-bkp::init()
+bkp::set_data( size_t idx, uint16_t&& data )
 {
+    if ( auto PWR = reinterpret_cast< volatile stm32f103::PWR * >( stm32f103::PWR_BASE ) )
+        stm32f103::bitset::set( PWR->CR, 0x100 ); // DBP = 1, Access to RTC and Backup registers enabled
+    
+    auto * reg = reinterpret_cast< volatile BKP * >( stm32f103::BKP_BASE );
+    if ( idx < sizeof( reg->DR ) / sizeof( reg->DR[0] ) )
+        reg->DR[ idx ] = data;
+    idx -= sizeof( reg->DR ) / sizeof( reg->DR[0] );
+    if ( idx < sizeof( reg->DR11 ) / sizeof( reg->DR11[0] ) )
+        reg->DR11[ idx ] = data;
+}
+
+uint16_t
+bkp::data( size_t idx )
+{
+    if ( auto PWR = reinterpret_cast< volatile stm32f103::PWR * >( stm32f103::PWR_BASE ) )
+        stm32f103::bitset::set( PWR->CR, 0x100 ); // DBP = 1, Access to RTC and Backup registers enabled
+    
+    auto * reg = reinterpret_cast< volatile BKP * >( stm32f103::BKP_BASE );
+    if ( idx < sizeof( reg->DR ) / sizeof( reg->DR[0] ) )
+        return reg->DR[ idx ];
+    idx -= sizeof( reg->DR ) / sizeof( reg->DR[0] );
+    if ( idx < sizeof( reg->DR11 ) / sizeof( reg->DR11[0] ) )
+        return reg->DR11[ idx ];
 }
 
 void

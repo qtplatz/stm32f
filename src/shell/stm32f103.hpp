@@ -263,6 +263,11 @@ namespace stm32f103 {  // as known as Blue Pill
         uint32_t CALIB;    /* SYSTICK calibration value register,        Address offset: 0x0C */
     } STK_type;
 
+    // Table 15, PWR register map, p79
+    typedef struct PWR {
+        uint32_t CR;
+        uint32_t CSR;
+    } PWR_type;
 
     // each I/O port registers have to be accessed as 32bit words. (reference manual pp158/1133)
     // p751 register map

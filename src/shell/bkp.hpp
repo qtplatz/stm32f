@@ -32,9 +32,12 @@ namespace stm32f103 {
     class bkp {
         bkp( const bkp& ) = delete;
         bkp& operator = ( const bkp& ) = delete;
-        bkp();
-        static void init();        
     public:
+        bkp();
+
+        static void set_data( size_t idx, uint16_t&& );
+        static uint16_t data( size_t idx );
+        
         static void print_registers();
     };
 
