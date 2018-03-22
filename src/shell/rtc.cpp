@@ -5,6 +5,7 @@
 //
 
 #include "bitset.hpp"
+#include "bkp.hpp"
 #include "condition_wait.hpp"
 #include "debug_print.hpp"
 #include "rcc.hpp"
@@ -84,18 +85,18 @@ namespace stm32f103 {
     
     template< rtc_clock_source > struct rtc_clock_enabler {
         static bool enable() {
-            stream(__FILE__,__LINE__,__FUNCTION__) << "\tRTC HSE clock to be enabled\n";
+            //stream(__FILE__,__LINE__,__FUNCTION__) << "\tRTC HSE clock to be enabled\n";
         }
     };
 
     template<> struct rtc_clock_enabler< rtc_clock_source_lsi > {
         static bool enable() {
             // clock source (LSI)
-            stream(__FILE__,__LINE__,__FUNCTION__) << "\tRTC LSI clock to be enabled (RCC_CSR_LSI_ON)\n";
+            //stream(__FILE__,__LINE__,__FUNCTION__) << "\tRTC LSI clock to be enabled (RCC_CSR_LSI_ON)\n";
             auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE );
             stm32f103::bitset::set( RCC->CSR, stm32f103::RCC_CSR_LSION );
             if ( !condition_wait()( [&](){ return RCC->CSR & stm32f103::RCC_CSR_LSIRDY; } ) )
-                stream(__FILE__,__LINE__,__FUNCTION__) << "\t##### time out #####\n";
+                ; //stream(__FILE__,__LINE__,__FUNCTION__) << "\t##### time out #####\n";
         }
     };    
 
@@ -106,7 +107,7 @@ namespace stm32f103 {
             auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE );
             stm32f103::bitset::set( RCC->BDCR, stm32f103::RCC_BDCR_LSEON );
             if ( ! condition_wait()( [&](){ return RCC->BDCR & stm32f103::RCC_BDCR_LSERDY; } ) )
-                stream(__FILE__,__LINE__,__FUNCTION__) << "\t##### time out #####\n";
+                ; //stream(__FILE__,__LINE__,__FUNCTION__) << "\t##### time out #####\n";
         }
     };    
 }
@@ -150,15 +151,17 @@ rtc::enable()
         stm32f103::bitset::set( RCC->BDCR, clock_source | RCC_BDCR_RTCEN );  // set RTC clock source, enable RTC clock
     }
 
+    // if ( auto BKP = reinterpret_cast< volatile stm32f103::BKP * >( stm32f103::BKP_BASE ) ) {
+    //     BKP->RTCCR |= ASOS;
+    // }
+
     if ( auto RTC = reinterpret_cast< volatile stm32f103::RTC * >( stm32f103::RTC_BASE ) ) {
         using namespace stm32f103;
 
-        size_t count = 256;
+        size_t count = 32;
         while ( --count && ! condition_wait()( [&](){ return RTC->CRL & RTC_CRL_RTOFF; } ) )  // wait RTOFF = 1
-            ; // stream(__FILE__,__LINE__,__FUNCTION__) << "\t##### Time out " << count << " ##### RTC_CRL_RTOFF=" << (RTC->CRL & RTC_CRL_RTOFF) << std::endl;
+            ;
         stm32f103::bitset::set( RTC->CRL, RTC_CRL_CNF );      // set configuration mode
-        if ( count == 0 )
-            stream(__FILE__,__LINE__,__FUNCTION__) << "\t##### -------- " << count << " ##### RTC_CRL_RTOFF=" << (RTC->CRL & RTC_CRL_RTOFF) << std::endl;
         
         RTC->PRLH  = ( (rtc_clock< clock_source >::clk - 1) >> 16) & 0x00ff;  // set prescaler load register high
         RTC->PRLL  =   (rtc_clock< clock_source >::clk - 1)        & 0xffff;  // set prescaler load register low
@@ -168,11 +171,8 @@ rtc::enable()
         
         stm32f103::bitset::reset( RTC->CRL, RTC_CRL_CNF );    // exit configuration mode
 
-        count = 256;
+        count = 32;
         if ( --count && ! condition_wait()( [&](){ return RTC->CRL & RTC_CRL_RTOFF; } ) ) // wait RTOFF = 1
-            ; // stream(__FILE__,__LINE__,__FUNCTION__) << "\t##### Time out " << count << " ##### RTC_CRL_RTOFF=" << (RTC->CRL & RTC_CRL_RTOFF) << std::endl;
-        if ( count == 0 )
-            stream(__FILE__,__LINE__,__FUNCTION__) << "\t##### ------- " << count << " ##### RTC_CRL_RTOFF=" << (RTC->CRL & RTC_CRL_RTOFF) << std::endl;
 
         // DBP on PWR->CR
         // p77, Note: If the HSE divided by 128 is used as the RTC clock, this bit must remain set to 1.
@@ -210,7 +210,7 @@ rtc::set_hwclock( const time_t& time )
         if ( ! condition_wait()( [&](){ return (RTC->CRL & RTC_CRL_RTOFF) == 0; } ) )
             stream(__FILE__,__LINE__,__FUNCTION__) << "\t##### time out #####\n";
 
-    }
+    }  
 
     if ( clock_source != rtc_clock_source_hse ) {    
         if ( auto PWR = reinterpret_cast< volatile stm32f103::PWR * >( stm32f103::PWR_BASE ) )

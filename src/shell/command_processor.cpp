@@ -6,6 +6,7 @@
 
 #include "command_processor.hpp"
 #include "adc.hpp"
+#include "bkp.hpp"
 #include "dma.hpp"
 #include "dma_channel.hpp"
 #include "gpio.hpp"
@@ -115,6 +116,12 @@ strncat( char * dst, const char * src, size_t size )
         ;
     strncpy( --dst, src, size + 1 );
     return save;
+}
+
+void
+bkp_command( size_t argc, const char ** argv )
+{
+    stm32f103::bkp::print_registers();
 }
 
 void
@@ -346,9 +353,12 @@ public:
 static const premitive command_table [] = {
     { "spi",    spi_command,    " spi [replicates]" }
     , { "spi2", spi_command,    " spi2 [replicates]" }
-    , { "alt",  alt_test,       " spi [remap]" }
-    , { "gpio", gpio_command,   " pin# (toggle PA# as GPIO, where # is 0..12)" }
+    , { "ad5593", ad5593_command,  "ad5593" }
     , { "adc",  adc_command,    " replicates (1)" }
+    , { "alt",  alt_test,       " spi [remap]" }
+    , { "bkp",    bkp_command,  "" }
+    , { "bmp",    bmp280_command,  "" }
+    , { "gpio", gpio_command,   " pin# (toggle PA# as GPIO, where # is 0..12)" }
     , { "rcc",  rcc_status,     " RCC clock enable register list" }
     , { "rtc",  rtc_status,     " RTC register print" }
     , { "disable", rcc_enable,  " reg1 [reg2...] Disable clock for specified peripheral." }
@@ -357,9 +367,7 @@ static const premitive command_table [] = {
     , { "i2c",  i2c_command,    " I2C-1 test" }
     , { "i2c2", i2c_command,    " I2C-2 test" }
     , { "i2cdetect", i2cdetect, " i2cdetect [0|1]" }
-    , { "ad5593", ad5593_command,  "ad5593" }
     , { "dma",    dma_command,     "mem2mem dma copy teset" }
-    , { "bmp",    bmp280_command,  "" }
     , { "timer",  timer_command,   "" }
     , { "date",   date_command,     "show current date time; date --set 'iso format date'" }
     , { "hwclock", hwclock_command, "" }    
