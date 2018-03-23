@@ -52,6 +52,8 @@ namespace stm32f103 {
         void attach( dma&, DMA_Direction );
 
         void reset();
+
+        bool listen( uint8_t own_addr );
         
         inline operator bool () const { return i2c_; };
 
@@ -72,9 +74,6 @@ namespace stm32f103 {
         bool dmaEnable( bool );
         bool has_dma( DMA_Direction ) const;
 
-        void set_own_addr( uint8_t );
-        uint8_t own_addr() const;
-        
         void handle_event_interrupt();
         void handle_error_interrupt();
     };

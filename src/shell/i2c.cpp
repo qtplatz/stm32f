@@ -495,17 +495,19 @@ i2c::init( stm32f103::I2C_BASE addr )
 
 }
 
-void
-i2c::set_own_addr( uint8_t addr )
+bool
+i2c::listen( uint8_t addr )
 {
     own_addr_ = addr;
+    
     i2c_->OAR1 = own_addr_ << 1;
-}
+    bitset::set( i2c_->CR1, ACK );
+    bitset::set( i2c_->CR2, ITEVTEN | ITERREN );
 
-uint8_t
-i2c::own_addr() const
-{
-    return uint8_t( i2c_->OAR1 >> 1 );
+    stream() << "i2c::listen(" << addr << ")" << std::endl;
+    print_status();
+    
+    return true;
 }
 
 void
@@ -570,7 +572,7 @@ i2c::read( uint8_t address, uint8_t * data, size_t size )
     bitset::set( i2c_->CR1, PE );
 
     if ( ! i2c_ready_wait( *i2c_, own_addr_ )() ) {
-        stream(__FILE__,__LINE__) << __FUNCTION__ << " i2c_ready_wait failed\n";
+        //stream(__FILE__,__LINE__) << __FUNCTION__ << " i2c_ready_wait failed\n";
         return false;
     }
 
@@ -671,12 +673,12 @@ i2c::dma_receive( uint8_t address, uint8_t * data, size_t size )
 void
 i2c::handle_event_interrupt()
 {
-    // stream() << "EVENT: " << status32_to_string( i2c_status( *i2c_ )() ) << std::endl;
-    if ( i2c_->SR1 & RxNE ) {
-        stream() << "\ti2c irq" << std::endl;
-    } else {
-        i2c_->CR2 &= ~ITEVTEN;
-    }
+    stream() << "EVENT: " << status32_to_string( i2c_status( *i2c_ )() ) << std::endl;
+    // if ( i2c_->SR1 & RxNE ) {
+    //     stream() << "\ti2c irq" << std::endl;
+    // } else {
+    //     //i2c_->CR2 &= ~ITEVTEN;
+    // }
 }
 
 void

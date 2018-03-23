@@ -69,21 +69,6 @@ i2c_command( size_t argc, const char ** argv )
 
     using namespace stm32f103;
 
-    // (see RM0008, p180, Table 55)
-    // I2C ALT function  REMAP=0 { SCL,SDA } = { PB6, PB7 }, REMAP=1 { PB8, PB9 }
-    // GPIO config in p167, Table 27
-#if 0
-    if ( id == 0 ) {
-        if ( ! __i2c0 ) {
-            __i2c0.init( stm32f103::I2C1_BASE );
-        }
-    }
-    if ( id == 1 ) {
-        if ( ! __i2c1 ) {
-            __i2c1.init( stm32f103::I2C2_BASE );
-        }
-    }
-#endif
     if ( init_dma && !i2cx.has_dma( i2c::DMA_Both ) )
         i2cx.attach( *dma_t< DMA1_BASE >::instance(), i2c::DMA_Both );
 
@@ -130,6 +115,8 @@ i2c_command( size_t argc, const char ** argv )
         } else if ( strcmp( argv[0], "reset" ) == 0 ) {
             i2cx.reset();
             i2cx.print_status();
+        } else if ( strcmp( argv[0], "--slave" ) == 0 ) {
+            stm32f103::i2c_t< stm32f103::I2C2_BASE >::instance()->listen( 0x20 ); // make it 'slave'
         } else if ( std::isdigit( *argv[0] ) ) {
             txd = strtox( argv[0] );
         } else if ( strcmp( argv[0], "dma" ) == 0 ) {
