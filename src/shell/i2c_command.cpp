@@ -13,8 +13,6 @@
 #include "utility.hpp"
 #include <algorithm>
 
-extern stm32f103::i2c __i2c0, __i2c1;
-
 void i2c_command( size_t argc, const char ** argv );
 
 void
@@ -27,7 +25,8 @@ i2cdetect( size_t argc, const char ** argv )
     }
     
     stm32f103::I2C_BASE addr = ( id == 0 ) ? stm32f103::I2C1_BASE : stm32f103::I2C2_BASE;    
-    auto& i2cx = ( addr == stm32f103::I2C1_BASE ) ? __i2c0 : __i2c1;
+    auto& i2cx = ( addr == stm32f103::I2C1_BASE )
+        ? *stm32f103::i2c_t< stm32f103::I2C1_BASE >::instance() : *stm32f103::i2c_t< stm32f103::I2C2_BASE >::instance();
 
     if ( !i2cx ) {
         const char * argv [] = { id == 0 ? "i2c" : "i2c2", nullptr };
@@ -62,7 +61,8 @@ i2c_command( size_t argc, const char ** argv )
     int id = ( strcmp( argv[0], "i2c") == 0 ) ? 0 : 1;
     stm32f103::I2C_BASE addr = ( id == 0 ) ? stm32f103::I2C1_BASE : stm32f103::I2C2_BASE;
 
-    auto& i2cx = ( addr == stm32f103::I2C1_BASE ) ? __i2c0 : __i2c1;
+    auto& i2cx = ( addr == stm32f103::I2C1_BASE )
+        ? *stm32f103::i2c_t< stm32f103::I2C1_BASE >::instance() : *stm32f103::i2c_t< stm32f103::I2C2_BASE >::instance();    
 
     auto it = std::find_if( argv, argv + argc, [](auto a){ return strcmp( a, "dma" ) == 0; } );
     const bool init_dma = it != ( argv + argc );
@@ -72,21 +72,18 @@ i2c_command( size_t argc, const char ** argv )
     // (see RM0008, p180, Table 55)
     // I2C ALT function  REMAP=0 { SCL,SDA } = { PB6, PB7 }, REMAP=1 { PB8, PB9 }
     // GPIO config in p167, Table 27
+#if 0
     if ( id == 0 ) {
         if ( ! __i2c0 ) {
-            gpio_mode()( stm32f103::PB6, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,  stm32f103::GPIO_MODE_OUTPUT_2M ); // SCL
-            gpio_mode()( stm32f103::PB7, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,  stm32f103::GPIO_MODE_OUTPUT_2M ); // SDA
             __i2c0.init( stm32f103::I2C1_BASE );
         }
     }
     if ( id == 1 ) {
         if ( ! __i2c1 ) {
-            gpio_mode()( stm32f103::PB10, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M ); // SCL
-            gpio_mode()( stm32f103::PB11, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M ); // SDA
             __i2c1.init( stm32f103::I2C2_BASE );
         }
     }
-
+#endif
     if ( init_dma && !i2cx.has_dma( i2c::DMA_Both ) )
         i2cx.attach( *dma_t< DMA1_BASE >::instance(), i2c::DMA_Both );
 
@@ -150,16 +147,14 @@ i2c_command( size_t argc, const char ** argv )
             
             rxdata = { 0 };
             if ( use_dma ) {
-                if ( __i2c0.dma_receive(i2caddr, rxdata.data(), read_counts ) ) {
-                    rx_print( stream(__FILE__,__LINE__), read_counts, __i2c0.status() );
-
-                    
+                if ( stm32f103::i2c_t< stm32f103::I2C1_BASE >::instance()->dma_receive(i2caddr, rxdata.data(), read_counts ) ) {
+                    rx_print( stream(__FILE__,__LINE__), read_counts, stm32f103::i2c_t< stm32f103::I2C1_BASE >::instance()->status() );
                 } else {
                     stream(__FILE__,__LINE__) << "i2c -- dma read failed. addr=" << i2caddr << std::endl;
                 }
             } else {
                 if ( i2cx.read( i2caddr, rxdata.data(), read_counts ) ) {
-                    rx_print( stream(__FILE__,__LINE__), read_counts, __i2c0.status() );
+                    rx_print( stream(__FILE__,__LINE__), read_counts, stm32f103::i2c_t< stm32f103::I2C1_BASE >::instance()->status() );
                 } else {
                     stream(__FILE__,__LINE__) << "i2c -- polling read failed. addr=" << i2caddr << std::endl;
                 }
@@ -176,8 +171,8 @@ i2c_command( size_t argc, const char ** argv )
             tx_print( stream(__FILE__,__LINE__), write_counts );
 
             if ( use_dma ) {
-                if ( __i2c0.dma_transfer(i2caddr, txdata.data(), write_counts ) ) {
-                    if ( auto st = __i2c0.status() )
+                if ( stm32f103::i2c_t< stm32f103::I2C1_BASE >::instance()->dma_transfer(i2caddr, txdata.data(), write_counts ) ) {
+                    if ( auto st = stm32f103::i2c_t< stm32f103::I2C1_BASE >::instance()->status() )
                         i2cdebug::status32_to_string( st );
                     else
                         stream() << "\nOK";

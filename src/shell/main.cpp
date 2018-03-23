@@ -215,15 +215,21 @@ main()
         gpio_mode( stm32f103::PA5, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // SCLK
         gpio_mode( stm32f103::PA6, stm32f103::GPIO_CNF_INPUT_FLOATING,       stm32f103::GPIO_MODE_INPUT );      // MISO
         gpio_mode( stm32f103::PA7, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // MOSI
+
+        // I2C1
+        gpio_mode( stm32f103::PB6, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,  stm32f103::GPIO_MODE_OUTPUT_2M ); // SCL
+        gpio_mode( stm32f103::PB7, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN,  stm32f103::GPIO_MODE_OUTPUT_2M ); // SDA
+
+        // I2C2
+        gpio_mode( stm32f103::PB10, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M ); // SCL
+        gpio_mode( stm32f103::PB11, stm32f103::GPIO_CNF_ALT_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M ); // SDA
         
         // CAN
         gpio_mode( stm32f103::PA11, stm32f103::GPIO_CNF_INPUT_PUSH_PULL,      stm32f103::GPIO_MODE_INPUT );   // CAN1_RX
         gpio_mode( stm32f103::PA12, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // CAN1_TX
-        enable_interrupt( stm32f103::CAN1_TX_IRQn );
-        enable_interrupt( stm32f103::CAN1_RX0_IRQn );
         
         // LED
-        gpio_mode(stm32f103::PC13, stm32f103::GPIO_CNF_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M );
+        gpio_mode( stm32f103::PC13, stm32f103::GPIO_CNF_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M );
     }
     
     if ( auto AFIO = reinterpret_cast< volatile stm32f103::AFIO * >( stm32f103::AFIO_BASE ) ) {
@@ -252,7 +258,6 @@ main()
 
     {
         int x = 0;
-        stream() << "\tjiffies: " << atomic_jiffies.load() << std::endl;
 
         std::array< char, 128 > cbuf;
         typedef tokenizer< 8 > tokenizer_type;
@@ -339,24 +344,25 @@ __can1_sce_handler(void)
 void
 __i2c1_event_handler()
 {
-    stm32f103::i2c::interrupt_event_handler( stm32f103::i2c_t< stm32f103::I2C1_BASE >::instance() );
+    stm32f103::i2c_t< stm32f103::I2C1_BASE >::instance()->handle_event_interrupt();
 }
+
 void
 __i2c1_error_handler()
 {
-    stm32f103::i2c::interrupt_event_handler( stm32f103::i2c_t< stm32f103::I2C1_BASE >::instance() );
+    stm32f103::i2c_t< stm32f103::I2C1_BASE >::instance()->handle_error_interrupt();
 }
 
 void
 __i2c2_event_handler()
 {
-    stm32f103::i2c::interrupt_event_handler( stm32f103::i2c_t< stm32f103::I2C2_BASE >::instance() );
+    stm32f103::i2c_t< stm32f103::I2C2_BASE >::instance()->handle_event_interrupt();    
 }
 
 void
 __i2c2_error_handler()
 {
-    stm32f103::i2c::interrupt_event_handler( stm32f103::i2c_t< stm32f103::I2C2_BASE >::instance() );
+    stm32f103::i2c_t< stm32f103::I2C2_BASE >::instance()->handle_error_interrupt();    
 }
 
 void

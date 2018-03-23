@@ -42,9 +42,6 @@ namespace stm32f103 {
         i2c( const i2c& ) = delete;
         i2c& operator = ( const i2c& ) = delete;
 
-        uint32_t recvp_;
-        std::array< uint8_t, 32 > recv_;
-
     public:
         i2c();
 
@@ -80,19 +77,16 @@ namespace stm32f103 {
         
         void handle_event_interrupt();
         void handle_error_interrupt();
-        static void interrupt_event_handler( i2c * );
-        static void interrupt_error_handler( i2c * );
     };
 
     template< I2C_BASE base > struct i2c_t {
         static std::atomic_flag once_flag_;
-        static i2c * instance();
-        // static inline i2c * instance() {
-        //     static i2c __instance;
-        //     if ( !once_flag_.test_and_set() )
-        //         __instance.init( base );            
-        //     return &__instance;
-        // }
+        static inline i2c * instance() {
+            static i2c __instance;
+            if ( !once_flag_.test_and_set() )
+                __instance.init( base );            
+            return &__instance;
+        }
     };
     
     template< I2C_BASE base > std::atomic_flag i2c_t< base >::once_flag_;

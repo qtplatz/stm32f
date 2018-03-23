@@ -17,8 +17,6 @@
 #include <mutex>
 
 extern uint32_t __pclk1, __pclk2;
-stm32f103::i2c __i2c0, __i2c1;
-
 extern void mdelay( uint32_t );
 extern std::atomic< uint32_t > atomic_jiffies;
 
@@ -685,31 +683,7 @@ void
 i2c::handle_error_interrupt()
 {
     stream() << "ERROR irq: " << status32_to_string( i2c_status( *i2c_ )() ) << std::endl;
-
     constexpr uint32_t error_condition = SMB_ALART | TIME_OUT | PEC_ERR | OVR | AF | ARLO | BERR;
     i2c_->SR1 &= ~error_condition;
 }
 
-//static
-void
-i2c::interrupt_event_handler( i2c * _this )
-{
-    _this->handle_event_interrupt();
-}
-
-// static
-void
-i2c::interrupt_error_handler( i2c * _this )
-{
-    _this->handle_error_interrupt();
-}
-
-template<> i2c * i2c_t< I2C1_BASE >::instance()
-{
-    return &__i2c0;
-}
-
-template<> i2c * i2c_t< I2C2_BASE >::instance()
-{
-    return &__i2c1;
-}

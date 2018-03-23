@@ -122,6 +122,8 @@ namespace stm32f103 {
 
         void handle_tx_interrupt();
         void handle_rx0_interrupt();
+
+        void print_registers();
     };
 
     template< CAN_BASE base > struct can_t {
