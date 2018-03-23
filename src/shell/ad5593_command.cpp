@@ -6,6 +6,7 @@
 
 #include "ad5593.hpp"
 #include "i2c.hpp"
+#include "stm32f103.hpp"
 #include "stream.hpp"
 #include "utility.hpp"
 
@@ -14,8 +15,6 @@ namespace ad5593 {
     static uint8_t __ad5593_allocator__[ sizeof( ad5593::AD5593 ) ];
 }
 
-extern stm32f103::i2c __i2c0, __i2c1;
-
 extern void i2c_command( size_t argc, const char ** argv );
 
 void
@@ -23,13 +22,8 @@ ad5593_command( size_t argc, const char ** argv )
 {
     using namespace ad5593;
     
-    if ( !__i2c0 ) {
-        const char * argv [] = { "i2c", nullptr };
-        i2c_command( 1, argv );
-    }
-
     if ( __ad5593 == nullptr ) {
-        if ( __ad5593 = new ( __ad5593_allocator__ ) ad5593::AD5593( __i2c0, 0x10 ) )
+        if ( __ad5593 = new ( __ad5593_allocator__ ) ad5593::AD5593( *stm32f103::i2c_t< stm32f103::I2C1_BASE >::instance(), 0x10 ) )
             if ( ! __ad5593->fetch() )
                 stream() << "fetch error\n";
     }

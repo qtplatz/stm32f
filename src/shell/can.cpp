@@ -10,6 +10,9 @@
 // http://akb77.com/g/files/media/Maple.HardwareCAN.0.0.12.rar
 
 extern "C" {
+    void enable_interrupt( stm32f103::IRQn_type IRQn );
+    void disable_interrupt( stm32f103::IRQn_type IRQn );
+
     void can1_tx_handler();
     void can1_rx0_handler();
     void enable_interrupt( stm32f103::IRQn_type IRQn );
@@ -19,7 +22,6 @@ namespace stm32f103 {
     constexpr uint32_t pclk1 = 36000000;
 
     static bool can_active;
-    static can * __instance;
 
     // CAN Master Control Register bits
     enum CAN_MasterControlRegister {
@@ -146,6 +148,16 @@ namespace stm32f103 {
         CAN_FMR_FINIT	= 0x00000001 /* Filter init mode */
     };
 
+    constexpr const char * __register_names [] = {
+        "MCR", "MSR", "TSR", "RF0R", "RF1R", "IER", "ESR", "BTR"
+        , "TI0R", "TDT0R", "TDL0R", "TDH0R"
+        , "TI1R", "TDT1R", "TDL1R", "TDH1R"
+        , "TI2R", "TDT2R", "TDL2R", "TDH2R"
+        , "RI0R", "RDT0R", "RDT0R", "RDL0R"
+        , "RI1R", "RDT1R", "RDT1R", "RDL1R"
+        , "RI2R", "RDT2R", "RDT2R", "RDL2R"
+    };
+
 }
 
 using namespace stm32f103;
@@ -157,7 +169,6 @@ can::can() : status_( CAN_INIT_FAILED )
            , active_( 0 )
 {
     can_active = 0;
-    __instance = this;
 }
 
 CAN_STATUS
@@ -202,7 +213,6 @@ can::init( stm32f103::CAN_BASE base, uint32_t control )
 {
     status_ = CAN_INIT_FAILED;
     rx_head_ = rx_tail_ = rx_count_ = rx_lost_ = 0;
-    __instance = this;
     
     if ( auto CAN = reinterpret_cast< volatile stm32f103::CAN * >( base ) ) {
         can_ = CAN;
@@ -240,10 +250,8 @@ can::init( stm32f103::CAN_BASE base, uint32_t control )
             while (!(can_->TSR & CAN_TSR_TME1));    // Transmit mailbox 0 is empty
             while (!(can_->TSR & CAN_TSR_TME2));    // Transmit mailbox 0 is empty
         }
-
         enable_interrupt( stm32f103::CAN1_TX_IRQn );
         enable_interrupt( stm32f103::CAN1_RX0_IRQn );
-        
     }
     return status_;
 }
@@ -296,7 +304,7 @@ can::transmit( CanMsg * msg )
 	CAN_TX_MBX mbx;
 	uint32_t data;
 
-    stream() << "can::transmit" << std::endl;    
+    // stream() << "can::transmit" << std::endl;    
 
 	/* Select one empty transmit mailbox */
 	if (can_->TSR & CAN_TSR_TME0)
@@ -501,8 +509,8 @@ can::rx_read( CAN_FIFO fifo )
 void
 can::rx_read( CAN * can, CAN_FIFO fifo )
 {
-    if ( __instance && __instance->can_ == can )
-        __instance->rx_read( fifo );
+    // if ( __instance && __instance->can_ == can )
+    //     __instance->rx_read( fifo );
 }
 
 
@@ -537,4 +545,12 @@ can::handle_tx_interrupt()
                     CAN->TSR |= CAN_TSR_RQCP2;		// reset request complete mbx 2
         }
     }
+}
+
+void
+can::print_registers()
+{
+    auto reg = reinterpret_cast< volatile uint32_t * >( can_ );
+    for ( size_t i = 0; i < sizeof( __register_names ) / sizeof( __register_names[ 0 ] ); ++i )
+        stream() << __register_names[ i ] << ": " << *reg++ << std::endl;
 }

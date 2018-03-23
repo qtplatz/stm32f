@@ -27,6 +27,7 @@
 extern std::atomic< uint32_t > atomic_jiffies;
 extern void mdelay( uint32_t ms );
 
+void can_command( size_t argc, const char ** argv );
 void i2c_command( size_t argc, const char ** argv );
 void i2cdetect( size_t argc, const char ** argv );
 void bmp280_command( size_t argc, const char ** argv );
@@ -355,8 +356,9 @@ static const premitive command_table [] = {
     , { "ad5593", ad5593_command,  "ad5593" }
     , { "adc",  adc_command,    " replicates (1)" }
     , { "alt",  alt_test,       " spi [remap]" }
-    , { "bkp",    bkp_command,  "" }
-    , { "bmp",    bmp280_command,  "" }
+    , { "bkp",    bkp_command,  " backup registers" }
+    , { "bmp",    bmp280_command,  " start|stop" }
+    , { "can",    can_command,  " can" }
     , { "gpio", gpio_command,   " pin# (toggle PA# as GPIO, where # is 0..12)" }
     , { "rcc",  rcc_status,     " RCC clock enable register list" }
     , { "rtc",  rtc_status,     " RTC register print" }
@@ -366,9 +368,9 @@ static const premitive command_table [] = {
     , { "i2c",  i2c_command,    " I2C-1 test" }
     , { "i2c2", i2c_command,    " I2C-2 test" }
     , { "i2cdetect", i2cdetect, " i2cdetect [0|1]" }
-    , { "dma",    dma_command,     "mem2mem dma copy teset" }
+    , { "dma",    dma_command,     " ram to ram dma copy teset" }
     , { "timer",  timer_command,   "" }
-    , { "date",   date_command,     "show current date time; date --set 'iso format date'" }
+    , { "date",   date_command,     " show current date time; date --set 'iso format date'" }
     , { "hwclock", hwclock_command, "" }    
 };
 
