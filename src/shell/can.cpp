@@ -12,6 +12,7 @@
 extern "C" {
     void can1_tx_handler();
     void can1_rx0_handler();
+    void enable_interrupt( stm32f103::IRQn_type IRQn );
 }
 
 namespace stm32f103 {
@@ -209,6 +210,10 @@ can::init( stm32f103::CAN_BASE base, uint32_t control )
         
         stream() << "can::init" << std::endl;
 
+        if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
+            
+        }
+
         //rcc_clk_enable(RCC_AFIO);                       // enable clocks for AFIO
         //rcc_clk_enable(RCC_CAN);                        // and CAN
         //rcc_reset_dev(RCC_CAN);                         // reset CAN interface
@@ -235,6 +240,10 @@ can::init( stm32f103::CAN_BASE base, uint32_t control )
             while (!(can_->TSR & CAN_TSR_TME1));    // Transmit mailbox 0 is empty
             while (!(can_->TSR & CAN_TSR_TME2));    // Transmit mailbox 0 is empty
         }
+
+        enable_interrupt( stm32f103::CAN1_TX_IRQn );
+        enable_interrupt( stm32f103::CAN1_RX0_IRQn );
+        
     }
     return status_;
 }

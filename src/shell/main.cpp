@@ -217,10 +217,9 @@ main()
         gpio_mode( stm32f103::PA7, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // MOSI
         
         // CAN
+        // (see RM0008, p167, Table 28)
         gpio_mode( stm32f103::PA11, stm32f103::GPIO_CNF_INPUT_PUSH_PULL,      stm32f103::GPIO_MODE_INPUT );   // CAN1_RX
         gpio_mode( stm32f103::PA12, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // CAN1_TX
-        enable_interrupt( stm32f103::CAN1_TX_IRQn );
-        enable_interrupt( stm32f103::CAN1_RX0_IRQn );
         
         // LED
         gpio_mode(stm32f103::PC13, stm32f103::GPIO_CNF_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M );
