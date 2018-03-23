@@ -1,7 +1,8 @@
 // Copyright (C) 2018 MS-Cheminformatics LLC
 
-#include <cstdint>
 #include <array>
+#include <atomic>
+#include <cstdint>
 
 //  CAN Master Control Register bits
 enum CAN_MasterControlRegister {
@@ -71,7 +72,7 @@ enum CAN_RemoteTransmissionRequest : uint8_t {
 
 namespace stm32f103 {
 
-    enum PERIPHERAL_BASE : uint32_t;
+    enum CAN_BASE : uint32_t;
 
     constexpr int CAN_RX_QUEUE_SIZE = 8;
 
@@ -89,9 +90,11 @@ namespace stm32f103 {
         CanMsg rx_queue_[ CAN_RX_QUEUE_SIZE ];
         CAN_STATUS init_enter();
         CAN_STATUS init_leave();
-
+        can();        
+        template< CAN_BASE > friend struct can_t;
+        CAN_STATUS init( stm32f103::CAN_BASE, uint32_t control = CAN_MCR_NART );
+        
     public:
-        can();
 
         inline CAN_STATUS status() const { return status_; }
 
@@ -102,7 +105,6 @@ namespace stm32f103 {
         //                      CAN_MCR_RFLM    receive FIFO locked mode
         //                      CAN_MCR_TXFP    transmit FIFO priority
         
-        CAN_STATUS init( stm32f103::PERIPHERAL_BASE, uint32_t control = CAN_MCR_NART );
         CAN_STATUS set_mode( uint32_t );
         CAN_STATUS filter( uint8_t filter_idx, CAN_FIFO fifo, CAN_FILTER_SCALE scale, CAN_FILTER_MODE mode, uint32_t fr1, uint32_t fr2 );
         CAN_TX_MBX transmit( CanMsg* msg );
@@ -122,5 +124,19 @@ namespace stm32f103 {
         void handle_rx0_interrupt();
     };
 
+    template< CAN_BASE base > struct can_t {
+
+        static std::atomic_flag once_flag_;
+
+        static inline can * instance() {
+            static can __instance;
+            if ( !once_flag_.test_and_set() )
+                __instance.init( base );            
+            return &__instance;
+        }
+    };
+    
+    template< CAN_BASE base > std::atomic_flag can_t< base >::once_flag_;
+    
 }
 

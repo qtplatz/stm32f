@@ -28,6 +28,11 @@ extern void __i2c2_error_handler(void);
 extern void __rcc_handler(void);
 extern void __rtc_handler(void);
 extern void __tim2_handler(void);
+extern void __tim3_handler(void);
+extern void __tim4_handler(void);
+extern void __tim5_handler(void);
+extern void __tim6_handler(void);
+extern void __tim7_handler(void);
 extern void __spi1_handler(void);
 extern void __spi2_handler(void);
 extern void __usart1_handler(void);
@@ -95,8 +100,8 @@ void ( * const vector_table [] )() __attribute__ ((section(".vect"))) = {
 	0,                              /* 0x0A8 TIM1 Trigger and Communication  */
 	0,                              /* 0x0AC TIM1 Capture Compare            */
 	__tim2_handler,                 /* 0x0B0 TIM2                            */
-	0,                              /* 0x0B4 TIM3                            */
-	0,                              /* 0x0B8 TIM4                            */
+	__tim3_handler,                 /* 0x0B4 TIM3                            */
+	__tim4_handler,                 /* 0x0B8 TIM4                            */
 	__i2c1_event_handler,           /* 0x0BC I2C1 event                      */
 	__i2c1_error_handler,           /* 0x0C0 I2C1 error                      */
 	__i2c2_event_handler,           /* 0x0C4 I2C2 event                      */
@@ -116,12 +121,12 @@ void ( * const vector_table [] )() __attribute__ ((section(".vect"))) = {
 	0,                              /* -   Reserved                        */
 	0,                              /* -   Reserved                        */
 	0,                              /* -   Reserved                        */
-	0,                              /* 57  TIM5                            */
+	__tim5_handler,                 /* 57  TIM5                            */
 	0,                              /* 58  SPI3                            */
 	0,                              /* 59  USART4                          */
 	0,                              /* 60  USART5                          */
-	0,                              /* 61  TIM6                            */
-	0,                              /* 62  TIM7                            */
+	__tim6_handler,                 /* 61  TIM6                            */
+	__tim7_handler,                 /* 62  TIM7                            */
 	__dma2_ch1_handler,             /* 63  DMA2_Ch1                        */
 	__dma2_ch2_handler,             /* 64  DMA2_Ch2                        */
 	__dma2_ch3_handler,             /* 65  DMA2_Ch3                        */

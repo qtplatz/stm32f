@@ -185,7 +185,9 @@ main()
         RCC->APB1ENR |= (1 << 22); // I2C 2 clock enable
 
         // TIM2
-        RCC->APB1ENR |= 1;  // TIM2 General purpose timer
+        RCC->APB1ENR |= 0x01;  // TIM2 General purpose timer (uing in bmp280)
+        //TIM 2,3,4 are only avilable on Blue Pill
+        //RCC->APB1ENR |= 0x3e;  // TIM3..TIM7 General purpose timer (calibration trial)
     }
 
     atomic_jiffies = 0;

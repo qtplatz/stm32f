@@ -33,8 +33,6 @@ namespace stm32f103 {  // as known as Blue Pill
         , FLASH_BASE      = 0x40022000 // ( AHBPERIPH_BASE + 0x2000 )  // FLASH base address is 0x40022000
         , APB2PERIPH_BASE = 0x40010000 // ( PERIPH_BASE + 0x10000 )
         , AFIO_BASE       = 0x40010000 // ( APB2PERIPH_BASE + 0x0000 ) //  AFIO base address is 0x40010000
-        , CAN1_BASE       = 0x40006400
-        , CAN2_BASE       = 0x40006800
         , BKP_BASE        = 0x40006C00 // Backup registers, p51; Section 6.4.5 on page 84
         , PWR_BASE        = 0x40007000 // Power control; Section 5.4.3 on page 79
         , ADC1_BASE	      = 0x40012400  // Table 3. p50, RM0008, Rev 17
@@ -43,11 +41,22 @@ namespace stm32f103 {  // as known as Blue Pill
         , NVIC_BASE       = 0xe000e100
     };
 
+#ifdef __cplusplus    
+    enum CAN_BASE : uint32_t
+#else
+    enum CAN_BASE
+#endif
+    {
+        CAN1_BASE       = 0x40006400
+        , CAN2_BASE       = 0x40006800
+    };    
+
     enum GPIO_BASE {
         GPIOA_BASE	      = ( APB2PERIPH_BASE + 0x0800 ) // GPIOA base address is 0x40010800
         , GPIOB_BASE      = ( APB2PERIPH_BASE + 0x0c00 ) // GPIOB base address is 0x40010C00
         , GPIOC_BASE      = ( APB2PERIPH_BASE + 0x1000 ) // GPIOC base address is 0x40011000        
     };
+
 #ifdef __cplusplus    
     enum USART_BASE : uint32_t
 #else

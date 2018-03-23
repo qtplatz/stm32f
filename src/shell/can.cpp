@@ -197,7 +197,7 @@ can::init_leave()
 
 
 CAN_STATUS
-can::init( stm32f103::PERIPHERAL_BASE base, uint32_t control )
+can::init( stm32f103::CAN_BASE base, uint32_t control )
 {
     status_ = CAN_INIT_FAILED;
     rx_head_ = rx_tail_ = rx_count_ = rx_lost_ = 0;

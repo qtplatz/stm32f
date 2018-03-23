@@ -67,15 +67,16 @@ namespace stm32f103 {
     };
 
     template< rtc_clock_source > struct rtc_clock { constexpr static uint32_t clk = 0; };
-    //template<> struct rtc_clock< rtc_clock_source_lsi > { constexpr static uint32_t clk = 41025; }; // calibrated with stop watch
-    template<> struct rtc_clock< rtc_clock_source_lsi > { constexpr static uint32_t clk = 32000; }; // 32kHz from manual
+    template<> struct rtc_clock< rtc_clock_source_lsi > { constexpr static uint32_t clk = 41025; }; // calibrated with stop watch
     template<> struct rtc_clock< rtc_clock_source_lse > { constexpr static uint32_t clk = 32768; }; // 32.768kHz
     template<> struct rtc_clock< rtc_clock_source_hse > { constexpr static uint32_t clk = 8000000/128; }; // 8MHz/128
 
-    // it seems that HSE and LSE clock not working on STM32F103C8 Blue Pills
-    // constexpr rtc_clock_source clock_source = rtc_clock_source_hse;
-    //constexpr rtc_clock_source clock_source = rtc_clock_source_lse;
+    // I could not make LSE clock get working
+#if 0
+    constexpr rtc_clock_source clock_source = rtc_clock_source_lse;
+#else
     constexpr rtc_clock_source clock_source = rtc_clock_source_lsi;
+#endif
     
     template< rtc_clock_source > struct rtc_clock_enabler {
         static bool enable() {
@@ -87,6 +88,7 @@ namespace stm32f103 {
     template<> struct rtc_clock_enabler< rtc_clock_source_lsi > {
         static bool enable() {
             auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE );
+            stm32f103::bitset::reset( RCC->BDCR, stm32f103::RCC_BDCR_LSEON );
             stm32f103::bitset::set( RCC->CSR, stm32f103::RCC_CSR_LSION );
             condition_wait(0x7ffff)( [&](){ return RCC->CSR & stm32f103::RCC_CSR_LSIRDY; } );
         }
@@ -96,6 +98,7 @@ namespace stm32f103 {
     template<> struct rtc_clock_enabler< rtc_clock_source_lse > {
         static bool enable() {
             auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE );
+            stm32f103::bitset::reset( RCC->CSR, stm32f103::RCC_CSR_LSION );
             stm32f103::bitset::set( RCC->BDCR, stm32f103::RCC_BDCR_LSEON );
             condition_wait(0x7ffff)( [&](){ return RCC->BDCR & stm32f103::RCC_BDCR_LSERDY; } );
         }

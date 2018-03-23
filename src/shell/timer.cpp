@@ -12,6 +12,11 @@
 
 extern "C" {
     void __tim2_handler();
+    void __tim3_handler();
+    void __tim4_handler();
+    void __tim5_handler();
+    void __tim6_handler();
+    void __tim7_handler();
     void enable_interrupt( stm32f103::IRQn_type IRQn );
 }
 
@@ -55,6 +60,9 @@ namespace stm32f103 {
         , "ARR", "CCR1", "CCR2", "CCR3", "CCR4", "DCR", "DMAR"
     };
 
+    template< TIM_BASE base > inline void timer_irq_clear() {
+        stm32f103::bitset::reset( reinterpret_cast< TIM * >( base )->SR, 0x0001 );
+    }
 }
 
 using namespace stm32f103;
@@ -67,9 +75,8 @@ timer::timer()
 void
 timer::init( TIM_BASE base )
 {
-    stream() << "TIMER:" << base << " initializing\n";
-
     auto p = reinterpret_cast< volatile TIM * >( base );
+
     p->CR1 = 0;
     p->CR2 = 0;
 
@@ -86,18 +93,40 @@ timer::init( TIM_BASE base )
     p->SMCR = 0;      // SMS = 000 := internal clock, 111 := external edge
     p->DIER = 1;      // interrupt enable
 
-    p->CR1 = 4;
-    p->CR2 = 0;
+    p->CR1  = 4;      // bit 2 = Update request source 1: Onlly counter overflow/underflow
+    p->CR2  = 0;
+
+    // See main.cpp, make sure RCC APB1ENR TIMx bit is enabled
     
     switch( base ) {
-    case TIM2_BASE: enable_interrupt( TIM2_IRQn ); break;
-    case TIM3_BASE: enable_interrupt( TIM3_IRQn ); break;
-    case TIM4_BASE: enable_interrupt( TIM4_IRQn ); break;
-    case TIM5_BASE: enable_interrupt( TIM5_IRQn ); break;
-    case TIM6_BASE: enable_interrupt( TIM6_IRQn ); break;
-    case TIM7_BASE: enable_interrupt( TIM7_IRQn ); break;
+    case TIM2_BASE:
+        enable_interrupt( TIM2_IRQn );
+        break;
+    case TIM3_BASE:
+        if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
+            if ( RCC->APB1ENR & 0x02 )  // TIM3
+                enable_interrupt( TIM3_IRQn );
+            else
+                stream() << "Clock for TIM3 is disabled" << std::endl;
+        }
+        break;
+    case TIM4_BASE:
+        if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
+            if ( RCC->APB1ENR & 0x04 )  // TIM3
+                enable_interrupt( TIM4_IRQn );
+            else
+                stream() << "Clock for TIM3 is disabled" << std::endl;
+        }
+        break;
+    case TIM5_BASE:
+    case TIM6_BASE:
+    case TIM7_BASE:
+        stream() << "Not avilable\n";
+        break;
     }
     p->CR1 |= 1;      // enable
+
+    stream() << "TIMER:" << base << " initialized.\n";
 }
 
 void
@@ -117,8 +146,48 @@ timer::print_registers( TIM_BASE base )
 void
 __tim2_handler()
 {
-    auto p = reinterpret_cast< TIM * >( TIM2_BASE );    
-	p->SR &= ~(1 << 0);
-    stm32f103::timer_t< TIM2_BASE >::callback();
+    constexpr TIM_BASE base = TIM2_BASE;
+    timer_irq_clear< base >();
+    stm32f103::timer_t< base >::callback();
+}
+
+void
+__tim3_handler()
+{
+    constexpr auto base = TIM3_BASE;
+    timer_irq_clear< base >();
+    stm32f103::timer_t< base >::callback();
+}
+
+void
+__tim4_handler()
+{
+    constexpr auto base = TIM4_BASE;
+    timer_irq_clear< base >();
+    stm32f103::timer_t< base >::callback();
+}
+
+void
+__tim5_handler()
+{
+    constexpr auto base = TIM5_BASE;
+    timer_irq_clear< base >();
+    stm32f103::timer_t< base >::callback();
+}
+
+void
+__tim6_handler()
+{
+    constexpr auto base = TIM6_BASE;
+    timer_irq_clear< base >();
+    stm32f103::timer_t< base >::callback();
+}
+
+void
+__tim7_handler()
+{
+    constexpr auto base = TIM7_BASE;
+    timer_irq_clear< base >();
+    stm32f103::timer_t< base >::callback();
 }
 

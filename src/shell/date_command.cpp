@@ -4,12 +4,18 @@
 // Contact: toshi.hondo@qtplatz.com
 //
 
+#include "bitset.hpp"
+#include "rtc.hpp"
 #include "stream.hpp"
 #include "system_clock.hpp"
-#include "rtc.hpp"
+#include "stm32f103.hpp"
+#include "timer.hpp"
 #include "utility.hpp"
 #include <array>
 #include <date_time/date_time.hpp>
+
+void lsi_calibration();
+void mdelay( uint32_t );
 
 void
 date_command( size_t argc, const char ** argv )
@@ -20,7 +26,7 @@ date_command( size_t argc, const char ** argv )
         std::array< char, 30 > str;
 
         //stream(__FILE__,__LINE__,__FUNCTION__) <<
-        stream() << date_time::to_string( str.data(), str.size(), time, true ) << std::endl;
+        stream() << date_time::to_string( str.data(), str.size(), time, false ) << std::endl;
     }
     
     while ( --argc ) {
@@ -50,6 +56,9 @@ date_command( size_t argc, const char ** argv )
                 
                 stm32f103::rtc::set_hwclock( time );
             }
+        } else if ( strcmp( argv[ 0 ], "--calib" ) == 0 ) {
+            // todo, p96
+            lsi_calibration();
         }
     }
 }
@@ -60,4 +69,36 @@ hwclock_command( size_t argc, const char ** argv )
     uint32_t div;
     auto count = stm32f103::rtc::clock( div );
     stream() << "rtc count: " << count << "\tdiv: " << div << std::endl;
+}
+
+void
+lsi_calibration()
+{
+    //1. Enable TIM5 timer and configure channel4 in input capture mode
+    //2. Set the TIM5CH4_IREMAP bit in the AFIO_MAPR register to connect the LSI clock
+    //   internally to TIM5 channel4 input capture for calibration purpose.
+    //3. Measure the frequency of LSI clock using the TIM5 Capture/compare 4 event or
+    //   interrupt.
+    //4. Use the measured LSI frequency to update the 20-bit prescaler of the RTC depending
+    //   on the desired time base and/or to compute the IWDG timeout.    
+
+    stm32f103::timer_t< stm32f103::TIM3_BASE > timer;
+
+    timer.set_callback( []{
+            static size_t counter;
+            ++counter;
+            stream() << "timer  irq " << counter << std::endl;
+        });
+
+    if ( auto AFIO = reinterpret_cast< volatile stm32f103::AFIO * >( stm32f103::AFIO_BASE ) ) {
+        // p177
+        stm32f103::bitset::set(  AFIO->MAPR, 1 );  // TIM5CH4_IREMAP = 1 (LSI internal clock is connected to TIM5_CH4)
+    }
+
+    for ( int i = 0; i < 10; ++i ) {
+        mdelay( 1000 );
+        stream() << "waiting..." << std::endl;
+    }
+
+    timer.clear_callback();
 }
