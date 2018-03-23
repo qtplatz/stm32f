@@ -83,5 +83,19 @@ namespace stm32f103 {
         static void interrupt_event_handler( i2c * );
         static void interrupt_error_handler( i2c * );
     };
+
+    template< I2C_BASE base > struct i2c_t {
+        static std::atomic_flag once_flag_;
+        static i2c * instance();
+        // static inline i2c * instance() {
+        //     static i2c __instance;
+        //     if ( !once_flag_.test_and_set() )
+        //         __instance.init( base );            
+        //     return &__instance;
+        // }
+    };
+    
+    template< I2C_BASE base > std::atomic_flag i2c_t< base >::once_flag_;
+    
 }
 

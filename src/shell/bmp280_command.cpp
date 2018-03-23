@@ -6,24 +6,25 @@
 
 #include "bmp280.hpp"
 #include "i2c.hpp"
+#include "stm32f103.hpp"
 #include "stream.hpp"
 #include "debug_print.hpp"
 #include "utility.hpp"
 
-
-extern stm32f103::i2c __i2c0, __i2c1;
 extern void i2c_command( size_t argc, const char ** argv );
 void mdelay( uint32_t );
 
 void
 bmp280_command( size_t argc, const char ** argv )
 {
+    static std::atomic_flag __once_flag;
+    
     using namespace bmp280;
 
-    if ( !__i2c0 ) {
+    if ( !__once_flag.test_and_set() ) {
         const char * argv [] = { "i2c", "dma", nullptr };
         i2c_command( 2, argv );
-        BMP280::instance( __i2c0 );
+        BMP280::instance( *stm32f103::i2c_t< stm32f103::I2C1_BASE >::instance() );
     }
 
     BMP280& bmp280 = *BMP280::instance();

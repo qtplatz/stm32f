@@ -39,8 +39,6 @@ std::atomic< uint32_t > atomic_milliseconds;     // 1000us  (49.71 days)
 std::atomic< uint32_t > atomic_250_milliseconds;
 std::atomic< uint32_t > atomic_seconds;          // 1s      (136.1925 years)
 
-stm32f103::i2c __i2c0, __i2c1;
-
 extern void uart1_handler();
 
 extern "C" {
@@ -341,24 +339,24 @@ __can1_sce_handler(void)
 void
 __i2c1_event_handler()
 {
-    stm32f103::i2c::interrupt_event_handler( &__i2c0 );
+    stm32f103::i2c::interrupt_event_handler( stm32f103::i2c_t< stm32f103::I2C1_BASE >::instance() );
 }
 void
 __i2c1_error_handler()
 {
-    stm32f103::i2c::interrupt_error_handler( &__i2c0 );
+    stm32f103::i2c::interrupt_event_handler( stm32f103::i2c_t< stm32f103::I2C1_BASE >::instance() );
 }
 
 void
 __i2c2_event_handler()
 {
-    stm32f103::i2c::interrupt_event_handler( &__i2c1 );
+    stm32f103::i2c::interrupt_event_handler( stm32f103::i2c_t< stm32f103::I2C2_BASE >::instance() );
 }
 
 void
 __i2c2_error_handler()
 {
-    stm32f103::i2c::interrupt_error_handler( &__i2c1 );
+    stm32f103::i2c::interrupt_event_handler( stm32f103::i2c_t< stm32f103::I2C2_BASE >::instance() );
 }
 
 void

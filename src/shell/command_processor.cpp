@@ -24,7 +24,6 @@
 #include <cctype>
 #include <chrono>
 
-extern stm32f103::i2c __i2c0, __i2c1;
 extern std::atomic< uint32_t > atomic_jiffies;
 extern void mdelay( uint32_t ms );
 
