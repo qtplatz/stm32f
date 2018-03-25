@@ -12,6 +12,15 @@ On this project, I'm using arm-linux-gnueabihf cross tools installed on x86_64 d
 
 A minor problem is, the class constractor for global scoped class object does not be called due to nothing to do in start-up code.  As workaround, all global scope class objects were called new operator against .bss segmente pre-allocated memory before fist use of the object.
 
+Project status:
+- SPI -- Connect SPI1 and SPI2 by wire, and transmit data has been tested
+- I2C -- Read temperature and pressure data from BMP280 has been tested
+- RTC -- It seems only works on LSI clock (either HSE and LSE clock did not work so far).
+  * Tiny caalender calculation class 'data_time' has been implemented.
+  * system_clock class has been implemented that is use togather eith std::chrono
+- CAN -- Loopback test has been briefly tested without wire.
+
 Reference projects:
 https://github.com/trebisky/stm32f103
 https://github.com/fcayci/stm32f1-bare-metal
+http://www.stm32duino.com/viewtopic.php?t=72
