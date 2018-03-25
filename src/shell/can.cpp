@@ -1,8 +1,12 @@
 // Copyright (C) 2018 MS-Cheminformatics LLC
 
+#include "bitset.hpp"
 #include "can.hpp"
+#include "condition_wait.hpp"
+#include "debug_print.hpp"
 #include "stream.hpp"
 #include "stm32f103.hpp"
+#include <bitset>
 #include <cstdint>
 
 // each I/O port registers have to be accessed as 32bit words. (reference manual pp158/1133)
@@ -13,9 +17,10 @@ extern "C" {
     void enable_interrupt( stm32f103::IRQn_type IRQn );
     void disable_interrupt( stm32f103::IRQn_type IRQn );
 
-    void can1_tx_handler();
-    void can1_rx0_handler();
-    void enable_interrupt( stm32f103::IRQn_type IRQn );
+    void __can1_tx_handler( void );
+    void __can1_rx0_handler( void );
+    void __can1_rx1_handler( void );
+    void __can1_sce_handler( void );
 }
 
 namespace stm32f103 {
@@ -83,7 +88,7 @@ namespace stm32f103 {
         , CAN_RF0R_FOVR0		= 0x00000010    // FIFO 0 overrun 
         , CAN_RF0R_RFOM0		= 0x00000020    // Release FIFO 0 output mailbox 
     };
-
+    
     enum CAN_ReceiveFIFO_1_Register {
         CAN_RF1R_FMP1		= 0x00000003    // FIFO 1 message pending 
         , CAN_RF1R_FULL1		= 0x00000008    // FIFO 1 full 
@@ -108,7 +113,7 @@ namespace stm32f103 {
         , CAN_IER_WKUIE		= 0x00010000	// Wakeup Interrupt Enable 
         , CAN_IER_SLKIE		= 0x00020000	// Sleep Interrupt Enable 
     };
-
+    
     enum CAN_ErrorStatusRegister { // (CAN_ESR)
         CAN_ESR_EWGF		= 0x00000001	// Error Warning Flag 
         , CAN_ESR_EPVF		= 0x00000002	// Error Passive Flag 
@@ -143,19 +148,60 @@ namespace stm32f103 {
     enum CAN_MailboxTransmitReauest {
         CAN_TMIDxR_TXRQ	= 0x00000001 /* Transmit mailbox request */
     };
-
+    
     enum CAN_FilterMasterRegister {
         CAN_FMR_FINIT	= 0x00000001 /* Filter init mode */
     };
 
-    constexpr const char * __register_names [] = {
-        "MCR", "MSR", "TSR", "RF0R", "RF1R", "IER", "ESR", "BTR"
-        , "TI0R", "TDT0R", "TDL0R", "TDH0R"
-        , "TI1R", "TDT1R", "TDL1R", "TDH1R"
-        , "TI2R", "TDT2R", "TDL2R", "TDH2R"
-        , "RI0R", "RDT0R", "RDT0R", "RDL0R"
-        , "RI1R", "RDT1R", "RDT1R", "RDL1R"
-        , "RI2R", "RDT2R", "RDT2R", "RDL2R"
+    struct can_register {
+        const char * name;
+        uint32_t mask;
+    };
+
+    constexpr can_register __register_names [] = {
+        { "MCR", 0xfffe7f00 }, { "MSR", 0xffff0e10 }, { "TSR", 0x707070 }, { "RF0R", 0xffffffc4 }
+        , { "RF1R", 0xffffffc4 }, { "IER", 0xfffc7080 }, { "ESR", 0x0000ff88 }, { "BTR", 0x3C00fc00 } 
+    };
+
+    struct can_init_enter {
+        CAN_STATUS operator()( volatile CAN& _ ) {
+            if ( ( _.MSR & CAN_MSR_INAK ) == 0 ) {
+                bitset::set( _.MCR, CAN_MCR_INRQ );			// Request initialisation
+                if ( ! condition_wait( CAN_INAK_TimeOut )( [&]{ return _.MSR & CAN_MSR_INAK; } ) )
+                    return CAN_INIT_E_FAILED;
+            }
+            return CAN_OK;
+        }
+    };
+
+    struct can_init_leave {
+        CAN_STATUS operator()( volatile CAN& _ ) {
+            CAN_STATUS status( CAN_OK );
+            if ( _.MSR & CAN_MSR_INAK ) {	// Check for initialization mode already reset
+                bitset::reset( _.MCR, CAN_MCR_INRQ );			// Request initialization
+                if ( !condition_wait( CAN_INAK_TimeOut )( [&]{ return ( _.MSR & CAN_MSR_INAK ) == 0; } ) )
+                    return CAN_INIT_L_FAILED;
+            }
+            return CAN_OK;
+        }
+    };
+
+    struct scoped_can_init {
+        volatile CAN& _;
+        CAN_STATUS status_;
+
+        scoped_can_init( volatile CAN& can ) : status_( CAN_INIT_FAILED ), _( can ) {}
+
+        ~scoped_can_init() {
+            if ( status_ == CAN_OK )
+                can_init_leave()(_);
+        }
+        
+        CAN_STATUS enter() {
+            status_ = can_init_enter()(_);
+            return status_;
+        }
+        
     };
 
 }
@@ -174,37 +220,39 @@ can::can() : status_( CAN_INIT_FAILED )
 CAN_STATUS
 can::init_enter()
 {
-	volatile uint32_t wait_ack;
+    return stm32f103::can_init_enter()( *can_ );
+	// volatile uint32_t wait_ack;
 
-	status_ = CAN_OK;
-	if ((can_->MSR & CAN_MSR_INAK) == 0) {	// Check for initialization mode already set
-		can_->MCR |= CAN_MCR_INRQ;			// Request initialisation
+	// status_ = CAN_OK;
+	// if ((can_->MSR & CAN_MSR_INAK) == 0) {	// Check for initialization mode already set
+    //     bitset::set( can_->MCR, CAN_MCR_INRQ );			// Request initialisation
 
-		wait_ack = 0;						// Wait the acknowledge
-		while ((wait_ack != CAN_INAK_TimeOut) && (( can_->MSR & CAN_MSR_INAK) == 0))
-			wait_ack++;
-		if (( can_->MSR & CAN_MSR_INAK) == 0)
-			status_ = CAN_INIT_E_FAILED;		// Timeout
-	}
-	return status_;
+	// 	wait_ack = 0;						// Wait the acknowledge
+	// 	while ((wait_ack != CAN_INAK_TimeOut) && (( can_->MSR & CAN_MSR_INAK) == 0))
+	// 		wait_ack++;
+	// 	if (( can_->MSR & CAN_MSR_INAK) == 0)
+	// 		status_ = CAN_INIT_E_FAILED;		// Timeout
+	// }
+	// return status_;
 }
 
 CAN_STATUS
 can::init_leave()
 {
-	volatile uint32_t wait_ack;
+    return stm32f103::can_init_leave()( *can_ );
+	// volatile uint32_t wait_ack;
 
-	status_ = CAN_OK;
-	if ((can_->MSR & CAN_MSR_INAK) != 0) {	// Check for initialization mode already reset
-		can_->MCR &= ~CAN_MCR_INRQ;			// Request initialization
+	// status_ = CAN_OK;
+	// if ((can_->MSR & CAN_MSR_INAK) != 0) {	// Check for initialization mode already reset
+	// 	can_->MCR &= ~CAN_MCR_INRQ;			// Request initialization
         
-		wait_ack = 0;						// Wait the acknowledge
-		while ((wait_ack != CAN_INAK_TimeOut) && ((can_->MSR & CAN_MSR_INAK) != 0))
-			wait_ack++;
-		if ((can_->MSR & CAN_MSR_INAK) != 0)
-			status_ = CAN_INIT_L_FAILED;
-	}
-	return status_;
+	// 	wait_ack = 0;						// Wait the acknowledge
+	// 	while ((wait_ack != CAN_INAK_TimeOut) && ((can_->MSR & CAN_MSR_INAK) != 0))
+	// 		wait_ack++;
+	// 	if ((can_->MSR & CAN_MSR_INAK) != 0)
+	// 		status_ = CAN_INIT_L_FAILED;
+	// }
+	// return status_;
 }
 
 
@@ -213,66 +261,98 @@ can::init( stm32f103::CAN_BASE base, uint32_t control )
 {
     status_ = CAN_INIT_FAILED;
     rx_head_ = rx_tail_ = rx_count_ = rx_lost_ = 0;
+
     
     if ( auto CAN = reinterpret_cast< volatile stm32f103::CAN * >( base ) ) {
         can_ = CAN;
         can_->MCR &= ~CAN_MCR_SLEEP;
         
-        stream() << "can::init" << std::endl;
-
         if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
+            RCC->APB1RSTR &= (1 << 25);  // CAN reset
+        }
+
+        can_active = 1;                         // set CAN active flag (for interrupt handler
+
+        // Reset CAN bus
+        bitset::set( can_->MCR, CAN_MCR_RESET );
+        bitset::reset( can_->MCR, CAN_MCR_RESET );
+
+        bitset::reset( can_->MCR, CAN_MCR_SLEEP );            // reset CAN sleep mode (default after reset)
+        bitset::set( can_->MSR, CAN_MSR_SLAKI );              // clear SLAKI (sleep acknowledge) status
+        bitset::set( can_->MCR, control & CAN_CONTROL_MASK );
+
+        do {
+            scoped_can_init can_init(*can_);
+            if ( can_init.enter() != CAN_OK ) {            // enter CAN initialization mode
+                stream(__FILE__,__LINE__) << "can::initialization error" << std::endl;
+                return status_;                              // error, so return
+            }
+
+            //uint32_t prescaler = ( pclk1 / 18 ) / 1000000;   // 1Mbps
+            //uint32_t prescaler = ( pclk1 / 18 ) /    500000; // 500kbps
+            //uint32_t prescaler = ( pclk1 / 18 ) /  250000;   // 250kbps
+            uint32_t prescaler = ( pclk1 / 18 ) /  125000;     // 125kbps
+
+            //                  SJW       BS1           // BS2       
+            uint32_t btr = ( 0 << 24 ) | ( 1 << 16 ) | ( 2 << 20 ) | ( prescaler & 0x1ff ) - 1;
             
-        }
+            can_->BTR =  btr;
 
-        //rcc_clk_enable(RCC_AFIO);                       // enable clocks for AFIO
-        //rcc_clk_enable(RCC_CAN);                        // and CAN
-        //rcc_reset_dev(RCC_CAN);                         // reset CAN interface
+            // p680 interrupt enable register
+            bitset::set( can_->IER,
+                         // CAN_IER_WKUIE |   // Wakeup interrupt
+                         CAN_IER_FMPIE0 |  // FIFO message pending interrupt enable
+                         CAN_IER_FMPIE1 |  // FIFO message pending interrupt enable FMP[1:0] bits are not 0b00
+                         CAN_IER_TMEIE     // Transmit mailbox empty interrupt enable
+                );
+        } while ( 0 );
 
-        can_active = 1;                                         // set CAN active flag (for interrupt handler
+        condition_wait()( [&]{ return can_->TSR & CAN_TSR_TME0; } );    // Transmit mailbox 0 is empty
+        condition_wait()( [&]{ return can_->TSR & CAN_TSR_TME1; } );    // Transmit mailbox 1 is empty
+        condition_wait()( [&]{ return can_->TSR & CAN_TSR_TME2; } );    // Transmit mailbox 2 is empty
 
-        can_->MCR &= ~CAN_MCR_SLEEP;            // reset CAN sleep mode (default after reset)
+        bitset::reset( can_->MSR, CAN_MSR_WKUI );
 
-        if ( init_enter() != CAN_OK)            // enter CAN initialization mode
-            return status_;                              // error, so return
-
-        can_->MCR &= ~CAN_CONTROL_MASK;         // set mode bits
-        can_->MCR |= (control & CAN_CONTROL_MASK);
-
-        can_->BTR &= ~CAN_TIMING_MASK;               // Set the bit timing register
-        // can_->BTR |= (can_speed_table[speed].btr & CAN_TIMING_MASK);
-        uint32_t brp = ( pclk1 / 18 ) / 500000; // 500kbps
-        can_->BTR |=  ((((4-1) & 0x03) << 24) | (((5-1) & 0x07) << 20) | (((12-1) & 0x0F) << 16) | ((brp-1) & 0x1FF));
-        
-        can_->IER = (CAN_IER_FMPIE0 | CAN_IER_FMPIE1 | CAN_IER_TMEIE);
-
-        if ( init_leave() == CAN_OK)  {
-            while (!(can_->TSR & CAN_TSR_TME0));    // Transmit mailbox 0 is empty
-            while (!(can_->TSR & CAN_TSR_TME1));    // Transmit mailbox 0 is empty
-            while (!(can_->TSR & CAN_TSR_TME2));    // Transmit mailbox 0 is empty
-        }
         enable_interrupt( stm32f103::CAN1_TX_IRQn );
         enable_interrupt( stm32f103::CAN1_RX0_IRQn );
     }
+
     return status_;
 }
 
 CAN_STATUS
-can::set_mode( uint32_t mode )
+can::set_silent_mode( bool enable )
 {
-	if ( init_enter() == CAN_OK)	{
-		can_->BTR &= ~CAN_MODE_MASK;
-		can_->BTR |= (mode & CAN_MODE_MASK);
-		init_leave();
+    scoped_can_init can_init( *can_ );
+    if ( can_init.enter() == CAN_OK ) {
+        if ( enable )
+            bitset::set( can_->BTR, CAN_BTR_SILM );
+        else
+            bitset::reset( can_->BTR, CAN_BTR_SILM );
 	}
     return status_;
 }
+
+CAN_STATUS
+can::set_loopback_mode( bool enable )
+{
+    scoped_can_init can_init( *can_ );
+    if ( can_init.enter() == CAN_OK ) {    
+        if ( enable )
+            bitset::set( can_->BTR, CAN_BTR_LBKM );
+        else
+            bitset::reset( can_->BTR, CAN_BTR_LBKM );
+	}
+    return status_;
+}
+
 
 CAN_STATUS
 can::filter( uint8_t filter_idx, CAN_FIFO fifo, CAN_FILTER_SCALE scale, CAN_FILTER_MODE mode, uint32_t fr1, uint32_t fr2 )
 {
 	uint32_t mask = 0x00000001 << filter_idx;
 
-	can_->FMR |= CAN_FMR_FINIT;		// Initialization mode for the filter
+    bitset::set( can_->FMR, CAN_FMR_FINIT );		// Initialization mode for the filter
 	can_->FA1R &= ~mask;			// Deactivation filter
 
 	if (scale == CAN_FILTER_32BIT)
@@ -294,7 +374,9 @@ can::filter( uint8_t filter_idx, CAN_FIFO fifo, CAN_FILTER_SCALE scale, CAN_FILT
 		can_->FFA1R |= mask;
 
 	can_->FA1R |= mask;
-	can_->FMR &= ~CAN_FMR_FINIT;
+
+    bitset::reset( can_->FMR, CAN_FMR_FINIT );
+
 	return CAN_OK;
 }
 
@@ -304,8 +386,6 @@ can::transmit( CanMsg * msg )
 	CAN_TX_MBX mbx;
 	uint32_t data;
 
-    // stream() << "can::transmit" << std::endl;    
-
 	/* Select one empty transmit mailbox */
 	if (can_->TSR & CAN_TSR_TME0)
 		mbx = CAN_TX_MBX0;
@@ -313,21 +393,21 @@ can::transmit( CanMsg * msg )
 		mbx = CAN_TX_MBX1;
 	else if (can_->TSR & CAN_TSR_TME2)
 		mbx = CAN_TX_MBX2;
-	else
-	{
+	else	{
 		status_ = CAN_NO_MB;
 		return CAN_TX_NO_MBX;
 	}
 
     /* Set up the Id */
+    // stdid[31:21]; exxid[31:3]
     if (msg->IDE == CAN_ID_STD)
-		data = (msg->ID << 21);
+		data = (msg->ID << 21);             // 10bit standard id
     else
-		data = (msg->ID << 3) | CAN_ID_EXT;
+		data = (msg->ID << 3) | CAN_ID_EXT; // 28bit extended id
 
 	data |= msg->RTR;
 
-	/* Set up the DLC */
+    // timestamp [31:16], TGT [8], DLC[3:0] = data length code
     can_->txMailBox[mbx].TDTR = msg->DLC & 0x0F;
 
     /* Set up the data field */
@@ -344,8 +424,8 @@ can::transmit( CanMsg * msg )
 		uint32_t( msg->Data[4] );
         
     /* Request transmission */
-        can_->txMailBox[mbx].TIR = (data | CAN_TMIDxR_TXRQ);
-        status_ = CAN_OK;
+    can_->txMailBox[mbx].TIR = (data | CAN_TMIDxR_TXRQ);
+    status_ = CAN_OK;
 
 	return mbx;
 }
@@ -358,9 +438,9 @@ can::tx_status( CAN_TX_MBX mbx )
 
 	switch (mbx) {
 	case CAN_TX_MBX0:
-		state |= (uint8_t)((can_->TSR & CAN_TSR_RQCP0) << 2);
-		state |= (uint8_t)((can_->TSR & CAN_TSR_TXOK0) >> 0);
-		state |= (uint8_t)((can_->TSR & CAN_TSR_TME0) >> 26);
+		state |= (uint8_t)((can_->TSR & CAN_TSR_RQCP0) << 2);  // 1 << 2 -> 4
+		state |= (uint8_t)((can_->TSR & CAN_TSR_TXOK0) >> 0);  // 2 >> 0 -> 2
+		state |= (uint8_t)((can_->TSR & CAN_TSR_TME0) >> 26);  // 0x04000000 >> 26 -> 1
 		break;
 	case CAN_TX_MBX1:
 		state |= (uint8_t)((can_->TSR & CAN_TSR_RQCP1) >> 6);
@@ -396,6 +476,16 @@ can::tx_status( CAN_TX_MBX mbx )
 		break;
 	}
 	return status_;
+}
+
+bool
+can::fifo_ready( CAN_FIFO fifo ) const
+{
+    if ( fifo == CAN_FIFO_0 ) {
+        return can_->RF0R & CAN_RF0R_FMP0;
+    } else {
+        return can_->RF1R & CAN_RF1R_FMP1;
+    }
 }
 
 void
@@ -507,50 +597,93 @@ can::rx_read( CAN_FIFO fifo )
 }
 
 void
-can::rx_read( CAN * can, CAN_FIFO fifo )
-{
-    // if ( __instance && __instance->can_ == can )
-    //     __instance->rx_read( fifo );
-}
-
-
-
-void
 can::handle_rx0_interrupt()
 {
-    stream() << "can::rx0_handler" << std::endl;
+    stream(__FILE__,__LINE__,__FUNCTION__) << "\n" << std::endl;
     
-    if ( can_active ) {
-        if ( auto CAN = reinterpret_cast< stm32f103::CAN * >( stm32f103::CAN1_BASE ) ) {
-            while ((CAN->RF0R & CAN_RF0R_FMP0) != 0)
-                can::rx_read( CAN, CAN_FIFO_0 );		// message pending FIFO0
-            while ((CAN->RF1R & CAN_RF1R_FMP1) != 0)
-                can::rx_read(CAN, CAN_FIFO_1);		// message pending FIFO1
-        }
-    }
+    while (( can_->RF0R & CAN_RF0R_FMP0 ) != 0)
+        can::rx_read( CAN_FIFO_0 );		// message pending FIFO0
+    while (( can_->RF1R & CAN_RF1R_FMP1 ) != 0)
+        can::rx_read( CAN_FIFO_1 );		// message pending FIFO1
+}
+
+void
+can::handle_rx1_interrupt()
+{
+    stream(__FILE__,__LINE__,__FUNCTION__) << "\n" << std::endl;
 }
 
 void
 can::handle_tx_interrupt()
 {
-    stream() << "can::tx_handler" << std::endl;
+    auto tsr = can_->TSR;
 
-    if ( can_active ) {
-        if ( auto CAN = reinterpret_cast< stm32f103::CAN * >( stm32f103::CAN1_BASE ) ) {    
-             	if (CAN->TSR & CAN_TSR_RQCP0)
-                    CAN->TSR |= CAN_TSR_RQCP0;		// reset request complete mbx 0
-                if (CAN->TSR & CAN_TSR_RQCP1)
-                    CAN->TSR |= CAN_TSR_RQCP1;		// reset request complete mbx 1
-                if (CAN->TSR & CAN_TSR_RQCP2)
-                    CAN->TSR |= CAN_TSR_RQCP2;		// reset request complete mbx 2
-        }
-    }
+    stream(__FILE__,__LINE__,__FUNCTION__) << "\t" << tsr << std::endl;    
+    
+    if ( tsr & CAN_TSR_RQCP0)
+        can_->TSR |= CAN_TSR_RQCP0;		// reset request complete mbx 0
+
+    if ( tsr & CAN_TSR_RQCP1)
+        can_->TSR |= CAN_TSR_RQCP1;		// reset request complete mbx 1
+
+    if ( tsr & CAN_TSR_RQCP2)
+        can_->TSR |= CAN_TSR_RQCP2;		// reset request complete mbx 2
 }
+
+void
+can::handle_sce_interrupt()
+{
+    stream(__FILE__,__LINE__,__FUNCTION__) << "\n" << std::endl;
+}
+
 
 void
 can::print_registers()
 {
     auto reg = reinterpret_cast< volatile uint32_t * >( can_ );
-    for ( size_t i = 0; i < sizeof( __register_names ) / sizeof( __register_names[ 0 ] ); ++i )
-        stream() << __register_names[ i ] << ": " << *reg++ << std::endl;
+    stream() << "See p674, 24.9" << std::endl;
+    size_t i = 0;
+    
+    for ( auto& name: __register_names ) {
+        print()( stream(), std::bitset< 32 >( *reg ), name.name, std::bitset<32>( name.mask ) ) << "\t" << *reg << std::endl;
+        ++reg;
+    }
+    stream() << "MCR address: " << ( reinterpret_cast< uint32_t >( &can_->MCR ) - reinterpret_cast< uint32_t >(can_) ) << std::endl;
+    stream() << "BTR address: " << ( reinterpret_cast< uint32_t >( &can_->BTR ) - reinterpret_cast< uint32_t >(can_) ) << std::endl;
+    stream() << "TI0R address: " << ( reinterpret_cast< uint32_t >( &can_->txMailBox[0] ) - reinterpret_cast< uint32_t >(can_) ) << std::endl;
+    stream() << "RI0R address: " << ( reinterpret_cast< uint32_t >( &can_->fifoMailBox[0] ) - reinterpret_cast< uint32_t >(can_) ) << std::endl; // ok
+    stream() << "FMR address: " << ( reinterpret_cast< uint32_t >( &can_->FMR ) - reinterpret_cast< uint32_t >(can_) ) << std::endl;
+    stream() << "FM1R address: " << ( reinterpret_cast< uint32_t >( &can_->FM1R ) - reinterpret_cast< uint32_t >(can_) ) << std::endl;
+    stream() << "FA1R address: " << ( reinterpret_cast< uint32_t >( &can_->FA1R ) - reinterpret_cast< uint32_t >(can_) ) << std::endl;
+    stream() << "filter address: " << ( reinterpret_cast< uint32_t >( &can_->filterRegister[0] ) - reinterpret_cast< uint32_t >(can_) ) << std::endl;
+    print()( stream(), std::bitset< 32 >( can_->FMR ), "FMR", std::bitset<32>( 0xffffcfe ) ) << "\t" << can_->FMR << std::endl;
+    print()( stream(), std::bitset< 32 >( can_->FM1R ), "FM1R", std::bitset<32>( 0xf<<28 ) ) << "\t" << can_->FM1R << std::endl;
+    print()( stream(), std::bitset< 32 >( can_->FS1R ), "FS1R", std::bitset<32>( 0xf<<28 ) ) << "\t" << can_->FS1R << std::endl;    
+    print()( stream(), std::bitset< 32 >( can_->FFA1R ), "FFA1R", std::bitset<32>( 0xf<<28 ) ) << "\t" << can_->FFA1R << std::endl;
+    print()( stream(), std::bitset< 32 >( can_->FA1R ), "FA1R", std::bitset<32>( 0xf<<28 ) ) << "\t" << can_->FA1R << std::endl;
 }
+
+void
+__can1_tx_handler(void)
+{
+    stm32f103::can_t< stm32f103::CAN1_BASE >::instance()->handle_tx_interrupt();
+}
+
+void
+__can1_rx0_handler(void)
+{
+    stm32f103::can_t< stm32f103::CAN1_BASE >::instance()->handle_rx0_interrupt();
+}
+
+void
+__can1_rx1_handler(void)
+{
+    stm32f103::can_t< stm32f103::CAN1_BASE >::instance()->handle_rx1_interrupt();
+}
+    
+void
+__can1_sce_handler(void)
+{
+    stm32f103::can_t< stm32f103::CAN1_BASE >::instance()->handle_sce_interrupt();
+}
+

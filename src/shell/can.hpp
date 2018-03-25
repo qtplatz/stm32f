@@ -58,6 +58,7 @@ struct CanMsg {
 	uint8_t DLC;
 	uint8_t Data[8];
 	uint8_t FMI;
+    CanMsg() : ID(0), IDE(0), RTR(0), DLC(0), Data{ 0 }, FMI(0) {}
 };
 
 enum CAN_Identifier : uint32_t {
@@ -93,7 +94,12 @@ namespace stm32f103 {
         can();        
         template< CAN_BASE > friend struct can_t;
         CAN_STATUS init( stm32f103::CAN_BASE, uint32_t control = CAN_MCR_NART );
-        
+
+        void rx_read( CAN_FIFO fifo );
+        void rx_release( CAN_FIFO fifo );
+        CanMsg * read( CAN_FIFO fifo, CanMsg* msg );
+        bool fifo_ready( CAN_FIFO fifo ) const;
+
     public:
 
         inline CAN_STATUS status() const { return status_; }
@@ -104,24 +110,29 @@ namespace stm32f103 {
         //                      CAN_MCR_NART    no automatic retransmission
         //                      CAN_MCR_RFLM    receive FIFO locked mode
         //                      CAN_MCR_TXFP    transmit FIFO priority
-        
-        CAN_STATUS set_mode( uint32_t );
-        CAN_STATUS filter( uint8_t filter_idx, CAN_FIFO fifo, CAN_FILTER_SCALE scale, CAN_FILTER_MODE mode, uint32_t fr1, uint32_t fr2 );
+
+        CAN_STATUS set_silent_mode( bool );
+        CAN_STATUS set_loopback_mode( bool );
+        CAN_STATUS filter( uint8_t filter_idx
+                           , CAN_FIFO fifo = CAN_FIFO_0
+                           , CAN_FILTER_SCALE scale = CAN_FILTER_32BIT
+                           , CAN_FILTER_MODE mode = CAN_FILTER_MASK
+                           , uint32_t fr1 = 0, uint32_t fr2 = 0 );
+
         CAN_TX_MBX transmit( CanMsg* msg );
         CAN_STATUS tx_status( CAN_TX_MBX mbx );
+
         void cancel( uint8_t );
+
         uint8_t rx_available(void);
-        void rx_read( CAN_FIFO fifo );
-        void rx_release( CAN_FIFO fifo );
         void rx_queue_clear();
         void rx_queue_free();
-        CanMsg * read( CAN_FIFO fifo, CanMsg* msg );
         CanMsg * rx_queue_get();
-        static void rx_read( CAN *, CAN_FIFO fifo );
-        static void rx_release( CAN *, CAN_FIFO fifo );
 
         void handle_tx_interrupt();
         void handle_rx0_interrupt();
+        void handle_rx1_interrupt();
+        void handle_sce_interrupt();
 
         void print_registers();
     };

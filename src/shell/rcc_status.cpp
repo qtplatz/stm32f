@@ -36,10 +36,15 @@ rcc_status( size_t argc, const char ** argv )
 {
     if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
         stream() << "APB2, APB1 peripheral clock enable register (p112-116, RM0008, Rev 17) " << std::endl;
+        // std::bitset< 32 > apb2rst( RCC->APB2RSTR );
+        // std::bitset< 32 > apb1rst( RCC->APB1RSTR );
+        // print()( stream(), apb2rst, "APB2RSTR :" ) << "\t" << RCC->APB2RSTR << std::endl;
+        // print()( stream(), apb1rst, "APB1RSTR :" ) << "\t" << RCC->APB1RSTR << std::endl;
+        
         std::bitset< 32 > apb2enr( RCC->APB2ENR );
         std::bitset< 32 > apb1enr( RCC->APB1ENR );
-        print()( stream(), apb2enr, "APB2ENR :" ) << RCC->APB2ENR << std::endl;
-        print()( stream(), apb1enr, "APB1ENR :" ) << RCC->APB1ENR << std::endl;
+        print()( stream(), apb2enr, "APB2ENR :" ) << "\t" << RCC->APB2ENR << std::endl;
+        print()( stream(), apb1enr, "APB1ENR :" ) << "\t" << RCC->APB1ENR << std::endl;
         {
             stream() << "\tEnables : ";
             int i = 0;

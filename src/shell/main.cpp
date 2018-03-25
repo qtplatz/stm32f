@@ -66,10 +66,6 @@ extern "C" {
     void __dma2_ch5_handler( void );
 
     void __adc1_handler( void );
-    void __can1_tx_handler( void );
-    void __can1_rx0_handler( void );
-    void __can1_rx1_handler( void );
-    void __can1_sce_handler( void );
     void __i2c1_event_handler( void );
     void __i2c1_error_handler( void );
     void __i2c2_event_handler( void );
@@ -229,20 +225,17 @@ main()
         
         // CAN
         // (see RM0008, p167, Table 28)
-        gpio_mode( stm32f103::PA11, stm32f103::GPIO_CNF_INPUT_PUSH_PULL,      stm32f103::GPIO_MODE_INPUT );   // CAN1_RX
-        gpio_mode( stm32f103::PA12, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // CAN1_TX
+        //gpio_mode( stm32f103::PA11, stm32f103::GPIO_CNF_INPUT_FLOATING,      stm32f103::GPIO_MODE_INPUT );   // CAN1_RX
+        //gpio_mode( stm32f103::PA12, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // CAN1_TX
+        if ( auto AFIO = reinterpret_cast< volatile stm32f103::AFIO * >( stm32f103::AFIO_BASE ) )
+            AFIO->MAPR |= 0b10 << 13;  // CAN_RX = PB8, TX = PB9
+        gpio_mode( stm32f103::PB8, stm32f103::GPIO_CNF_INPUT_FLOATING,       stm32f103::GPIO_MODE_INPUT );   // CAN1_RX
+        gpio_mode( stm32f103::PB9, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // CAN1_TX
         
         // LED
         gpio_mode( stm32f103::PC13, stm32f103::GPIO_CNF_OUTPUT_ODRAIN, stm32f103::GPIO_MODE_OUTPUT_2M );
     }
     
-    if ( auto AFIO = reinterpret_cast< volatile stm32f103::AFIO * >( stm32f103::AFIO_BASE ) ) {
-        AFIO->MAPR &= ~1;            // clear SPI1 remap
-        AFIO->MAPR &= ~02;           // clear I2C 1 remap 
-        AFIO->MAPR &= ~(03 << 13);   // clear CAN remap (RX = PA11, TX = PA12) 9.3.3, 9.3.4, p175
-        stream() << "\tAFIO MAPR: 0x" << AFIO->MAPR << std::endl;
-    }
-
     {
         int size = reinterpret_cast< const char * >(&__bss_end) - reinterpret_cast< const char * >(&__bss_start);
         __system_clock = stm32f103::rcc().system_frequency();
@@ -321,28 +314,6 @@ void
 __adc1_handler(void)
 {
     stm32f103::adc::interrupt_handler( stm32f103::adc::instance() );
-}
-
-void
-__can1_tx_handler(void)
-{
-    // __can0.handle_tx_interrupt();
-}
-
-void
-__can1_rx0_handler(void)
-{
-    // __can0.handle_rx0_interrupt();
-}
-
-void
-__can1_rx1_handler(void)
-{
-}
-    
-void
-__can1_sce_handler(void)
-{
 }
 
 void

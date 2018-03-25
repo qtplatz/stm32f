@@ -169,7 +169,8 @@ namespace stm32f103 {  // as known as Blue Pill
         uint32_t MAPR2;     /* Address offset: 0x18 */
     } AFIO_type;
 
-    // p674, RM0008, p695 Table 181
+    // p674, RM0008, p695 Table 181 (register map)
+    // p685, CAN_TIxR where x = 0..2
     struct CAN_TxMailBox {
         uint32_t TIR;
         uint32_t TDTR;
@@ -197,8 +198,8 @@ namespace stm32f103 {  // as known as Blue Pill
         uint32_t ESR;   // error status register
         uint32_t BTR;   // bit timing register  0x01c
         uint32_t Reserved0[ 0x58 ];
-        struct CAN_TxMailBox txMailBox[ 3 ];
-        struct CAN_FIFOMailBox fifoMailBox[ 3 ];
+        struct CAN_TxMailBox txMailBox[ 3 ];       // 0x180, CAN_TI0R .. CAN_TI2R
+        struct CAN_FIFOMailBox fifoMailBox[ 2 ];   // 0x1b0, CAN_RI0R .. CAN_RI2R
         uint32_t Reserved1[ 12 ];
         uint32_t FMR;
         uint32_t FM1R;
