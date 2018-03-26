@@ -438,19 +438,19 @@ can::tx_status( CAN_TX_MBX mbx )
 
 	switch (mbx) {
 	case CAN_TX_MBX0:
-		state |= (uint8_t)((can_->TSR & CAN_TSR_RQCP0) << 2);  // 1 << 2 -> 4
-		state |= (uint8_t)((can_->TSR & CAN_TSR_TXOK0) >> 0);  // 2 >> 0 -> 2
-		state |= (uint8_t)((can_->TSR & CAN_TSR_TME0) >> 26);  // 0x04000000 >> 26 -> 1
+		state |= (can_->TSR & CAN_TSR_RQCP0) ? 4 : 0;
+		state |= (can_->TSR & CAN_TSR_TXOK0) ? 2 : 0;
+		state |= (can_->TSR & CAN_TSR_TME0)  ? 1 : 0;
 		break;
 	case CAN_TX_MBX1:
-		state |= (uint8_t)((can_->TSR & CAN_TSR_RQCP1) >> 6);
-		state |= (uint8_t)((can_->TSR & CAN_TSR_TXOK1) >> 8);
-		state |= (uint8_t)((can_->TSR & CAN_TSR_TME1) >> 27);
+		state |= (can_->TSR & CAN_TSR_RQCP1) ? 4 : 0;
+		state |= (can_->TSR & CAN_TSR_TXOK1) ? 2 : 0;
+		state |= (can_->TSR & CAN_TSR_TME1)  ? 1 : 0;
 		break;
 	case CAN_TX_MBX2:
-		state |= (uint8_t)((can_->TSR & CAN_TSR_RQCP2) >> 14);
-		state |= (uint8_t)((can_->TSR & CAN_TSR_TXOK2) >> 16);
-		state |= (uint8_t)((can_->TSR & CAN_TSR_TME2) >> 28);
+		state |= (can_->TSR & CAN_TSR_RQCP2) ? 4 : 0;
+		state |= (can_->TSR & CAN_TSR_TXOK2) ? 2 : 0;
+		state |= (can_->TSR & CAN_TSR_TME2)  ? 1 : 0;
 		break;
 	default:
 		status_ = CAN_TX_FAILED;
@@ -459,15 +459,12 @@ can::tx_status( CAN_TX_MBX mbx )
 
 	// state = RQCP TXOK TME
 	switch ( state ) {
-	/* transmit pending  */
 	case 0x0:
 		status_ = CAN_TX_PENDING;
 		break;
-	/* transmit failed  */
 	case 0x5:
 		status_ = CAN_TX_FAILED;
 		break;
-	/* transmit succedeed  */
 	case 0x7:
 		status_ = CAN_OK;
 		break;
@@ -648,19 +645,23 @@ can::print_registers()
         print()( stream(), std::bitset< 32 >( *reg ), name.name, std::bitset<32>( name.mask ) ) << "\t" << *reg << std::endl;
         ++reg;
     }
-    stream() << "MCR address: " << ( reinterpret_cast< uint32_t >( &can_->MCR ) - reinterpret_cast< uint32_t >(can_) ) << std::endl;
-    stream() << "BTR address: " << ( reinterpret_cast< uint32_t >( &can_->BTR ) - reinterpret_cast< uint32_t >(can_) ) << std::endl;
-    stream() << "TI0R address: " << ( reinterpret_cast< uint32_t >( &can_->txMailBox[0] ) - reinterpret_cast< uint32_t >(can_) ) << std::endl;
-    stream() << "RI0R address: " << ( reinterpret_cast< uint32_t >( &can_->fifoMailBox[0] ) - reinterpret_cast< uint32_t >(can_) ) << std::endl; // ok
-    stream() << "FMR address: " << ( reinterpret_cast< uint32_t >( &can_->FMR ) - reinterpret_cast< uint32_t >(can_) ) << std::endl;
-    stream() << "FM1R address: " << ( reinterpret_cast< uint32_t >( &can_->FM1R ) - reinterpret_cast< uint32_t >(can_) ) << std::endl;
-    stream() << "FA1R address: " << ( reinterpret_cast< uint32_t >( &can_->FA1R ) - reinterpret_cast< uint32_t >(can_) ) << std::endl;
-    stream() << "filter address: " << ( reinterpret_cast< uint32_t >( &can_->filterRegister[0] ) - reinterpret_cast< uint32_t >(can_) ) << std::endl;
     print()( stream(), std::bitset< 32 >( can_->FMR ), "FMR", std::bitset<32>( 0xffffcfe ) ) << "\t" << can_->FMR << std::endl;
     print()( stream(), std::bitset< 32 >( can_->FM1R ), "FM1R", std::bitset<32>( 0xf<<28 ) ) << "\t" << can_->FM1R << std::endl;
     print()( stream(), std::bitset< 32 >( can_->FS1R ), "FS1R", std::bitset<32>( 0xf<<28 ) ) << "\t" << can_->FS1R << std::endl;    
     print()( stream(), std::bitset< 32 >( can_->FFA1R ), "FFA1R", std::bitset<32>( 0xf<<28 ) ) << "\t" << can_->FFA1R << std::endl;
     print()( stream(), std::bitset< 32 >( can_->FA1R ), "FA1R", std::bitset<32>( 0xf<<28 ) ) << "\t" << can_->FA1R << std::endl;
+}
+
+bool
+can::loopback_mode() const
+{
+    return can_->BTR & CAN_BTR_LBKM;
+}
+
+bool
+can::silent_mode() const
+{
+    return can_->BTR & CAN_BTR_SILM;
 }
 
 void

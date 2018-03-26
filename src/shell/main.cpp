@@ -249,6 +249,7 @@ main()
         stream() << "\t***** PCLK1  = " << int32_t( __pclk1 ) << "Hz" << std::endl;
         stream() << "\t***** PCLK2  = " << int32_t( __pclk2 ) << "Hz" << std::endl;
         stream() << "\t**********************************************" << std::endl;
+        stream() << "\t\ti2c-1 SCL = PB6; SDA = PB7;\tCAN RX = PB8; TX = PB9" << std::endl;
     }
 
     init_systick( 7200, true ); // 100us tick

@@ -113,6 +113,9 @@ namespace stm32f103 {
 
         CAN_STATUS set_silent_mode( bool );
         CAN_STATUS set_loopback_mode( bool );
+        bool loopback_mode() const;
+        bool silent_mode() const;
+        
         CAN_STATUS filter( uint8_t filter_idx
                            , CAN_FIFO fifo = CAN_FIFO_0
                            , CAN_FILTER_SCALE scale = CAN_FILTER_32BIT

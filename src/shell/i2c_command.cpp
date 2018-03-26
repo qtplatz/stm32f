@@ -115,6 +115,8 @@ i2c_command( size_t argc, const char ** argv )
         } else if ( strcmp( argv[0], "reset" ) == 0 ) {
             i2cx.reset();
             i2cx.print_status();
+        } else if ( strcmp( argv[0], "probe" ) == 0 ) {
+            
         } else if ( strcmp( argv[0], "--slave" ) == 0 ) {
             stm32f103::i2c_t< stm32f103::I2C2_BASE >::instance()->listen( 0x20 ); // make it 'slave'
         } else if ( std::isdigit( *argv[0] ) ) {

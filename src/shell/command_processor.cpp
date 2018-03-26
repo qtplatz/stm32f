@@ -82,10 +82,21 @@ strtod( const char * s )
 }
 
 uint32_t
-strtox( const char * s )
+strtox( const char * s, char ** end )
 {
+    int sign = 1;
     uint32_t xnum = 0;
-    while ( *s && ( ('0' <= *s && *s <= '9') || ('a' <= *s && *s <= 'f') || ('A' <= *s && *s <= 'F') ) ) {
+
+    while ( *s && (*s == ' ' || *s == '\t' ) )
+        ++s;
+
+    if ( *s == '-' ) {
+        sign = -1;
+        ++s;
+    }
+
+    size_t count = 8;
+    while ( count-- && *s && ( ('0' <= *s && *s <= '9') || ('a' <= *s && *s <= 'f') || ('A' <= *s && *s <= 'F') ) ) {
         uint8_t x = 0;
         if ( '0' <= *s && *s <= '9' )
             x = *s - '0';
@@ -96,7 +107,11 @@ strtox( const char * s )
         xnum = (xnum << 4) | x;
         ++s;
     }
-    return xnum;
+    
+    if ( end )
+        *end = const_cast< char * >(s);
+
+    return xnum * sign;
 }
 
 char *
@@ -359,6 +374,8 @@ static const premitive command_table [] = {
     , { "bkp",    bkp_command,  " backup registers" }
     , { "bmp",    bmp280_command,  " start|stop" }
     , { "can",    can_command,  " can" }
+    , { "cansend",  can_command,  " cansend 01a#11223333aabbccdd" }
+    , { "candump",  can_command,  " candump" }
     , { "gpio", gpio_command,   " pin# (toggle PA# as GPIO, where # is 0..12)" }
     , { "rcc",  rcc_status,     " RCC clock enable register list" }
     , { "rtc",  rtc_status,     " RTC register print" }
