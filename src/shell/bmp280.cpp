@@ -149,7 +149,7 @@ BMP280::operator bool () const
 void
 BMP280::trimming_parameter_readout()
 {
-    std::array< uint8_t, 24 > data;
+    std::array< uint8_t, 24 > data = { 0 };
     
     if ( read( 0x88, data.data(), data.size() ) ) {
         has_trimming_parameter_ = true;
@@ -167,7 +167,7 @@ BMP280::trimming_parameter_readout()
         trimming_parameter()( dig_P8, p );
         trimming_parameter()( dig_P9, p );
 
-        // array_print( stream(__FILE__,__LINE__), data, data.size(), "trimming_parameter\t" );
+        array_print( stream(__FILE__,__LINE__), data, data.size(), "trimming_parameter\t" );
         // stream(__FILE__,__LINE__) << dig_T1 << ", " << dig_T2 << ", " << dig_T3 << std::endl;
         // stream(__FILE__,__LINE__) << dig_P1 << ", " << dig_P2 << ", " << dig_P3 << ", " << dig_P4 << std::endl;
         // stream(__FILE__,__LINE__) << dig_P5 << ", " << dig_P6 << ", " << dig_P7 << ", " << dig_P8 << std::endl;

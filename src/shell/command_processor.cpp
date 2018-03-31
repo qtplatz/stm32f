@@ -7,6 +7,7 @@
 #include "command_processor.hpp"
 #include "adc.hpp"
 #include "bkp.hpp"
+#include "condition_wait.hpp"
 #include "dma.hpp"
 #include "dma_channel.hpp"
 #include "gpio.hpp"
@@ -308,25 +309,30 @@ dma_command( size_t argc, const char ** argv )
         channel = **it - '0';
     }
     
-    uint32_t src [] = { 1, 2, 3, 4 };
-    uint32_t dst [ 4 ] = { 0 };
+    constexpr static uint32_t src [] = { 0x1a2b3c4d, uint32_t(-2), uint32_t(-3), 4, 5, 6, 7, 8 };
+    uint32_t dst [ countof( src ) ] = { 0 };
+
+    int i = 0;
+    for ( auto& s: src )
+        stream() << s << " -> " << dst[ i++ ] << std::endl;
 
     using namespace stm32f103;
-    constexpr uint32_t ccr = MEM2MEM | PL_High | 2 << 10 | 2 << 8 | MINC | PINC;
+    //constexpr uint32_t ccr = MEM2MEM | PL_High | 2 << 10 | 2 << 8 | MINC | PINC;  // [11:10], [1:0] size {0,1,3} = {8,16,32 bits}
+    constexpr uint32_t ccr = MEM2MEM | PL_High | 0 << 10 | 0 << 8 | MINC | PINC;  // [11:10], [1:0] size {0,1,3} = {8,16,32 bits}
     
-    dma_t< DMA1_BASE >::instance()->init_channel( DMA_CHANNEL(channel), reinterpret_cast< uint32_t >( src ), reinterpret_cast< uint8_t * >( dst ), 4, ccr );
+    dma_t< DMA1_BASE >::instance()->init_channel( DMA_CHANNEL(channel), reinterpret_cast< uint32_t >( src ), reinterpret_cast< uint8_t * >( dst ), 5, ccr );
 
     stm32f103::scoped_dma_channel_enable<stm32f103::dma> enable_dma_channel( *dma_t< DMA1_BASE >::instance(), channel );
 
-    size_t count = 2000;
-    while ( ! dma_t< DMA1_BASE >::instance()->transfer_complete( DMA_CHANNEL(channel) ) && --count)
-        ;
-
-    for ( int i = 0; i < 4; ++i )
-        stream() << src[i] << " == " << dst[ i ] << std::endl;
-
-    if ( count == 0 )
+    if ( ! condition_wait()([&]{ return dma_t< DMA1_BASE >::instance()->transfer_complete( DMA_CHANNEL(channel) ); } ) ) {
         stream() << "\tdma timeout\n";
+        return;
+    }
+
+    stream() << "dma result\n";
+    i = 0;
+    for ( auto& s: src )
+        stream() << s << " == " << dst[ i++ ] << std::endl;    
 }
 
 void

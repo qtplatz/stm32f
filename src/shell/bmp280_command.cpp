@@ -29,7 +29,7 @@ bmp280_command( size_t argc, const char ** argv )
 
     BMP280& bmp280 = *BMP280::instance();
 
-    std::array< uint8_t, 2 > id = { 0 };
+    std::array< uint8_t, 1 > id = { 0 };
     std::array< uint8_t, 3 > status = { 0 }; // status,ctrl_meas,config
     std::array< uint8_t, 6 > values = { 0 };
 

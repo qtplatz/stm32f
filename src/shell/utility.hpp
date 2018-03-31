@@ -14,3 +14,5 @@ int strtod( const char * s );
 uint32_t strtox( const char * s, char ** end = nullptr );
 char * strncpy( char * dst, const char * src, size_t size );
 char * strncat( char * dst, const char * src, size_t size );
+
+template< typename T, size_t N > size_t countof( const T (&a)[N] ) { return N; }

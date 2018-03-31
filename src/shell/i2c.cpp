@@ -120,7 +120,7 @@ namespace stm32f103 {
             bitset::reset( i2c.CR1, SWRST );
             bitset::reset( i2c.CR1, PE );
             
-            uint16_t freqrange = uint16_t( __pclk1 / 1000'000 /*'*/ ); // souce clk in MHz
+            uint16_t freqrange = uint16_t( __pclk1 / 1000'000 /*'*/ ); // source clk in MHz
             uint16_t cr2 = freqrange;
             i2c.CR2 |= cr2;
             
@@ -143,7 +143,7 @@ namespace stm32f103 {
         // constexpr static uint32_t master_mode_selected = ( ( BUSY | MSL ) << 16 ) | SB;
         
         inline bool operator()() const {
-            _.CR1 |= START;
+            bitset::set( _.CR1, START );
             return condition_wait()( [&]{ return _.SR1 & SB; } );
         }
     };
@@ -164,10 +164,13 @@ namespace stm32f103 {
         scoped_i2c_start( volatile I2C& t ) : _( t ), success( false ) {}
 
         ~scoped_i2c_start() {
+            auto status = _.SR1 | ( _.SR2 << 16 ); // clear ADDR
             if ( success ) {
                 bitset::set( _.CR1, STOP );
                 condition_wait()( [&]{ return !bitset::test(_.SR2, BUSY); } );
             }
+
+            bitset::reset( _.CR2, LAST );
 
             if ( _.SR1 & error_condition ) {
                 // following condition may happens when i2cdetect attempt data read for device not on the bus
@@ -213,7 +216,10 @@ namespace stm32f103 {
     template< size_t >
     struct polling_master_receiver {
         volatile I2C& _;
-        polling_master_receiver( volatile I2C& t ) : _( t ) {}
+        polling_master_receiver( volatile I2C& t ) : _( t ) {
+            bitset::set( _.CR1, PE );  // peripheral enable, ACK
+        }
+        
         bool operator()( uint8_t address, uint8_t * data, size_t size ) {
             scoped_i2c_start start(_);
             if ( start() ) {
@@ -233,7 +239,6 @@ namespace stm32f103 {
                     }
                     if ( condition_wait()( [&](){ return _.SR1 & BTF; } ) ) {
                         bitset::reset( _.CR1, ACK );
-                        // disable irq
                         bitset::set( _.CR1, STOP );
                         *data++ = _.DR;  // Data N-1
                         --size;
@@ -244,7 +249,6 @@ namespace stm32f103 {
                     if ( condition_wait()( [&](){ return _.SR1 & RxNE; } ) ) {
                         *data++ = _.DR;
                         --size;
-                        bitset::set( _.CR1, ACK ); // to be ready for another reception
                         return size == 0;
                     } else {
                         stream(__FILE__,__LINE__) << "polling_master_receiver<3> n-1 receive timeout" << std::endl;
@@ -253,6 +257,8 @@ namespace stm32f103 {
                 } else {
                     stream(__FILE__,__LINE__) << "polling_master_receiver<3> address failed" << std::endl;
                 }
+            } else {
+                stream(__FILE__,__LINE__) << "polling_master_receiver<3> address failed" << std::endl;
             }
             return false;                
         }
@@ -272,7 +278,7 @@ namespace stm32f103 {
                     if ( condition_wait()( [&](){ return _.SR1 & (RxNE|BTF); } ) ) {
                         *data++ = _.DR;
                         --size;
-                        if ( condition_wait()( [&](){ return !_.SR1 & STOP; } ) ) { // wait untl STOP is cleard
+                        if ( condition_wait()( [&](){ return !bitset::test(_.SR2, BUSY); } ) ) {
                             bitset::reset( _.CR1, POS );
                         }
                     }
@@ -286,14 +292,13 @@ namespace stm32f103 {
         scoped_i2c_start start(_);
         if ( start() ) {        
             if ( i2c_address< Receiver >()( _, address ) ) {
-                i2c_address<Receiver>().clear( _ );
-                bitset::set( _.CR1, STOP );
-                if ( condition_wait()( [&](){ return _.SR1 & RxNE; } ) ) {
-                    *data++ = _.DR;
+                bitset::reset( _.CR1, ACK );           // ACK = 0
+                i2c_address<Receiver>().clear( _ );    // Clear ADDR
+                bitset::set( _.CR1, STOP );            // STOP = 1
+                if ( condition_wait()( [&](){ return _.SR1 & RxNE; } ) ) {  // Wait until RxNE = 1
+                    *data++ = _.DR;                    // Read the data
                     --size;
-                    condition_wait()( [&](){ return !_.SR1 & STOP; } ); // wait untl STOP is cleard
                 }
-                // don't add error log in order to work with i2cdetect command that is expecting silent error return.
                 return size == 0;
             }
         }
@@ -342,26 +347,29 @@ namespace stm32f103 {
         }
     };
 
+    // STM32F1xx I2C seems has issue such as
+    // Data transfer by dma is alway size - 1 except for size == 1
+    // If remove ADDR clear statement, then either always send 1 byte or transmit fail.
+
     struct dma_master_transfer {
         volatile I2C& _;
         dma_master_transfer( volatile I2C& t ) : _( t ) {
-            _.CR1 |= ACK | PE;  // ACK enable, peripheral enable
+            bitset::set( _.CR1, ACK | PE );  // peripheral enable, ACK
         }
 
         template< typename T >
         bool operator()( T& dma_channel, uint8_t address, const uint8_t * data, size_t size ) const {
-            bitset::reset( _.CR2, LAST );
-
-            dma_channel.set_transfer_buffer( data, size );
-            scoped_dma_channel_enable enable_dma_channel( dma_channel );
-            scoped_i2c_dma_enable dma_enable( _ );
 
             scoped_i2c_start start( _ );
+
+            dma_channel.set_transfer_buffer( data, size == 1 ? 1 : size + 1 ); // workaround
+            scoped_dma_channel_enable enable_dma_channel( dma_channel );
+            scoped_i2c_dma_enable dma_enable( _ );
 
             if ( start() ) { // generate start condition (master start)
                 
                 if ( i2c_address< Transmitter >()( _, address ) ) {
-                    i2c_address< Transmitter >::clear( _ );
+                    i2c_address< Transmitter >().clear( _ );
 
                     return condition_wait()( [&]{ return dma_channel.transfer_complete(); } );
 
@@ -569,10 +577,8 @@ i2c::print_status() const
 bool
 i2c::read( uint8_t address, uint8_t * data, size_t size )
 {
-    bitset::set( i2c_->CR1, PE );
-
     if ( ! i2c_ready_wait( *i2c_, own_addr_ )() ) {
-        //stream(__FILE__,__LINE__) << __FUNCTION__ << " i2c_ready_wait failed\n";
+        stream(__FILE__,__LINE__,__FUNCTION__) << " i2c_ready_wait failed\n";
         return false;
     }
 
@@ -588,7 +594,7 @@ i2c::read( uint8_t address, uint8_t * data, size_t size )
 bool
 i2c::write( uint8_t address, const uint8_t * data, size_t size )
 {
-    bitset::set( i2c_->CR1, PE );
+    bitset::set( i2c_->CR1, ACK | PE );
 
     if ( ! i2c_ready_wait( *i2c_, own_addr_ )() ) {
         stream(__FILE__,__LINE__) << __FUNCTION__ << " i2c_ready_wait failed\n";
@@ -649,16 +655,19 @@ i2c::dma_receive( uint8_t address, uint8_t * data, size_t size )
     const auto base_addr = reinterpret_cast< uint32_t >( const_cast< I2C * >(i2c_) );
 
     if ( base_addr == I2C1_BASE && __dma_i2c1_rx == nullptr ) {
-        stream() << "I2C1 Rx DMA not attached\n";
         return false;
     } else if ( base_addr == I2C2_BASE && __dma_i2c2_rx == nullptr ) {
-        stream() << "I2C2 Rx DMA not attached\n";
         return false;
     }    
 
     if ( ! i2c_ready_wait( *i2c_, own_addr_ )() ) {
         stream() << __FUNCTION__ << " i2c_ready_wait failed\n";
         return false;
+    }
+
+    if ( size == 1 ) {
+        // See AN2824, p10, "master reception of a single byte is not supported."
+        return polling_master_receiver< 1 >( *i2c_ )( address, data, size );
     }
     
     if ( base_addr == I2C1_BASE ) {
