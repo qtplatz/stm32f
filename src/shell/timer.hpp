@@ -42,14 +42,18 @@ namespace stm32f103 {
 
         static void print_registers() { timer::print_registers( base ); }
 
-        void set_callback( void (*cb)() ) { // required ctor
+        static void set_callback( void (*cb)() ) { // required ctor
             scoped_spinlock<> guard( guard_ );
             callback_ = cb;
         }
 
-        static void clear_callback() {
-            scoped_spinlock<> guard( guard_ );            
-            callback_ = nullptr;
+        static void clear_callback( bool allow_recursive_call = false ) {
+            if ( allow_recursive_call ) {
+                callback_ = nullptr;
+            } else {
+                scoped_spinlock<> guard( guard_ );            
+                callback_ = nullptr;
+            }
         }
         
         static bool callback() {

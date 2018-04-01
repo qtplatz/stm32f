@@ -23,7 +23,11 @@
 **************************************************************************/
 
 #include "ad5593.hpp"
+#include "debug_print.hpp"
 #include "i2c.hpp"
+#include "scoped_spinlock.hpp"
+#include "utility.hpp"
+#include "stream.hpp"
 #if defined __linux
 #include <iostream>
 #include <unistd.h>
@@ -33,13 +37,12 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <errno.h>
-#else
-#include "stream.hpp"
 #endif
+
 
 namespace ad5593 {
 
-    enum AD5593R_REG {
+    enum AD5593R_REG : uint8_t {
         AD5593R_REG_NOOP           = 0x0
         , AD5593R_REG_DAC_READBACK = 0x1
         , AD5593R_REG_ADC_SEQ      = 0x2
@@ -57,7 +60,7 @@ namespace ad5593 {
         , AD5593R_REG_RESET        = 0xf
     };
 
-    enum AD5593R_MODE {
+    enum AD5593R_MODE : uint8_t {
         AD5593R_MODE_CONF            = (0 << 4)
         , AD5593R_MODE_DAC_WRITE     = (1 << 4)
         , AD5593R_MODE_ADC_READBACK  = (4 << 4)
@@ -82,6 +85,24 @@ namespace ad5593 {
         , AD5593R_REG_OPEN_DRAIN  
         , AD5593R_REG_TRISTATE    
         , AD5593R_REG_RESET
+    };
+
+    constexpr static const char * __reg_name [] = {
+        "AD5593R_REG_NOOP        "
+        , "AD5593R_REG_DAC_READBACK"
+        , "AD5593R_REG_ADC_SEQ     "
+        , "AD5593R_REG_CTRL        "
+        , "AD5593R_REG_ADC_EN      "
+        , "AD5593R_REG_DAC_EN      "
+        , "AD5593R_REG_PULLDOWN    "
+        , "AD5593R_REG_LDAC        "
+        , "AD5593R_REG_GPIO_OUT_EN "
+        , "AD5593R_REG_GPIO_SET    "
+        , "AD5593R_REG_GPIO_IN_EN  "
+        , "AD5593R_REG_PD          "
+        , "AD5593R_REG_OPEN_DRAIN  "
+        , "AD5593R_REG_TRISTATE    "
+        , "AD5593R_REG_RESET       "
     };
 
     constexpr static AD5593R_REG __fetch_reg_list [] = {
@@ -124,18 +145,20 @@ namespace ad5593 {
         , "AD5593R_REG_TRISTATE"    // bitmaps_[6]
     };
 
+    constexpr static const char * __io_function_name [] = {
+        "ADC", "DAC", "GPIO", "HIGH", "LOW", "TRIST", "PULLDN", "n/a"
+    };
+
     template< AD5593R_REG ... regs > struct set_io_function;
 
     template< AD5593R_REG reg > struct set_io_function< reg >  { // last
-        void operator()( std::array< std::bitset< 8 >, 7 >& masks, int pin ) const {
+        void operator()( std::array< std::bitset< number_of_pins >, number_of_functions >& masks, int pin ) const {
             masks[ index_of< reg >::value ].set( pin );
-            // stream() << "set_io_function: " << __fetch_reg_name[ index_of< reg >::value ]
-            //          << "\t" << masks[ index_of< reg >::value ].to_ulong() << std::endl;
         }
     };
 
     template< AD5593R_REG first, AD5593R_REG ... regs > struct set_io_function< first, regs ...> {
-        void operator()( std::array< std::bitset< 8 >, 7 >& masks, int pin ) const {
+        void operator()( std::array< std::bitset< number_of_pins >, number_of_functions >& masks, int pin ) const {
             masks[ index_of< first >::value ].set( pin );
         }
     };
@@ -143,22 +166,20 @@ namespace ad5593 {
     template< AD5593R_REG ... regs > struct reset_io_function;
 
     template< AD5593R_REG last > struct reset_io_function< last >  { // last
-         void operator()( std::array< std::bitset< 8 >, 7 >& masks, int pin ) const {
-             masks[ index_of< last >::value ].reset( pin );
-             // stream() << "reset_io_function: " << __fetch_reg_name[ index_of< last >::value ]
-             //          << masks[ index_of< last >::value ].to_ulong() << std::endl;
-         }
+        void operator()( std::array< std::bitset< number_of_pins >, number_of_functions >& masks, int pin ) const {
+            masks[ index_of< last >::value ].reset( pin );
+        }
     };
 
     template< AD5593R_REG first, AD5593R_REG ... regs > struct reset_io_function< first, regs ...> {
-        void operator()( std::array< std::bitset< 8 >, 7 >& masks, int pin ) const {
+        void operator()( std::array< std::bitset< number_of_pins >, number_of_functions >& masks, int pin ) const {
             masks[ index_of< first >::value ].reset( pin );
             reset_io_function< regs ... >()( masks, pin );
         }
     };
 
     struct io_function {
-        AD5593R_IO_FUNCTION operator()( const std::array< std::bitset< 8 >, 7 >& masks, int pin ) const {
+        AD5593R_IO_FUNCTION operator()( const std::array< std::bitset< number_of_pins >, number_of_functions >& masks, int pin ) const {
             if ( masks[ index_of< AD5593R_REG_DAC_EN >::value ].test( pin ) )
                 return DAC;
             if ( masks[ index_of< AD5593R_REG_ADC_EN >::value ].test( pin ) )
@@ -171,9 +192,13 @@ namespace ad5593 {
                 return UNUSED_PULLDOWN;
             if ( masks[ index_of< AD5593R_REG_TRISTATE >::value ].test( pin ) )
                 return UNUSED_TRISTATE;
+            return INDETERMINATE;
         }
     };
+
     
+
+    std::atomic_flag AD5593::mutex_;
 }
 
 using namespace ad5593;
@@ -214,24 +239,27 @@ AD5593::operator bool () const
 }
 
 bool
-AD5593::write( uint8_t addr, uint16_t value ) const
+AD5593::write( const uint8_t * data, size_t size ) const
 {
+    scoped_spinlock<> lock( mutex_ );
+    bool success( false );
     if ( i2c_ ) {
+        if ( i2c_->has_dma( stm32f103::i2c::DMA_Tx ) )
+            success = i2c_->dma_transfer( address_, data, size );
+        else
+            success = i2c_->write( address_, data, size );
 
-        std::array< uint8_t, 3 > buf = { addr, uint8_t(value >> 8), uint8_t(value & 0xff) };
-        
-        if ( i2c_->has_dma( stm32f103::i2c::DMA_Tx ) ) {
-            return i2c_->dma_transfer( address_, buf.data(), buf.size() );
-        } else {
-            return i2c_->write( address_, buf.data(), buf.size() );
-        }
+        if ( !success )
+            i2c_->print_result( stream(__FILE__,__LINE__) ) << std::endl;
     }
-    return false;
+
+    return success;
 }
 
-uint16_t
-AD5593::read( uint8_t addr ) const
+bool
+AD5593::read(  uint8_t addr, uint8_t * data, size_t size ) const
 {
+    scoped_spinlock<> lock( mutex_ );
     if ( i2c_ ) {
         bool success( false );
 
@@ -243,19 +271,20 @@ AD5593::read( uint8_t addr ) const
         
         if ( success ) {
             std::array< uint8_t, 2 > buf = { 0 };
-            
+
             if ( i2c_->has_dma( stm32f103::i2c::DMA_Rx ) ) {
-                if ( i2c_->dma_receive( address_, buf.data(), buf.size() ) )
-                    return uint16_t( buf[ 0 ] ) << 8 | buf[ 1 ];
+                if ( i2c_->dma_receive( address_, data, size ) )
+                    return true;
+                else
+                    i2c_->print_result( stream(__FILE__,__LINE__) ) << "\tread -- dma_recieve(" << addr << ") error\n";
             } else {
-                if ( i2c_->read( address_, buf.data(), buf.size() ) )
-                    return uint16_t( buf[ 0 ] ) << 8 | buf[ 1 ];
+                return i2c_->read( address_, data, size );
             }
         } else {
-            stream() << "read -- write(" << addr << ") error\n";
+            i2c_->print_result( stream(__FILE__,__LINE__) ) << "\tread -- write(" << addr << ") error\n";
         }
     }
-    return -1;
+    return false;
 }
 
 bool
@@ -263,7 +292,6 @@ AD5593::set_function( int pin, AD5593R_IO_FUNCTION f )
 {
     dirty_ = true;
     functions_[ pin ] = f;
-    // stream( __FILE__,__LINE__ ) << "set_function(" << pin << ", " << functions_[ pin ] << ")" << std::endl;
     switch( f ) {
     case ADC:
         set_io_function< AD5593R_REG_ADC_EN >()( bitmaps_, pin );
@@ -330,47 +358,75 @@ AD5593::function( int pin ) const
 bool
 AD5593::fetch()
 {
+    uint32_t failed(0);
     size_t i = 0;
-    for ( auto reg: __fetch_reg_list ) {
-        auto value = this->read( AD5593R_MODE_REG_READBACK | reg );
-        if ( value == (-1) )
-            return false;
-        bitmaps_[ i++ ] = uint8_t( value );
-    }
-    dirty_ = false;
 
-    for ( int pin = 0; pin < number_of_pins; ++pin )
-        functions_[ pin ] = io_function()( bitmaps_, pin );
+    for ( auto reg: __fetch_reg_list ) {
+        std::array< uint8_t, 2 > data;
+        if ( read( AD5593R_MODE_REG_READBACK | reg, data ) ) {
+            bitmaps_[ i++ ] = data[ 1 ];
+        } else {
+            stream(__FILE__,__LINE__) << "fetch failed to read " << __fetch_reg_name[ i ] << std::endl;
+            failed |= 1 << i;
+            bitmaps_[ i++ ] = uint16_t( -1 );
+        }
+    }
+
+    dirty_ = !failed;
+
+    if ( failed == 0 ) {
+        for ( int pin = 0; pin < number_of_pins; ++pin )
+            functions_[ pin ] = io_function()( bitmaps_, pin );
+    }
         
-    return true;
+    return !failed;
 }
 
 void
-AD5593::print_config() const
+AD5593::print_registers( stream&& o ) const
+{
+    o << "----------- AD5593 REGISTERS ------------\n";    
+    size_t i = 0;
+    for ( auto& reg: __reg_list ) {
+        std::array< uint8_t, 2 > data { 0 };
+        if ( read( AD5593R_MODE_REG_READBACK | reg, data ) ) {
+            std::bitset< 16 > bits( uint16_t( data[0] ) << 8 | data[1] );
+            print()( o, bits, __reg_name[i] ) << std::endl;
+        } else {
+            o << __reg_name[i] << " read failed\n";
+        }
+        ++i;
+    }
+}
+
+void
+AD5593::print_config( stream&& o ) const
 {
     size_t i = 0;
-#if defined __linux
-    for ( auto& bitmap: bitmaps_ )
-        std::cout << __fetch_reg_name[ i++ ] << "\t" << bitmap.to_string() << "\t" << bitmap.to_ulong() << std::endl;
-#else
-    stream(__FILE__,__LINE__) << "----------- AD5593 CONFIG ------------\n";
+
+    o << "----------- AD5593 CONFIG ------------\n";
     for ( auto& bitmap: bitmaps_ ) {
-        stream() << __fetch_reg_name[ i++ ] << "\t";
-        for ( auto i = 0; i < bitmap.size(); ++i )
-            stream() << bitmap.test( bitmap.size() - i - 1 );
-        stream() << "\t" << bitmap.to_ulong() << std::endl;        
+        print()( o, bitmap, __fetch_reg_name[ i++ ] );
+        o << "\t0x" << uint16_t( bitmap.to_ulong() ) << std::endl;        
     }
-#endif
-    for ( int pin = 0; pin < number_of_pins; ++pin )
-        stream(__FILE__,__LINE__) << "pin " << pin << " function = " << functions_[ pin ] << std::endl;
+
+    for ( int pin = 0; pin < number_of_pins; ++pin ) {
+        if ( functions_[ pin ] < countof( __io_function_name ) )
+            o << "pin #" << pin << " = " << __io_function_name[ functions_[ pin ] ] << ( pin == 3 ? "\n" : "\t" );
+        else
+            o << "pin #" << pin << " = " << functions_[ pin ] << ( pin == 3 ? "\n" : "\t" );
+    }
+    o << std::endl;
 }
 
 bool
 AD5593::commit()
 {
     size_t i = 0;
-    for ( auto reg: __fetch_reg_list )
-        this->write( AD5593R_MODE_CONF | reg, static_cast< uint16_t >( bitmaps_[ i++ ].to_ulong() ) );
+    for ( auto reg: __fetch_reg_list ) {
+        auto x = bitmaps_[ i++ ].to_ulong();
+        write( std::array< uint8_t, 3 >{ uint8_t( AD5593R_MODE_CONF | reg ), uint8_t( x >> 8 ), uint8_t( x ) } );
+    }
     dirty_ = false;
     return true;
 }
@@ -380,8 +436,7 @@ AD5593::set_value( int pin, uint16_t value )
 {
     switch( functions_.at( pin ) ) {
     case DAC:
-        stream() << "set_value(" << pin << ", " << value << ")\n";
-        return this->write( AD5593R_MODE_DAC_WRITE | pin, value );
+        return write( std::array< uint8_t, 3 >{ uint8_t( AD5593R_MODE_DAC_WRITE | pin ), uint8_t( value >> 8 ), uint8_t( value ) } );
     case ADC:
         break;
     }
@@ -391,13 +446,17 @@ AD5593::set_value( int pin, uint16_t value )
 uint16_t
 AD5593::value( int pin ) const
 {
-    uint16_t value = 0;
-
+    std::array< uint8_t, 2 > data;
+    
     switch( functions_.at( pin ) ) {
     case ADC:
-        return this->read( AD5593R_MODE_ADC_READBACK | pin ) & 0x0fff;
+        if ( read( AD5593R_MODE_ADC_READBACK | pin, data ) ) {
+            return uint16_t( data[0] ) << 8 | data[ 1 ];
+        }
     case DAC:
-        return this->read( AD5593R_MODE_DAC_READBACK | pin ) & 0x0fff;
+        if ( read( AD5593R_MODE_DAC_READBACK | pin, data ) ) {
+            return uint16_t( data[0] ) << 8 | data[ 1 ];
+        }
     }
     return -1;
 }

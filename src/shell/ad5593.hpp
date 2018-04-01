@@ -12,6 +12,7 @@
 #pragma once
 
 #include <array>
+#include <atomic>
 #include <bitset>
 #include <string>
 #include <system_error>
@@ -23,6 +24,8 @@ namespace i2c_linux { class i2c; }
 namespace stm32f103 { class i2c; }
 #endif
 
+class stream;
+
 namespace ad5593 {
 
     enum AD5593R_IO_FUNCTION {
@@ -33,6 +36,7 @@ namespace ad5593 {
         , UNUSED_LOW           // 4
         , UNUSED_TRISTATE      // 5
         , UNUSED_PULLDOWN      // 6
+        , INDETERMINATE        // fetech failed etc.
         , nFunctions
     };
     
@@ -42,10 +46,12 @@ namespace ad5593 {
     };
 
     constexpr size_t number_of_pins = 8;
+    constexpr size_t number_of_functions = nFunctions - 1;
 
     class AD5593 {
         std::array< AD5593R_IO_FUNCTION, number_of_pins > functions_;
-        std::array< std::bitset< number_of_pins >, 7 > bitmaps_;
+        std::array< std::bitset< number_of_pins >, number_of_functions > bitmaps_;
+        static std::atomic_flag mutex_;
 #if defined __linux        
         std::unique_ptr< i2c_linux::i2c > i2c_;
 #else
@@ -67,8 +73,13 @@ namespace ad5593 {
 
         inline bool is_dirty() const { return dirty_; }
 
-        bool write( uint8_t addr, uint16_t value ) const;
-        uint16_t read( uint8_t addr ) const;
+        bool write( const uint8_t *, size_t size ) const;
+        bool read( uint8_t addr, uint8_t *, size_t size ) const;
+        template< size_t N > bool write ( std::array< uint8_t, N >&& a ) const { return write( a.data(), a.size() ); }
+        template< size_t N > bool read ( uint8_t addr, std::array< uint8_t, N >& a ) const { return read( addr, a.data(), a.size() ); }
+
+        // bool write( uint8_t addr, uint16_t value ) const;
+        // uint16_t read( uint8_t addr ) const;
 
         bool set_value( int pin, uint16_t value );
 
@@ -80,7 +91,8 @@ namespace ad5593 {
         bool fetch();
         bool commit();
 
-        void print_config() const;
+        void print_config( stream&& ) const;
+        void print_registers( stream&& ) const;
     };
     
 }

@@ -86,6 +86,7 @@ namespace bmp280 {
         template< size_t N > bool write ( std::array< uint8_t, N >&& a ) const { return write( a.data(), a.size() ); }
         
         void trimming_parameter_readout();
+        void single_measure();
         void measure();
         void stop();
         std::pair< uint32_t, uint32_t> readout();

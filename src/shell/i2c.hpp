@@ -10,6 +10,8 @@
 #include <atomic>
 #include <cstdint>
 
+class stream;
+
 namespace stm32f103 {
 
     class dma;
@@ -28,6 +30,25 @@ namespace stm32f103 {
         uint32_t TRISE;   // I^2C  status register         0x20
     };
 
+    enum I2C_RESULT_CODE {
+        I2C_RESULT_SUCCESS
+        , I2C_BUS_BUSY
+        , I2C_DMA_MASTER_RECEIVER_HAS_NO_DMA
+        , I2C_DMA_MASTER_RECEIVER_START_FAILED
+        , I2C_DMA_MASTER_RECEIVER_ADDRESS_FAILED
+        , I2C_DMA_MASTER_RECEIVER_RECV_TIMEOUT
+        , I2C_DMA_MASTER_TRANSMITTER_HAS_NO_DMA
+        , I2C_DMA_MASTER_TRANSMITTER_START_FAILED
+        , I2C_DMA_MASTER_TRANSMITTER_ADDRESS_FAILED
+        , I2C_DMA_MASTER_TRANSMITTER_SEND_TIMEOUT
+        , I2C_POLLING_MASTER_RECEIVER_START_FAILED
+        , I2C_POLLING_MASTER_RECEIVER_ADDRESS_FAILED
+        , I2C_POLLING_MASTER_RECEIVER_RECV_TIMEOUT
+        , I2C_POLLING_MASTER_TRANSMITTER_START_FAILED
+        , I2C_POLLING_MASTER_TRANSMITTER_ADDRESS_FAILED
+        , I2C_POLLING_MASTER_TRANSMITTER_SEND_TIMEOUT
+    };
+
     // I^2C 26.5, p773 RM0008
     
     enum I2C_BASE : uint32_t;
@@ -38,10 +59,11 @@ namespace stm32f103 {
         volatile I2C * i2c_;
         std::atomic_flag lock_;
         uint8_t own_addr_;
+        I2C_RESULT_CODE result_code_;
 
         i2c( const i2c& ) = delete;
         i2c& operator = ( const i2c& ) = delete;
-
+        
     public:
         i2c();
 
@@ -73,6 +95,9 @@ namespace stm32f103 {
 
         bool dmaEnable( bool );
         bool has_dma( DMA_Direction ) const;
+
+        I2C_RESULT_CODE result_code() const;
+        stream& print_result( stream&& ) const;
 
         void handle_event_interrupt();
         void handle_error_interrupt();

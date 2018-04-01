@@ -5,6 +5,7 @@
 //
 
 #include "ad5593.hpp"
+#include "dma.hpp"
 #include "i2c.hpp"
 #include "stm32f103.hpp"
 #include "stream.hpp"
@@ -23,40 +24,45 @@ ad5593_command( size_t argc, const char ** argv )
     using namespace ad5593;
     
     if ( __ad5593 == nullptr ) {
-        if ( __ad5593 = new ( __ad5593_allocator__ ) ad5593::AD5593( *stm32f103::i2c_t< stm32f103::I2C1_BASE >::instance(), 0x10 ) )
+
+        auto& i2cx = *stm32f103::i2c_t< stm32f103::I2C1_BASE >::instance();
+        if ( !i2cx.has_dma( stm32f103::i2c::DMA_Both ) )
+            i2cx.attach( *stm32f103::dma_t< stm32f103::DMA1_BASE >::instance(), stm32f103::i2c::DMA_Both );
+
+        if ( __ad5593 = new ( __ad5593_allocator__ ) ad5593::AD5593( i2cx, 0x10 ) ) {
             if ( ! __ad5593->fetch() )
                 stream() << "fetch error\n";
+        }
+
+        __ad5593->write( std::array< uint8_t, 3 >{ 0x0b, 0x02, 0x00 } ); // b9 set
+        __ad5593->fetch();
     }
     
-    uint8_t i2caddr = 0x10;
-    uint8_t reg = 0x75; // default (DAC)
-
     double volts = 1.0;
     double Vref = 3.3;
 
+    if ( argc == 1 ) {
+        if ( __ad5593->fetch() )
+            __ad5593->print_config( stream(__FILE__,__LINE__) );
+        else
+            stream(__FILE__,__LINE__) << "fetch failed\n";
+    }
+
     while ( --argc ) {
         ++argv;
-        if ( strcmp( argv[0], "fetch" ) == 0 ) {  // ad5593 dac 0 1 2...
+        if ( strcmp( argv[0], "?" ) == 0 ) {  // ad5593 dac 0 1 2...
+
+            __ad5593->print_registers( stream(__FILE__,__LINE__) );
+            
+        } else if ( strcmp( argv[0], "fetch" ) == 0 ) {  // ad5593 dac 0 1 2...
+
             if ( __ad5593->fetch() )
-                __ad5593->print_config();
+                __ad5593->print_config( stream(__FILE__,__LINE__) );
             else
-                stream() << "fetch error\n";
-        } else if ( strcmp( argv[0], "reg" ) == 0 ) {  // ad5593 dac 0 1 2...
-            if ( argc && std::isdigit( *argv[1] ) ) {
-                reg = strtox( argv[1] );
-                --argc; ++argv;
-            }
-        } else if ( strcmp( argv[0], "read" ) == 0 ) {  // ad5593 dac 0 1 2...
-            auto data = __ad5593->read( reg );
-            const std::bitset< sizeof(data) * 8 > bits( data );
-            stream() << "\nread[0x" << reg << "]=" << data << "\t" << std::endl;
-        } else if ( strcmp( argv[0], "write" ) == 0 ) {  // ad5593 dac 0 1 2...
-            if ( argc && std::isdigit( *argv[1] ) ) {
-                auto data = strtox( argv[1] );
-                stream() << "\nwrite[0x" << reg << "]=" << data << std::endl;
-                __ad5593->write( reg, data );
-                --argc; ++argv;
-            }
+                stream(__FILE__,__LINE__) << "fetch failed\n";
+                
+        } else if ( strcmp( argv[0], "pd" ) == 0 ) {  // internal reference
+            __ad5593->write( std::array< uint8_t, 3 >{ 0x0b, 02, 0x00 } );
 
         } else if ( strcmp( argv[0], "dac" ) == 0 ) {  // ad5593 dac 0 1 2...
             while ( argc && std::isdigit( *argv[1] ) ) {
@@ -72,8 +78,6 @@ ad5593_command( size_t argc, const char ** argv )
                     __ad5593->set_function( pin, ad5593::ADC );
                 --argc; ++argv;
             }
-        } else if ( strcmp( argv[0], "?" ) == 0 ) {
-            __ad5593->print_config();
         } else if ( strcmp( argv[0], "pin?" ) == 0 ) {
             for ( int pin = 0; pin < 8; ++pin ) {
                 stream() << "pin " << pin << " function = " << __ad5593->function( pin ) << std::endl;
@@ -85,7 +89,7 @@ ad5593_command( size_t argc, const char ** argv )
         } else if ( strcmp( argv[0], "value" ) == 0 ) {
             int pin = 0;
             while ( argc && std::isdigit( *argv[1] ) && pin < 8 ) {
-                uint32_t value = strtod( argv[1] );
+                uint32_t value = strtox( argv[1] );
                 __ad5593->set_value( pin++, value );
                 --argc; ++argv;                
             }

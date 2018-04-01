@@ -200,6 +200,25 @@ BMP280::measure()
 }
 
 void
+BMP280::single_measure()
+{
+    // 0xf4 ctrl_meas
+    // oversampling temp[7:5], press[4:2], power mode[1:0]   
+    constexpr uint8_t ctrl_meas = BMP280_OVERSAMP_8X << 5 | BMP280_OVERSAMP_8X << 2 | BMP280_NORMAL_MODE;
+
+    // 0xf5 config (section 4.3.5, p26)
+    // t_sb[7:5] (standby time), filter[4:2], spi3w_en[0]
+    constexpr uint8_t config = BMP280_STANDBYTIME_500_MS << 5 | BMP280_FILTER_COEFF_16 << 2;
+    
+    if ( write( std::array< uint8_t, 4 >( { 0xf4, ctrl_meas, 0xf5, config } ) ) ) {
+        stm32f103::timer_t< stm32f103::TIM2_BASE >().set_callback( +[]{
+                instance()->readout();
+                stm32f103::timer_t< stm32f103::TIM2_BASE >::clear_callback( true ); // recursive call
+            } );
+    }
+}
+
+void
 BMP280::stop()
 {
     if ( has_callback_ ) {
@@ -212,22 +231,25 @@ bool
 BMP280::write( const uint8_t * data, size_t size ) const
 {
     scoped_spinlock<> lock( __flag );
+    bool success( false );
     if ( i2c_ ) {
         if ( i2c_->has_dma( stm32f103::i2c::DMA_Tx ) ) {
-            return i2c_->dma_transfer( address_, data, size );
+            success = i2c_->dma_transfer( address_, data, size );
         } else {
-            return i2c_->write( address_, data, size );
+            success = i2c_->write( address_, data, size );
         }
+        if ( !success )
+            i2c_->print_result( stream(__FILE__,__LINE__) ) << std::endl;
     }
-    return false;
+    return success;
 }
 
 bool
 BMP280::read(  uint8_t addr, uint8_t * data, size_t size ) const
 {
+    bool success( false );
     scoped_spinlock<> lock( __flag );
     if ( i2c_ ) {
-        bool success( false );
 
         if ( i2c_->has_dma( stm32f103::i2c::DMA_Tx ) ) {
             success = i2c_->dma_transfer( address_, &addr, 1 );
@@ -239,15 +261,16 @@ BMP280::read(  uint8_t addr, uint8_t * data, size_t size ) const
             std::array< uint8_t, 2 > buf = { 0 };
             
             if ( i2c_->has_dma( stm32f103::i2c::DMA_Rx ) ) {
-                return i2c_->dma_receive( address_, data, size );
+                success = i2c_->dma_receive( address_, data, size );
             } else {
-                return i2c_->read( address_, data, size );
+                success = i2c_->read( address_, data, size );
             }
-        } else {
-            stream(__FILE__,__LINE__) << "read -- write(" << addr << ") error\n";
         }
+
+        if ( !success )
+            i2c_->print_result( stream(__FILE__,__LINE__) ) << std::endl;        
     }
-    return false;
+    return success;
 }
 
 std::pair< uint32_t, uint32_t > 

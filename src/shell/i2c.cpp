@@ -358,7 +358,7 @@ namespace stm32f103 {
         }
 
         template< typename T >
-        bool operator()( T& dma_channel, uint8_t address, const uint8_t * data, size_t size ) const {
+        I2C_RESULT_CODE operator()( T& dma_channel, uint8_t address, const uint8_t * data, size_t size ) const {
 
             scoped_i2c_start start( _ );
 
@@ -371,16 +371,16 @@ namespace stm32f103 {
                 if ( i2c_address< Transmitter >()( _, address ) ) {
                     i2c_address< Transmitter >().clear( _ );
 
-                    return condition_wait()( [&]{ return dma_channel.transfer_complete(); } );
+                    if ( condition_wait()( [&]{ return dma_channel.transfer_complete(); } ) )
+                        return I2C_RESULT_SUCCESS;
+                    else
+                        return I2C_DMA_MASTER_TRANSMITTER_SEND_TIMEOUT;
 
                 } else {
-                    using namespace i2cdebug;
-                    stream(__FILE__,__LINE__) << "i2c::dma_master_transfer -- address phase failed: " << status32_to_string( i2c_status( _ )() ) << std::endl;
+                    return I2C_DMA_MASTER_TRANSMITTER_ADDRESS_FAILED;
                 }
-            } else {
-                stream(__FILE__,__LINE__) << "i2c::dma_master_transfer() -- can't generate start condition" << std::endl;
-            }
-            return false;
+            } else
+                return I2C_DMA_MASTER_TRANSMITTER_ADDRESS_FAILED;
         }
     };
 
@@ -391,7 +391,7 @@ namespace stm32f103 {
         }
 
         template< typename T >
-        bool operator()( T& dma_channel, uint8_t address, uint8_t * data, size_t size ) const {
+        I2C_RESULT_CODE operator()( T& dma_channel, uint8_t address, uint8_t * data, size_t size ) const {
 
             dma_channel.set_receive_buffer( data, size );
             scoped_dma_channel_enable dma_channel_enable( dma_channel );
@@ -403,15 +403,13 @@ namespace stm32f103 {
                 if ( i2c_address< Receiver >()( _, address ) ) {
                     i2c_address< Receiver >::clear(_);
                     if ( condition_wait()( [&](){ return dma_channel.transfer_complete(); } ) ) {
-                        return true;
-                    }
-                } else {
-                    stream(__FILE__,__LINE__) << "i2c::dma_master_receiver address failed\n";
-                }
-            } else {
-                stream(__FILE__,__LINE__) << "i2c::dma_master_receiver address failed\n";
-            }
-            return false;
+                        return I2C_RESULT_SUCCESS;
+                    } else
+                        return I2C_DMA_MASTER_RECEIVER_RECV_TIMEOUT;
+                } else
+                    return I2C_DMA_MASTER_RECEIVER_ADDRESS_FAILED;
+            } else
+                return I2C_DMA_MASTER_RECEIVER_START_FAILED;
         }
         
     };
@@ -549,6 +547,44 @@ i2c::has_dma( DMA_Direction dir ) const
     return false;
 }
 
+I2C_RESULT_CODE
+i2c::result_code() const
+{
+    return result_code_;
+}
+
+stream&
+i2c::print_result( stream&& o ) const
+{
+    auto code = result_code();
+    switch( code ) {
+    case I2C_RESULT_SUCCESS:
+        o << "success"; break;
+    case I2C_BUS_BUSY:
+        o << "i2c bus busy"; break;
+    case I2C_DMA_MASTER_RECEIVER_HAS_NO_DMA:
+        o << "i2c dma master receiver has no dma"; break;
+    case I2C_DMA_MASTER_RECEIVER_START_FAILED:
+        o << "i2c dma master receiver start failed"; break;
+    case I2C_DMA_MASTER_RECEIVER_ADDRESS_FAILED:
+        o << "i2c dma master receiver address failed"; break;
+    case I2C_DMA_MASTER_RECEIVER_RECV_TIMEOUT:
+        o << "i2c dma master receiver recv timeout"; break;
+    case I2C_DMA_MASTER_TRANSMITTER_HAS_NO_DMA:
+        o << "i2c dma master transmitter has no dma"; break;
+    case I2C_DMA_MASTER_TRANSMITTER_START_FAILED:
+        o << "i2c dma master transmitter start failed"; break;
+    case I2C_DMA_MASTER_TRANSMITTER_ADDRESS_FAILED:
+        o << "i2c dma master transmitter address failed"; break;
+    case I2C_DMA_MASTER_TRANSMITTER_SEND_TIMEOUT:
+        o << "i2c dma master transmitter send timeout"; break;
+    default:
+        o << "error code: " << code << "\t";
+        break;
+    }
+    return o;
+}
+
 uint32_t
 i2c::status() const
 {
@@ -630,20 +666,31 @@ i2c::write( uint8_t address, const uint8_t * data, size_t size )
 bool
 i2c::dma_transfer( uint8_t address, const uint8_t * data, size_t size )
 {
+    const auto base_addr = reinterpret_cast< uint32_t >( const_cast< I2C * >(i2c_) );
+    if ( base_addr == I2C1_BASE && __dma_i2c1_tx == nullptr ) {
+        result_code_ = I2C_DMA_MASTER_TRANSMITTER_HAS_NO_DMA;
+        return false;
+    } else if ( base_addr == I2C2_BASE && __dma_i2c2_tx == nullptr ) {
+        result_code_ = I2C_DMA_MASTER_TRANSMITTER_HAS_NO_DMA;
+        return false;
+    }
+
     if ( ! i2c_ready_wait( *i2c_, own_addr_ )() ) {
+        result_code_ = I2C_BUS_BUSY;        
         stream() << __FUNCTION__ << " i2c_ready_wait failed\n";
         return false;
     }
-    
-    auto base_addr = reinterpret_cast< uint32_t >( const_cast< I2C * >(i2c_) );
 
-    if ( base_addr == I2C1_BASE && __dma_i2c1_tx != nullptr ) {
+    if ( base_addr == I2C1_BASE ) {
 
-        return dma_master_transfer( *i2c_ )( *__dma_i2c1_tx, address, data, size );
+        result_code_ = dma_master_transfer( *i2c_ )( *__dma_i2c1_tx, address, data, size );
+        return result_code_ == I2C_RESULT_SUCCESS;
         
-    } else if ( base_addr == I2C2_BASE && __dma_i2c2_tx != nullptr ) {
+    } else if ( base_addr == I2C2_BASE ) { // && __dma_i2c2_tx != nullptr ) {
 
-        return dma_master_transfer( *i2c_ )( *__dma_i2c2_tx, address, data, size );
+        result_code_ = dma_master_transfer( *i2c_ )( *__dma_i2c2_tx, address, data, size );
+        return result_code_ == I2C_RESULT_SUCCESS;
+        
     }
 
     return false;
@@ -655,12 +702,15 @@ i2c::dma_receive( uint8_t address, uint8_t * data, size_t size )
     const auto base_addr = reinterpret_cast< uint32_t >( const_cast< I2C * >(i2c_) );
 
     if ( base_addr == I2C1_BASE && __dma_i2c1_rx == nullptr ) {
+        result_code_ = I2C_DMA_MASTER_RECEIVER_HAS_NO_DMA;
         return false;
     } else if ( base_addr == I2C2_BASE && __dma_i2c2_rx == nullptr ) {
+        result_code_ = I2C_DMA_MASTER_RECEIVER_HAS_NO_DMA;
         return false;
     }    
 
     if ( ! i2c_ready_wait( *i2c_, own_addr_ )() ) {
+        result_code_ = I2C_BUS_BUSY;
         stream() << __FUNCTION__ << " i2c_ready_wait failed\n";
         return false;
     }
@@ -671,9 +721,11 @@ i2c::dma_receive( uint8_t address, uint8_t * data, size_t size )
     }
     
     if ( base_addr == I2C1_BASE ) {
-        return dma_master_receiver( *i2c_ )( *__dma_i2c1_rx, address, data, size );
+        result_code_ = dma_master_receiver( *i2c_ )( *__dma_i2c1_rx, address, data, size );
+        return result_code_ == I2C_RESULT_SUCCESS;
     } else if ( base_addr == I2C2_BASE ) {
-        return dma_master_receiver( *i2c_ )( *__dma_i2c2_rx, address, data, size );
+        result_code_ = dma_master_receiver( *i2c_ )( *__dma_i2c2_rx, address, data, size );
+        return result_code_ == I2C_RESULT_SUCCESS;
     }
 
     return false;

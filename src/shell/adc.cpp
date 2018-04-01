@@ -7,6 +7,7 @@
 #include "adc.hpp"
 #include "dma.hpp"
 #include "dma_channel.hpp"
+#include "scoped_spinlock.hpp"
 #include "stm32f103.hpp"
 #include "stream.hpp"
 #include <algorithm>
@@ -79,7 +80,7 @@ adc::attach( dma& dma )
             if ( ( __number_of_adc_samples % __number_of_accumulation ) == ( __number_of_accumulation - 1 ) ) {
                 int i = 0;
                 for ( const auto& a: __adc1_accumulated_data ) {
-                    stream() << "[" << i << "]:" << a / __number_of_accumulation << "\t";
+                    stream() << "[" << i << "]:" << int( a / __number_of_accumulation ) << "\t";
                     ++i;
                 }
                 stream() << std::endl;
@@ -130,6 +131,13 @@ adc::init( PERIPHERAL_BASE base )
     }
 }
 
+void
+adc::enable( bool onoff )
+{
+    if ( __dma_adc1 )
+        __dma_adc1->enable( onoff );    
+}
+
 uint32_t
 adc::cr2() const
 {
@@ -148,28 +156,22 @@ adc::data()
     uint16_t data;
     while ( ! flag_.load() )
         ;
-    
-    while( lock_.test_and_set( std::memory_order_acquire ) ) // acquire lock
-        ;
+
+    scoped_spinlock<> lock( lock_ );
+
     data = data_;
     flag_ = false;
 
-    lock_.clear( std::memory_order_release );
-    
     return data;
 }
 
 void
 adc::handle_interrupt()
 {
-    while( lock_.test_and_set( std::memory_order_acquire ) ) // acquire lock
-        ;            
+    scoped_spinlock<> lock( lock_ );     
 
     data_ = adc_->DR;
-
     flag_ = true;
-
-    lock_.clear( std::memory_order_release );
 }
 
 void

@@ -256,10 +256,8 @@ adc_command( size_t argc, const char ** argv )
     size_t count = 1;
 
     if ( argc >= 2 ) {
-        count = strtod( argv[ 1 ] );
-        if ( count == 0 )
-            count = 1;
     }
+
     bool use_dma( false );
     auto it = std::find_if( argv, argv + argc, [](auto a){ return strcmp( a, "dma" ) == 0; } );
     use_dma = it != ( argv + argc );
@@ -277,23 +275,29 @@ adc_command( size_t argc, const char ** argv )
         stream() << "adc reset & calibration: status " << (( __adc.cr2() & 0x0c ) == 0 ? " PASS" : " FAIL" )  << std::endl;
     }
 
-    if ( use_dma ) {
-
-        __adc.attach( *stm32f103::dma_t< stm32f103::DMA1_BASE >::instance() );
-        if ( __adc.start_conversion() ) { // software trigger
-            uint32_t d = __adc.data(); // can't read twince
-            stream() << "adc data= 0x" << d
-                     << "\t" << int(d) << "(mV)"
-                     << std::endl;
-        }
-        
-    } else {
-        for ( size_t i = 0; i < count; ++i ) {
+    while ( --argc ) {
+        ++argv;
+        if ( strcmp( argv[0], "off" ) == 0 ) {
+            __adc.enable( false );
+        } else if ( strcmp( argv[0], "on" ) == 0 ) {
+            __adc.enable( true );
+        } else if ( strcmp( argv[0], "dma" ) == 0 || strcmp( argv[0], "start" ) == 0 ) {
+            __adc.attach( *stm32f103::dma_t< stm32f103::DMA1_BASE >::instance() );
             if ( __adc.start_conversion() ) { // software trigger
                 uint32_t d = __adc.data(); // can't read twince
-                stream() << "[" << int(i) << "] adc data= 0x" << d
+                stream() << "adc data= 0x" << d
                          << "\t" << int(d) << "(mV)"
                          << std::endl;
+            }
+        } else if ( std::isdigit( *argv[0] ) ) {
+            count = strtod( argv[ 1 ] );
+            for ( size_t i = 0; i < count; ++i ) {
+                if ( __adc.start_conversion() ) { // software trigger
+                    uint32_t d = __adc.data(); // can't read twince
+                    stream() << "[" << int(i) << "] adc data= 0x" << d
+                             << "\t" << int(d) << "(mV)"
+                             << std::endl;
+                }
             }
         }
     }

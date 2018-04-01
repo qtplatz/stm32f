@@ -48,6 +48,8 @@ bmp280_command( size_t argc, const char ** argv )
             array_print( stream(__FILE__,__LINE__), values, values.size(), "bmp280 values : " );
         else
             stream(__FILE__,__LINE__) << "values failed" << std::endl;
+
+        bmp280.trimming_parameter_readout();
     }
 
     while ( --argc ) {
@@ -60,6 +62,8 @@ bmp280_command( size_t argc, const char ** argv )
             }
         } else if ( strcmp( argv[0], "trim" ) == 0 ) {
             bmp280.trimming_parameter_readout();
+        } else if ( strcmp( argv[0], "?" ) == 0 ) {
+            bmp280.single_measure();
         } else if ( strcmp( argv[0], "start" ) == 0 ) {
             bmp280.measure();
         } else if ( strcmp( argv[0], "stop" ) == 0 ) {
@@ -75,7 +79,7 @@ bmp280_command( size_t argc, const char ** argv )
             if ( bmp280.write( std::array< uint8_t, 4 >( { 0xf4, meas, 0xf5, config } ) ) ) {
                 while ( --count ) {
                     auto pair = bmp280.readout();
-                    mdelay( 500 );
+                    // mdelay( 500 );
                 }
             }
         }

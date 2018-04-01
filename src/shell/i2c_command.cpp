@@ -189,7 +189,8 @@ i2c_command( size_t argc, const char ** argv )
                             stream() << "\tOK(dma)\n";
                         }
                     } else {
-                        stream(__FILE__,__LINE__,__FUNCTION__) << "\tdma transfer to " << chipaddr << " failed.\n";
+                        stm32f103::i2c_t< stm32f103::I2C1_BASE >::instance()->print_result( stream(__FILE__,__LINE__) )
+                            << "\tdma transfer to " << chipaddr << " failed.\n";
                     }
                 }
             } else {
@@ -199,7 +200,7 @@ i2c_command( size_t argc, const char ** argv )
                     else
                         stream() << "\tOK(polling)\n";
                 } else {
-                    stream(__FILE__,__LINE__,__FUNCTION__) << "\tpolling transfer to " << chipaddr << " failed.\n";
+                    i2cx.print_result( stream(__FILE__,__LINE__) ) << "\tdma transfer to " << chipaddr << " failed.\n";
                 }
             }
         } else if ( strcmp( argv[0], "--repeat" ) == 0 ) {

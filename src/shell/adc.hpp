@@ -35,6 +35,8 @@ namespace stm32f103 {
         
         uint16_t data();
 
+        void enable( bool );
+
         void handle_interrupt();
         static void interrupt_handler( adc * _this );
         static adc * instance();
