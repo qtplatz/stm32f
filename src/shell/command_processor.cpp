@@ -42,6 +42,14 @@ void timer_command( size_t argc, const char ** argv );
 void date_command( size_t argc, const char ** argv );
 void hwclock_command( size_t argc, const char ** argv );
 
+void
+system_reset( size_t argc, const char ** argv )
+{
+    auto SCB = reinterpret_cast< volatile stm32f103::SCB * >( stm32f103::SCB_BASE );
+    SCB->AIRCR = 0x5fa << 16 |  (SCB->AIRCR & 0x700) | (1 << 2);
+    __asm volatile ("dsb");
+}
+
 int
 strcmp( const char * a, const char * b )
 {
@@ -398,7 +406,8 @@ static const premitive command_table [] = {
     , { "dma",    dma_command,     " ram to ram dma copy teset" }
     , { "timer",  timer_command,   "" }
     , { "date",   date_command,     " show current date time; date --set 'iso format date'" }
-    , { "hwclock", hwclock_command, "" }    
+    , { "hwclock", hwclock_command, "" }
+    , { "reset", system_reset, "" }    
 };
 
 bool

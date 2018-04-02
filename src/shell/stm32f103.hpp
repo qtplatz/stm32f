@@ -27,8 +27,6 @@ namespace stm32f103 {  // as known as Blue Pill
         SRAM_BASE         = 0x20000000
         , PERIPH_BASE     = 0x40000000
         , RTC_BASE        = 0x40002800 // -- 0x40002bff
-        // , APB1PERIPH_BASE = PERIPH_BASE
-        //, AHBPERIPH_BASE  = ( PERIPH_BASE + 0x20000 )
         , RCC_BASE        = 0x40021000 // ( AHBPERIPH_BASE + 0x1000 )  //   RCC base address is 0x40021000
         , FLASH_BASE      = 0x40022000 // ( AHBPERIPH_BASE + 0x2000 )  // FLASH base address is 0x40022000
         , APB2PERIPH_BASE = 0x40010000 // ( PERIPH_BASE + 0x10000 )
@@ -38,6 +36,7 @@ namespace stm32f103 {  // as known as Blue Pill
         , ADC1_BASE	      = 0x40012400  // Table 3. p50, RM0008, Rev 17
         , ADC2_BASE	      = 0x40012800
         , SYSTICK_BASE	  = 0xe000e010
+        , SCB_BASE        = 0xe000ed00  // PM0056 p148 4.4.15
         , NVIC_BASE       = 0xe000e100
     };
 
@@ -302,6 +301,23 @@ namespace stm32f103 {  // as known as Blue Pill
         uint32_t CR3;      /* Address offset: 0x14 */
         uint32_t GTPR;     /* Address offset: 0x18 */
     } USART_type;
+
+    typedef struct SCB {
+        uint32_t CPUID;   
+        uint32_t ICSR;
+        uint32_t VTOR;
+        uint32_t AIRCR;
+        uint32_t SCR;
+        uint32_t CCR;
+        uint32_t SHPR1;
+        uint32_t SHPR2;
+        uint32_t SHPR3;
+        uint32_t SHCRS;
+        uint32_t CFSR;
+        uint32_t HFSR;
+        uint32_t MMAR;
+        uint32_t BFAR;
+    } SCB_type;
 
     /*
      * STM32F107 Interrupt Number Definition

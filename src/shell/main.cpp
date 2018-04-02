@@ -127,10 +127,14 @@ main()
         if ( auto FLASH = reinterpret_cast< volatile stm32f103::FLASH * >( stm32f103::FLASH_BASE ) )
             FLASH->ACR = 0x0010 | 0x0002; // FLASH_PREFETCH (enable prefetch buffer)| FLASH_WAIT2(for 48 < sysclk <= 72MHz);
 
-        RCC->CFGR = ( 7 << 18 ) | ( 1 << 16 ) | ( 4 << 8 );           // PLLMUL(input x9), PLLSRC(HSE), PPRE1(HCLK/4)
+        RCC->CFGR = ( 7 << 18 ) | ( 1 << 16 ) | ( 4 << 8 );           // PLLMUL(input x9), PLLSRC(HSE), PPRE1(HCLK/2)
         RCC->CR   = ( 1 << 24 ) | ( 1 << 16 ) | (0b10000 << 3) | 1;   // PLLON, HSEON, HSITRIM(0b10000), HSION
-        while ( ! RCC->CR & ( 1 << 17 ) )                             // Wait until HSE settles down (HSE RDY)
+        while ( ! RCC->CR & ( 1 << 1 ) )                             // Wait HSI RDY
             ;
+        while ( ! RCC->CR & ( 1 << 17 ) )                             // Wait HSE RDY
+            ;
+        while ( ! RCC->CR & ( 1 << 25 ) )                             // Wait PLL RDY
+            ;        
         RCC->CFGR |= 0x02;                      // SW(0b10, pll selected as system clock)
 
         // RCC->CIR = (3 << 8); // HSI, LSE, LSI

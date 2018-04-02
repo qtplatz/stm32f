@@ -140,8 +140,12 @@ ad5593_command( size_t argc, const char ** argv )
             if ( ! __ad5593->set_adc_sequence( 0x03f0 ) )
                 stream(__FILE__,__LINE__) << "ADC sequence set failed\n";
 
+            uint32_t count = 1000; // 100ms
+            if ( argc > 1 )
+                count = strtod( argv[ 1 ] );
+
             stm32f103::timer_t< stm32f103::TIM3_BASE >().enable( false );
-            stm32f103::timer_t< stm32f103::TIM3_BASE >().set_interval( 1000 ); // 100ms interval
+            stm32f103::timer_t< stm32f103::TIM3_BASE >().set_interval( count ); // 100ms interval
             stm32f103::timer_t< stm32f103::TIM3_BASE >().enable( true );
 
             stm32f103::timer_t< stm32f103::TIM3_BASE >().set_callback( +[]{
