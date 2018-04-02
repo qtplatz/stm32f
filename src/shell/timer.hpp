@@ -23,6 +23,8 @@ namespace stm32f103 {
     private:
         template< TIM_BASE > friend struct timer_t;
         static void init( TIM_BASE );
+        static void enable( TIM_BASE, bool );
+        static void set_interval( TIM_BASE, size_t ); // 1Hz default
         static void print_registers( TIM_BASE );
     };
 
@@ -42,7 +44,11 @@ namespace stm32f103 {
 
         static void print_registers() { timer::print_registers( base ); }
 
-        static void set_callback( void (*cb)() ) { // required ctor
+        inline void enable( bool enable ) const { timer::enable( base, enable ); };
+
+        inline void set_interval( size_t arr ) const { timer::set_interval( base, arr ); };
+
+        void set_callback( void (*cb)() ) { // required ctor
             scoped_spinlock<> guard( guard_ );
             callback_ = cb;
         }

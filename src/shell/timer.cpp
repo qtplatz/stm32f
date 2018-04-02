@@ -112,7 +112,7 @@ timer::init( TIM_BASE base )
         break;
     case TIM4_BASE:
         if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
-            if ( RCC->APB1ENR & 0x04 )  // TIM3
+            if ( RCC->APB1ENR & 0x04 )  // TIM4
                 enable_interrupt( TIM4_IRQn );
             else
                 stream() << "Clock for TIM3 is disabled" << std::endl;
@@ -125,13 +125,49 @@ timer::init( TIM_BASE base )
         break;
     }
     p->CR1 |= 1;      // enable
-
-    stream() << "TIMER:" << base << " initialized.\n";
 }
 
 void
 timer::handle_interrupt()
 {
+}
+
+void
+timer::enable( TIM_BASE base, bool enable )
+{
+    if ( enable )
+        reinterpret_cast< volatile TIM * >( base )->CR1 |= 1;
+    else
+        reinterpret_cast< volatile TIM * >( base )->CR1 &= ~1;
+}
+
+void
+timer::set_interval( TIM_BASE base, size_t arr )
+{
+    auto p = reinterpret_cast< volatile TIM * >( base );
+
+    stream(__FILE__,__LINE__,__FUNCTION__) << "arr = " << arr << std::endl;
+
+    p->CR1 = 0;
+    p->CR2 = 0;
+    p->DIER = 0;      // disable interrupt
+
+    p->PSC = 7200 - 1;  // 10kHz
+    p->ARR = arr;     // ~= 1Hz
+    
+    p->CCR1 = 0;
+    p->CCR2 = 0;
+    p->CCR3 = 0;
+    p->CCR4 = 0;
+    p->CCMR1 = 0;
+    p->CCMR2 = 0;
+    p->CCER = 0;
+    p->SMCR = 0;      // SMS = 000 := internal clock, 111 := external edge
+    p->DIER = 1;      // interrupt enable
+
+    p->CR1  = 4;      // bit 2 = Update request source 1: Onlly counter overflow/underflow
+    p->CR2  = 0;
+    p->CR1 |= 1;      // enable
 }
 
 void

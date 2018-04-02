@@ -10,6 +10,7 @@
 #include "dma_channel.hpp"
 #include "i2c.hpp"
 #include "i2cdebug.hpp"
+#include "scoped_spinlock.hpp"
 #include "stream.hpp"
 #include "stm32f103.hpp"
 #include <array>
@@ -613,6 +614,8 @@ i2c::print_status() const
 bool
 i2c::read( uint8_t address, uint8_t * data, size_t size )
 {
+    scoped_spinlock<> lock( lock_ );
+    
     if ( ! i2c_ready_wait( *i2c_, own_addr_ )() ) {
         stream(__FILE__,__LINE__,__FUNCTION__) << " i2c_ready_wait failed\n";
         return false;
@@ -630,6 +633,8 @@ i2c::read( uint8_t address, uint8_t * data, size_t size )
 bool
 i2c::write( uint8_t address, const uint8_t * data, size_t size )
 {
+    scoped_spinlock<> lock( lock_ );
+    
     bitset::set( i2c_->CR1, ACK | PE );
 
     if ( ! i2c_ready_wait( *i2c_, own_addr_ )() ) {
@@ -666,6 +671,8 @@ i2c::write( uint8_t address, const uint8_t * data, size_t size )
 bool
 i2c::dma_transfer( uint8_t address, const uint8_t * data, size_t size )
 {
+    scoped_spinlock<> lock( lock_ );
+    
     const auto base_addr = reinterpret_cast< uint32_t >( const_cast< I2C * >(i2c_) );
     if ( base_addr == I2C1_BASE && __dma_i2c1_tx == nullptr ) {
         result_code_ = I2C_DMA_MASTER_TRANSMITTER_HAS_NO_DMA;
@@ -699,6 +706,8 @@ i2c::dma_transfer( uint8_t address, const uint8_t * data, size_t size )
 bool
 i2c::dma_receive( uint8_t address, uint8_t * data, size_t size )
 {
+    scoped_spinlock<> lock( lock_ );
+    
     const auto base_addr = reinterpret_cast< uint32_t >( const_cast< I2C * >(i2c_) );
 
     if ( base_addr == I2C1_BASE && __dma_i2c1_rx == nullptr ) {

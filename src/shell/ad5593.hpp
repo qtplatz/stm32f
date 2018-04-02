@@ -75,24 +75,31 @@ namespace ad5593 {
 
         bool write( const uint8_t *, size_t size ) const;
         bool read( uint8_t addr, uint8_t *, size_t size ) const;
+
         template< size_t N > bool write ( std::array< uint8_t, N >&& a ) const { return write( a.data(), a.size() ); }
         template< size_t N > bool read ( uint8_t addr, std::array< uint8_t, N >& a ) const { return read( addr, a.data(), a.size() ); }
 
-        // bool write( uint8_t addr, uint16_t value ) const;
-        // uint16_t read( uint8_t addr ) const;
-
         bool set_value( int pin, uint16_t value );
-
         uint16_t value( int pin ) const;
+
+        bool read_adc_sequence ( uint16_t *, size_t ) const;
+        template< size_t N > bool read_adc_sequence ( std::array< uint16_t, N >& a ) const { return read_adc_sequence( a.data(), a.size() ); }
         
         bool set_function( int pin, AD5593R_IO_FUNCTION );
         AD5593R_IO_FUNCTION function( int pin ) const;
+        uint8_t adc_enabled() const;
+
+        bool set_adc_sequence( uint16_t );
+        uint16_t adc_sequence() const;
         
         bool fetch();
         bool commit();
-
+        bool reset();
+        
         void print_config( stream&& ) const;
         void print_registers( stream&& ) const;
+        void print_values( stream&& ) const;
+        void print_adc_sequence( stream&&, uint16_t *, size_t ) const;
     };
     
 }

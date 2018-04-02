@@ -180,7 +180,8 @@ main()
 
         // TIM2
         RCC->APB1ENR |= 0x01;  // TIM2 General purpose timer (uing in bmp280)
-        //TIM 2,3,4 are only avilable on Blue Pill
+        // TIM3
+        RCC->APB1ENR |= 0x02;  // TIM3 General purpose timer (uing in bmp280)
         //RCC->APB1ENR |= 0x3e;  // TIM3..TIM7 General purpose timer (calibration trial)
     }
 
@@ -258,7 +259,7 @@ main()
         int x = 0;
 
         std::array< char, 128 > cbuf;
-        typedef tokenizer< 8 > tokenizer_type;
+        typedef tokenizer< 32 > tokenizer_type;
 
         tokenizer_type::argv_type argv;
 
