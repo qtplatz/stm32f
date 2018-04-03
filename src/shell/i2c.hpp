@@ -47,6 +47,7 @@ namespace stm32f103 {
         , I2C_POLLING_MASTER_TRANSMITTER_START_FAILED
         , I2C_POLLING_MASTER_TRANSMITTER_ADDRESS_FAILED
         , I2C_POLLING_MASTER_TRANSMITTER_SEND_TIMEOUT
+        , I2C_DEVICE_ERROR_CONDITION
     };
 
     // I^2C 26.5, p773 RM0008
@@ -87,7 +88,6 @@ namespace stm32f103 {
         bool dma_transfer( uint8_t address, const uint8_t *, size_t );
         bool dma_receive( uint8_t address, uint8_t * data, size_t );
         uint32_t status() const;
-        void print_status() const;
         bool start();
         bool stop();
         bool disable();
@@ -98,6 +98,7 @@ namespace stm32f103 {
 
         I2C_RESULT_CODE result_code() const;
         stream& print_result( stream&& ) const;
+        stream& print_status( stream&& ) const;
 
         void handle_event_interrupt();
         void handle_error_interrupt();

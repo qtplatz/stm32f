@@ -7,7 +7,6 @@
 #pragma once
 
 #include "stm32f103.hpp"
-#include "stream.hpp"
 #include <atomic>
 #include <cstdint>
 #include <utility>

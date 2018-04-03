@@ -221,7 +221,7 @@ namespace stm32f103 {
             bitset::set( _.CR1, PE );  // peripheral enable, ACK
         }
         
-        bool operator()( uint8_t address, uint8_t * data, size_t size ) {
+        I2C_RESULT_CODE operator()( uint8_t address, uint8_t * data, size_t size ) {
             scoped_i2c_start start(_);
             if ( start() ) {
                 if ( i2c_address< Receiver >()( _, address ) ) {
@@ -234,8 +234,7 @@ namespace stm32f103 {
                                 --size;
                             }
                         } else {
-                            stream(__FILE__,__LINE__) << "polling_master_receiver<3> receive timeout" << std::endl;
-                            return false;
+                            return I2C_POLLING_MASTER_RECEIVER_RECV_TIMEOUT;
                         }
                     }
                     if ( condition_wait()( [&](){ return _.SR1 & BTF; } ) ) {
@@ -244,28 +243,25 @@ namespace stm32f103 {
                         *data++ = _.DR;  // Data N-1
                         --size;
                     } else {
-                        stream(__FILE__,__LINE__) << "polling_master_receiver<3> n-2 receive timeout" << std::endl;
-                        return false;
+                        return I2C_POLLING_MASTER_RECEIVER_RECV_TIMEOUT;
                     }
                     if ( condition_wait()( [&](){ return _.SR1 & RxNE; } ) ) {
                         *data++ = _.DR;
                         --size;
-                        return size == 0;
+                        return I2C_RESULT_SUCCESS;
                     } else {
-                        stream(__FILE__,__LINE__) << "polling_master_receiver<3> n-1 receive timeout" << std::endl;
-                        return false;                        
+                        return I2C_POLLING_MASTER_RECEIVER_RECV_TIMEOUT;
                     }
                 } else {
-                    stream(__FILE__,__LINE__) << "polling_master_receiver<3> address failed" << std::endl;
+                    return I2C_POLLING_MASTER_RECEIVER_ADDRESS_FAILED;
                 }
             } else {
-                stream(__FILE__,__LINE__) << "polling_master_receiver<3> address failed" << std::endl;
+                return I2C_POLLING_MASTER_TRANSMITTER_START_FAILED;
             }
-            return false;                
         }
     };
 
-    template<> bool polling_master_receiver< 2 >::operator()( uint8_t address, uint8_t * data, size_t size ) {
+    template<> I2C_RESULT_CODE polling_master_receiver< 2 >::operator()( uint8_t address, uint8_t * data, size_t size ) {
         scoped_i2c_start start(_);
         if ( start() ) {
             if ( i2c_address< Receiver >()( _, address ) ) {
@@ -281,15 +277,16 @@ namespace stm32f103 {
                         --size;
                         if ( condition_wait()( [&](){ return !bitset::test(_.SR2, BUSY); } ) ) {
                             bitset::reset( _.CR1, POS );
-                        }
+                        } 
                     }
                 }
-                return size == 0;
+                return size == 0 ? I2C_RESULT_SUCCESS : I2C_POLLING_MASTER_RECEIVER_RECV_TIMEOUT;
             }
-        }
+        } else
+            return I2C_POLLING_MASTER_TRANSMITTER_START_FAILED;
     }
 
-    template<> bool polling_master_receiver< 1 >::operator()( uint8_t address, uint8_t * data, size_t size ) {
+    template<> I2C_RESULT_CODE polling_master_receiver< 1 >::operator()( uint8_t address, uint8_t * data, size_t size ) {
         scoped_i2c_start start(_);
         if ( start() ) {        
             if ( i2c_address< Receiver >()( _, address ) ) {
@@ -300,10 +297,11 @@ namespace stm32f103 {
                     *data++ = _.DR;                    // Read the data
                     --size;
                 }
-                return size == 0;
-            }
-        }
-        return false;
+                return size == 0 ? I2C_RESULT_SUCCESS : I2C_POLLING_MASTER_RECEIVER_RECV_TIMEOUT;
+            } else
+                return I2C_POLLING_MASTER_RECEIVER_ADDRESS_FAILED;
+        } else
+            return I2C_POLLING_MASTER_RECEIVER_START_FAILED;
     }
     /////////////////////////////////////////////////////
 
@@ -324,27 +322,21 @@ namespace stm32f103 {
         
         i2c_ready_wait( volatile I2C& t, uint8_t own_addr ) : _( t ), own_addr_( own_addr ) {}
         
-        bool operator()( bool reset = false ) const {
+        I2C_RESULT_CODE operator()( bool reset = false ) const {
             i2c_status st( _ );
 
             if ( _.SR1 & error_condition ) {
-                stream() << "i2c(" << uint32_t( &_ ) << ") has an error condition: " << i2cdebug::status32_to_string( st() ) << std::endl;
                 _.SR1 &= ~error_condition;
-                if ( _.SR1 & error_condition ) {
-                    stream() << "i2c(" << uint32_t( &_ ) << ") still in the error: " << i2cdebug::status32_to_string( st() ) << std::endl;
-                    return false;
-                } else {
-                    stream() << "i2c(" << uint32_t( &_ ) << ") error has been resolved: " << i2cdebug::status32_to_string( st() ) << std::endl;
-                }
+                if ( _.SR1 & error_condition )
+                    return I2C_DEVICE_ERROR_CONDITION;
             }
             
             if ( ! condition_wait()( [&](){ return !st.busy(); } ) ) {
-                if ( ( _.SR1 & error_condition ) && ( _.SR2 & (BUSY| MSL) ) ) {
-                    i2c_reset()( _, own_addr_ );
-                    stream(__FILE__,__LINE__) << "i2c_ready_wait -- resetting..." << std::endl;
-                }
+                if ( ( _.SR1 & error_condition ) && ( _.SR2 & (BUSY| MSL) ) )
+                    i2c_reset()( _, own_addr_ );  // Reset i2c chip
             }
-            return !st.busy();
+
+            return st.busy() ? I2C_BUS_BUSY : I2C_RESULT_SUCCESS;
         }
     };
 
@@ -360,7 +352,7 @@ namespace stm32f103 {
 
         template< typename T >
         I2C_RESULT_CODE operator()( T& dma_channel, uint8_t address, const uint8_t * data, size_t size ) const {
-
+            
             scoped_i2c_start start( _ );
 
             dma_channel.set_transfer_buffer( data, size == 1 ? 1 : size + 1 ); // workaround
@@ -439,11 +431,6 @@ i2c::attach( dma& dma, DMA_Direction dir )
 {
     uint32_t addr = reinterpret_cast< uint32_t >(const_cast< I2C * >(i2c_));
 
-    stream() << "*********************** attach " << addr
-             << " with dma (" << (dir == DMA_Tx ? "Tx" : ( dir == DMA_Rx ? "Rx" : "Both"))
-             << ") **********************"
-             << std::endl;
-
     if ( addr == I2C1_BASE ) {
         if ( dir == DMA_Rx || dir == DMA_Both ) {
             if ( __dma_i2c1_rx = new (&__i2c1_rx_dma) dma_channel_t< DMA_I2C1_RX >( dma, 0, 0 ) ) {
@@ -463,14 +450,14 @@ i2c::attach( dma& dma, DMA_Direction dir )
         if ( dir == DMA_Rx || dir == DMA_Both ) {
             if ( __dma_i2c2_rx = new (&__i2c2_rx_dma) dma_channel_t< DMA_I2C2_RX >( dma, 0, 0 ) ) {
                 __dma_i2c2_rx->set_callback( +[]( uint32_t flag ){
-                        stream() << "\n\tI2C-2 Rx irq: " << flag << std::endl;
+                        // stream() << "\n\tI2C-2 Rx irq: " << flag << std::endl;
                     });
             }
         }
         if ( dir == DMA_Tx || dir == DMA_Both ) {
             if ( __dma_i2c2_tx = new (&__i2c2_tx_dma) dma_channel_t< DMA_I2C2_TX >( dma, 0, 0 ) ) {
                 __dma_i2c2_tx->set_callback( +[]( uint32_t flag ){
-                        stream() << "\n\tI2C-2 Tx irq: " << flag << std::endl;
+                        // stream() << "\n\tI2C-2 Tx irq: " << flag << std::endl;
                     });
             }
         }
@@ -511,9 +498,6 @@ i2c::listen( uint8_t addr )
     bitset::set( i2c_->CR1, ACK );
     bitset::set( i2c_->CR2, ITEVTEN | ITERREN );
 
-    stream() << "i2c::listen(" << addr << ")" << std::endl;
-    print_status();
-    
     return true;
 }
 
@@ -592,22 +576,24 @@ i2c::status() const
     return i2c_status( *i2c_ )();
 }
 
-void
-i2c::print_status() const
+stream&
+i2c::print_status( stream&& o ) const
 {
-    stream() << "OAR1 : 0x" << i2c_->OAR1 << "\tOwn address: " << int(i2c_->OAR1 >> 1) << "\t";
-    stream() << "CCR  : {" << int( i2c_->CCR & 0x7ff ) << "}\t";
-    stream() << "TRISE: {" << int( i2c_->TRISE ) << "(" << ((i2c_->TRISE&0x3f)-1)/(i2c_->CR2&0x3f) << "us)}" << std::endl;
+    o << "OAR1 : 0x" << i2c_->OAR1 << "\tOwn address: " << int(i2c_->OAR1 >> 1) << "\t";
+    o << "CCR  : {" << int( i2c_->CCR & 0x7ff ) << "}\t";
+    o << "TRISE: {" << int( i2c_->TRISE ) << "(" << ((i2c_->TRISE&0x3f)-1)/(i2c_->CR2&0x3f) << "us)}" << std::endl;
     
-    stream() << "CR1,2: [" << i2c_->CR1 << "," << i2c_->CR2 << "]\t" << CR1_to_string( i2c_->CR1 ) << "\t" << CR2_to_string( i2c_->CR2 ) << "\t";
-    stream() << "SR1,2: " << status32_to_string( i2c_status( *i2c_ )() ) << std::endl;
+    o << "CR1,2: [" << i2c_->CR1 << "," << i2c_->CR2 << "]\t" << CR1_to_string( i2c_->CR1 ) << "\t" << CR2_to_string( i2c_->CR2 ) << "\t";
+    o << "SR1,2: " << status32_to_string( i2c_status( *i2c_ )() ) << std::endl;
 
     int count = 10;
     while( --count && ( i2c_->SR2 & BUSY ) )
         mdelay( 1 );
 
     if ( count == 0 )
-        stream() << "I2C keep busy -- check SDA line, it must be high" << std::endl;
+        o << "I2C keep busy -- check SDA line, it must be high" << std::endl;
+
+    return o;
 }
 
 
@@ -616,18 +602,16 @@ i2c::read( uint8_t address, uint8_t * data, size_t size )
 {
     scoped_spinlock<> lock( lock_ );
     
-    if ( ! i2c_ready_wait( *i2c_, own_addr_ )() ) {
-        stream(__FILE__,__LINE__,__FUNCTION__) << " i2c_ready_wait failed\n";
+    if ( ( result_code_ = i2c_ready_wait( *i2c_, own_addr_ )() ) != I2C_RESULT_SUCCESS )
         return false;
-    }
 
     if ( size > 3 )
-        return polling_master_receiver<3>( *i2c_ )( address, data, size );
+        result_code_ = polling_master_receiver<3>( *i2c_ )( address, data, size );
     if ( size == 2 )
-        return polling_master_receiver<2>( *i2c_ )( address, data, size );
+        result_code_ = polling_master_receiver<2>( *i2c_ )( address, data, size );
     if ( size == 1 )
-        return polling_master_receiver<1>( *i2c_ )( address, data, size );
-    return false;
+        result_code_ = polling_master_receiver<1>( *i2c_ )( address, data, size );
+    return result_code_ == I2C_RESULT_SUCCESS;
 }
 
 bool
@@ -637,10 +621,8 @@ i2c::write( uint8_t address, const uint8_t * data, size_t size )
     
     bitset::set( i2c_->CR1, ACK | PE );
 
-    if ( ! i2c_ready_wait( *i2c_, own_addr_ )() ) {
-        stream(__FILE__,__LINE__) << __FUNCTION__ << " i2c_ready_wait failed\n";
-        return false;
-    }
+    if ( ( result_code_ = i2c_ready_wait( *i2c_, own_addr_ )() ) != I2C_RESULT_SUCCESS )
+        return false;    
 
     scoped_i2c_start start( *i2c_ );
 
@@ -651,21 +633,21 @@ i2c::write( uint8_t address, const uint8_t * data, size_t size )
                 if ( ( writer << *data++ ) )
                     --size;
                 else {
-                    stream(__FILE__,__LINE__) << "i2c::write timeout\n";
                     break;
                 }
             }
             bitset::set( i2c_->CR1, STOP );
-            if ( size )
-                stream(__FILE__,__LINE__) << "i2c::write remain " << size << " octets\n";
-            return size == 0;
+            if ( size == 0 )
+                result_code_ = I2C_RESULT_SUCCESS;
+            else 
+                result_code_ = I2C_POLLING_MASTER_TRANSMITTER_SEND_TIMEOUT;
         } else {
-            stream(__FILE__,__LINE__) << "i2c::write address failed\n";
+            result_code_ = I2C_POLLING_MASTER_TRANSMITTER_ADDRESS_FAILED;
         }
     } else {
-        stream(__FILE__,__LINE__) << "i2c::write start failed\n";
+        result_code_ = I2C_POLLING_MASTER_TRANSMITTER_START_FAILED;
     }
-    return false;
+    return result_code_ == I2C_RESULT_SUCCESS;
 }
 
 bool
@@ -682,11 +664,9 @@ i2c::dma_transfer( uint8_t address, const uint8_t * data, size_t size )
         return false;
     }
 
-    if ( ! i2c_ready_wait( *i2c_, own_addr_ )() ) {
-        result_code_ = I2C_BUS_BUSY;        
-        stream() << __FUNCTION__ << " i2c_ready_wait failed\n";
-        return false;
-    }
+    if ( ( result_code_ = i2c_ready_wait( *i2c_, own_addr_ )() ) != I2C_RESULT_SUCCESS )
+        return false;        
+
 
     if ( base_addr == I2C1_BASE ) {
 
@@ -718,11 +698,8 @@ i2c::dma_receive( uint8_t address, uint8_t * data, size_t size )
         return false;
     }    
 
-    if ( ! i2c_ready_wait( *i2c_, own_addr_ )() ) {
-        result_code_ = I2C_BUS_BUSY;
-        stream() << __FUNCTION__ << " i2c_ready_wait failed\n";
-        return false;
-    }
+    if ( ( result_code_ = i2c_ready_wait( *i2c_, own_addr_ )() ) != I2C_RESULT_SUCCESS )
+        return false;            
 
     if ( size == 1 ) {
         // See AN2824, p10, "master reception of a single byte is not supported."
@@ -743,18 +720,12 @@ i2c::dma_receive( uint8_t address, uint8_t * data, size_t size )
 void
 i2c::handle_event_interrupt()
 {
-    stream() << "EVENT: " << status32_to_string( i2c_status( *i2c_ )() ) << std::endl;
-    // if ( i2c_->SR1 & RxNE ) {
-    //     stream() << "\ti2c irq" << std::endl;
-    // } else {
-    //     //i2c_->CR2 &= ~ITEVTEN;
-    // }
 }
 
 void
 i2c::handle_error_interrupt()
 {
-    stream() << "ERROR irq: " << status32_to_string( i2c_status( *i2c_ )() ) << std::endl;
+    // stream() << "ERROR irq: " << status32_to_string( i2c_status( *i2c_ )() ) << std::endl;
     constexpr uint32_t error_condition = SMB_ALART | TIME_OUT | PEC_ERR | OVR | AF | ARLO | BERR;
     i2c_->SR1 &= ~error_condition;
 }

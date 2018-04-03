@@ -129,7 +129,7 @@ i2c_command( size_t argc, const char ** argv )
     while ( --argc ) {
         ++argv;
         if ( strcmp( argv[0], "status" ) == 0 ) {
-            i2cx.print_status();
+            i2cx.print_status( stream() );
         } else if ( strcmp( argv[0], "reset" ) == 0 ) {
             i2cx.reset();
         } else if ( strcmp( argv[0], "probe" ) == 0 ) {

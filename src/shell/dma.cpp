@@ -10,7 +10,7 @@
 #include <atomic>
 #include <mutex>
 #include "stm32f103.hpp"
-#include "printf.h"
+#include "stream.hpp"
 
 extern "C" {
     void i2c1_handler();
@@ -88,13 +88,6 @@ dma::init_channel( DMA_CHANNEL channel_number
                    , uint32_t buffer_size
                    , uint32_t dma_ccr )
 {
-    stream() << "dma::init_channel(" << int( channel_number )
-             << ", DR: 0x" << peripheral_data_addr
-             << ", size: " << int(buffer_size)
-             << ", CCR: 0x" << dma_ccr
-             << ")"
-             << std::endl;
-    
     auto& channel = dmaChannel( channel_number );
 
     // p277
