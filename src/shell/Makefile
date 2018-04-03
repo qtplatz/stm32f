@@ -51,7 +51,7 @@ LDFLAGS = -Tstm32.ld -g -Wl,-Map=shell.map,--cref -nostdlib -nostartfiles -stati
 OCDCFG = -f /usr/share/openocd/scripts/interface/stlink-v2.cfg -f /usr/share/openocd/scripts/target/stm32f1x.cfg
 
 OBJS = crt0.o main.o prf.o spi.o uart.o stream.o command_processor.o can.o gpio.o gpio_mode.o atexit.o adc.o memset.o i2c.o \
-	rcc.o dma.o i2cdebug.o ad5593.o ad5593_command.o bmp280.o bmp280_command.o i2c_command.o date_command.o timer.o \
+	rcc.o dma.o ad5593.o ad5593_command.o bmp280.o bmp280_command.o i2c_command.o i2c_string.o date_command.o timer.o \
 	rcc_status.o gpio_command.o timer_command.o rtc.o system_clock.o can_command.o \
 	date_time.o bkp.o
 

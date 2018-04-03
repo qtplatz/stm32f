@@ -6,7 +6,7 @@
 
 #include "i2c.hpp"
 #include "dma.hpp"
-#include "i2cdebug.hpp"
+#include "i2c_string.hpp"
 #include "gpio_mode.hpp"
 #include "stream.hpp"
 #include "stm32f103.hpp"
@@ -105,7 +105,7 @@ i2c_command( size_t argc, const char ** argv )
         std::for_each( rxdata.begin(), rxdata.begin() + read_counts, [&](auto x){ o << x << ", "; } );
         o << "] from " << chipaddr << (status == 0 ? " OK" : "" ) << std::endl;
         if ( status )
-            i2cdebug::status32_to_string( status );
+            i2c_string::status32( std::move( o ), status, nullptr );
     };
 
     auto tx_print = [&]( stream&& o, size_t write_counts ){
@@ -123,7 +123,8 @@ i2c_command( size_t argc, const char ** argv )
             "i2c probe\n"
             "i2c reset\n"
             "i2c status\n"
-                 << std::endl; 
+                 << std::endl;
+        i2c_string::print_registers( stream(), i2cx.base_addr() );
     }
 
     while ( --argc ) {
@@ -183,7 +184,7 @@ i2c_command( size_t argc, const char ** argv )
                 for ( size_t i = 0; i < replicates; ++i ) {
                     if ( stm32f103::i2c_t< stm32f103::I2C1_BASE >::instance()->dma_transfer(chipaddr, txdata.data(), write_counts ) ) {
                         if ( auto st = stm32f103::i2c_t< stm32f103::I2C1_BASE >::instance()->status() ) {
-                            i2cdebug::status32_to_string( st );
+                            i2c_string::status32( stream(), st, i2cx.base_addr() );
                             break;
                         } else {
                             stream() << "\tOK(dma)\n";
@@ -196,7 +197,7 @@ i2c_command( size_t argc, const char ** argv )
             } else {
                 if ( i2cx.write( chipaddr, txdata.data(), write_counts ) ) {
                     if ( auto st = i2cx.status() )
-                        i2cdebug::status32_to_string( st );
+                        i2c_string::status32( stream(), st, i2cx.base_addr() );
                     else
                         stream() << "\tOK(polling)\n";
                 } else {

@@ -67,6 +67,7 @@ namespace stm32f103 {
         
     public:
         i2c();
+        inline volatile I2C * base_addr() const { return i2c_; };
 
         enum DMA_Direction { DMA_None, DMA_Tx, DMA_Rx, DMA_Both };
         

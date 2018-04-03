@@ -21,6 +21,21 @@ const char * array_print( stream_type&& o, const array_type& a, size_t count, co
 
 struct print {
 
+    // bitarray -> name list
+    template< size_t N, typename stream_type >
+    stream_type& operator()( stream_type& o
+                             , const std::bitset<N>& a
+                             , const char * preamble, const char * const name [], size_t first = 0, size_t last = (N-1) ) const {
+        o << preamble;
+        int prev(0);
+        for ( auto i = first; i <= last; ++i ) {
+            auto k = N - i - 1;
+            if ( a.test( k ) && name[ i ] )
+                o << ( prev++ ? ", " : "" ) << name[ i ];
+        }
+        return o;
+    }        
+
     template< size_t N, typename stream_type >
     stream_type& operator()( stream_type&& o, const std::bitset<N>& a, const char * preamble, const std::bitset<N>& mask = std::bitset<N>{ 0 } ) const {
         o << preamble << "\t";

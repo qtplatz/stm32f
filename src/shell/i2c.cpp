@@ -9,7 +9,7 @@
 #include "condition_wait.hpp"
 #include "dma_channel.hpp"
 #include "i2c.hpp"
-#include "i2cdebug.hpp"
+#include "i2c_string.hpp"
 #include "scoped_spinlock.hpp"
 #include "stream.hpp"
 #include "stm32f103.hpp"
@@ -19,7 +19,6 @@
 
 extern uint32_t __pclk1, __pclk2;
 extern void mdelay( uint32_t );
-extern std::atomic< uint32_t > atomic_jiffies;
 
 extern "C" {
     void i2c1_handler();
@@ -410,7 +409,6 @@ namespace stm32f103 {
 }
 
 using namespace stm32f103;
-using namespace stm32f103::i2cdebug;
 
 static uint8_t __i2c1_tx_dma[ sizeof( dma_channel_t< DMA_I2C1_TX > ) ];
 static uint8_t __i2c1_rx_dma[ sizeof( dma_channel_t< DMA_I2C1_RX > ) ];
@@ -579,12 +577,7 @@ i2c::status() const
 stream&
 i2c::print_status( stream&& o ) const
 {
-    o << "OAR1 : 0x" << i2c_->OAR1 << "\tOwn address: " << int(i2c_->OAR1 >> 1) << "\t";
-    o << "CCR  : {" << int( i2c_->CCR & 0x7ff ) << "}\t";
-    o << "TRISE: {" << int( i2c_->TRISE ) << "(" << ((i2c_->TRISE&0x3f)-1)/(i2c_->CR2&0x3f) << "us)}" << std::endl;
-    
-    o << "CR1,2: [" << i2c_->CR1 << "," << i2c_->CR2 << "]\t" << CR1_to_string( i2c_->CR1 ) << "\t" << CR2_to_string( i2c_->CR2 ) << "\t";
-    o << "SR1,2: " << status32_to_string( i2c_status( *i2c_ )() ) << std::endl;
+    i2c_string::print_registers( std::move( o ), i2c_ );
 
     int count = 10;
     while( --count && ( i2c_->SR2 & BUSY ) )
