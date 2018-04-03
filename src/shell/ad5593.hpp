@@ -87,6 +87,7 @@ namespace ad5593 {
         
         bool set_function( int pin, AD5593R_IO_FUNCTION );
         AD5593R_IO_FUNCTION function( int pin ) const;
+        const char * function_by_name( int pin ) const;
         uint8_t adc_enabled() const;
 
         bool set_adc_sequence( uint16_t );
@@ -95,10 +96,14 @@ namespace ad5593 {
         bool fetch();
         bool commit();
         bool reset();
+
+        static constexpr int Vref = 2500;
+        
+        static inline int32_t mV( uint32_t a )          { return int( a & 0x0fff ) * Vref / 4096; }
+        static inline int32_t temperature( uint32_t a ) { return 25000 + int( a & 0x0fff ) - 82000 / 2654; } // mdegC
         
         void print_config( stream&& ) const;
         void print_registers( stream&& ) const;
-        void print_values( stream&& ) const;
         void print_adc_sequence( stream&&, uint16_t *, size_t ) const;
     };
     

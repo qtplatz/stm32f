@@ -29,6 +29,7 @@
 #include "scoped_spinlock.hpp"
 #include "utility.hpp"
 #include "stream.hpp"
+
 #if defined __linux
 #include <iostream>
 #include <unistd.h>
@@ -376,6 +377,12 @@ AD5593::function( int pin ) const
     return functions_[ pin ];
 }
 
+const char *
+AD5593::function_by_name( int pin ) const
+{
+    return ( functions_[ pin ] < countof( __io_function_name ) ) ? __io_function_name[ functions_[ pin ] ] : "n/a";
+}
+
 bool
 AD5593::reset()
 {
@@ -498,25 +505,6 @@ AD5593::adc_sequence() const
 }
 
 void
-AD5593::print_values( stream&& o ) const
-{
-    for ( int pin = 0; pin < number_of_pins; ++pin ) {
-        if ( functions_[ pin ] < countof( __io_function_name ) )
-            o << "pin #" << pin << " = " << __io_function_name[ functions_[ pin ] ] << "\t";
-        else
-            o << "pin #" << pin << " = " << functions_[ pin ] << "\t";
-        uint16_t v = value( pin );
-        if ( functions_[ pin ] == DAC ) {
-            o << ( v & 80 ? "" : "FORMAT ERROR: ") << (( v >> 12 ) & 03) << "\t" << ( v & 0x0fff ) << std::endl;
-        } else if ( functions_[ pin ] == ADC ) {
-            o << ( v & 80 ? "FORMAT ERROR: " : "") << (( v >> 12 ) & 03) << "\t" << ( v & 0x0fff ) << std::endl;
-        } else {
-            o << v << std::endl;
-        }
-    }
-}
-
-void
 AD5593::print_registers( stream&& o ) const
 {
     o << "----------- AD5593 REGISTERS ------------\n";    
@@ -559,13 +547,13 @@ AD5593::print_adc_sequence( stream&& o, uint16_t * sequence, size_t size ) const
     constexpr int Vref = 2500;
     std::for_each( sequence, sequence + size, [&]( const uint16_t& a ){
             int pin = a >> 12;
-            int v = int( a & 0x0fff ) * Vref / 4096;
+            int v = mV( a );
             if ( pin != 8 ) {
                 o << "[" << int( a >> 12 ) << "] " << v << "\t";
                 if ( v < 999 )
                     o << "\t";
             } else {
-                auto temp = ( 25000 + int(a & 0x0fff) - 820000 / 2654 ) / 10;
+                auto temp = temperature( a ) / 10;
                 auto minor = temp % 100;
                 o << "[T] " << ( temp / 100 ) << "." << ( minor < 10 ? "0" : "" ) << minor << "(degC)\t";
             }

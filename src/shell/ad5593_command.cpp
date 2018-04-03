@@ -18,8 +18,36 @@ namespace ad5593 {
     static uint8_t __ad5593_allocator__[ sizeof( ad5593::AD5593 ) ];
 }
 
-extern void i2c_command( size_t argc, const char ** argv );
+extern std::atomic< uint32_t > atomic_milliseconds;
+
+void i2c_command( size_t argc, const char ** argv );
 void mdelay ( uint32_t ms );
+
+static void
+ad5593_print_values( stream&& o )
+{
+    using namespace ad5593;
+
+    for ( int pin = 0; pin < 8; ++pin ) {
+        const uint16_t a = __ad5593->value( pin );
+        const auto func = __ad5593->function( pin );
+
+        o << "pin #" << pin << " = " << __ad5593->function_by_name( pin ) << "\t";
+
+        if ( __ad5593->function( pin ) == DAC ) {
+            o << (( a >> 12 ) & 03 ) << "\t" << uint16_t( a & 0x0fff ) << "\t" << AD5593::mV( a ) << "\t(mV)";
+            if ( ! ( a & 0x8000 ) )
+                o << "\tFORMAT ERROR: " << a;
+        } else if ( __ad5593->function( pin ) == ADC ) {
+            o << (( a >> 12 ) & 03 ) << "\t" << uint16_t( a & 0x0fff ) << "\t" << AD5593::mV( a ) << "\t(mV)";
+            if ( a & 0x8000 )
+                o << "FORMAT ERROR: " << a;
+        } else {
+            o << a;
+        }
+        o << std::endl;
+    }
+}
 
 void
 ad5593_command( size_t argc, const char ** argv )
@@ -41,9 +69,6 @@ ad5593_command( size_t argc, const char ** argv )
         __ad5593->fetch();
     }
     
-    double volts = 1.0;
-    double Vref = 3.3;
-
     if ( argc == 1 ) {
         if ( __ad5593->fetch() )
             __ad5593->print_config( stream(__FILE__,__LINE__) );
@@ -99,7 +124,6 @@ ad5593_command( size_t argc, const char ** argv )
                 if ( ! __ad5593->set_adc_sequence( __ad5593->adc_enabled() | 0x0200 ) )
                     stream(__FILE__,__LINE__) << "ADC sequence set failed\n";                
             }
-        } else if ( strcmp( argv[0], "dac" ) == 0 ) {  // ad5593 dac 0 1 2...
 
         } else if ( strcmp( argv[0], "adc?" ) == 0 ) {  // ad5593 adc 0 1 2...
             std::array< uint16_t, 4 > data( { 0 } );
@@ -109,19 +133,17 @@ ad5593_command( size_t argc, const char ** argv )
                 stream() << "adc sequence got failed.\n";
             }
 
-        } else if ( strcmp( argv[0], "pin?" ) == 0 ) {
-            for ( int pin = 0; pin < 8; ++pin ) {
-                stream() << "pin " << pin << " function = " << __ad5593->function( pin ) << std::endl;
-            }            
-        } else if ( strcmp( argv[0], "value?" ) == 0 ) {
-            __ad5593->print_values( stream() );
-        } else if ( strcmp( argv[0], "value" ) == 0 ) {
-            int pin = 0;
-            while ( argc && std::isdigit( *argv[1] ) && pin < 8 ) {
-                --argc; ++argv;
-                uint32_t value = strtod( argv[0] );
-                __ad5593->set_value( pin++, value );
-            }
+        } else if ( strcmp( argv[0], "pin?" ) == 0 || strcmp( argv[0], "value?" ) == 0 ) {
+
+            ad5593_print_values( stream() );
+            
+        } else if ( std::isdigit( *argv[0] ) && *(argv[0] + 1) == '=' ) {
+
+            int pin = *argv[0] - '0';
+            const char * p = argv[0] + 2;            
+            if ( pin < 8 )
+                *p && __ad5593->set_value( pin, strtox( p ) );
+
         } else if ( strcmp( argv[0], "stop" ) == 0 ) {
 
             stm32f103::timer_t< stm32f103::TIM3_BASE >::clear_callback();
@@ -152,6 +174,7 @@ ad5593_command( size_t argc, const char ** argv )
                     static uint32_t value;
                     static uint32_t pin;
                     static bool flag;
+                    static uint32_t tp;
 
                     flag = !flag;
 
@@ -166,9 +189,12 @@ ad5593_command( size_t argc, const char ** argv )
                         }
                         __ad5593->set_value( pin++, value );
                     } else {
-                        std::array< uint16_t, 5 > adc( { 0 } );
-                        if ( __ad5593->read_adc_sequence( adc ) )
-                            __ad5593->print_adc_sequence( std::move(stream() << "\t"), adc.data(), adc.size() );
+                        if ( ( atomic_milliseconds.load() - tp ) > 200 ) {
+                            tp = atomic_milliseconds.load();
+                            std::array< uint16_t, 5 > adc( { 0 } );
+                            if ( __ad5593->read_adc_sequence( adc ) )
+                                __ad5593->print_adc_sequence( std::move(stream() << "\t"), adc.data(), adc.size() );
+                        }
                     }
                 });
         }
