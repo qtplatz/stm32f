@@ -3,6 +3,9 @@
 // Author: Toshinobu Hondo, Ph.D.
 // Contact: toshi.hondo@qtplatz.com
 //
+// stm32f> can [cr]  // register disp
+// stm32f> cansend 0ab#123456789a
+// stm32f> candump [cr]
 
 #include "can.hpp"
 #include "condition_wait.hpp"
@@ -36,7 +39,7 @@ cansend( const char * data )
     msg.DLC = 8;
 
     if ( !data )
-        data = "0aa#55aa112233445566";
+        data = "02#55aa112233445566";
 
     char * endp;
     msg.ID = strtox( data, &endp );
