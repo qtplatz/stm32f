@@ -124,6 +124,9 @@ can_command( size_t argc, const char ** argv )
                 stream() << "can silent " << ( cbus->silent_mode() ? "on" : "off" ) << std::endl;
             } else {
                 stream() << "unknown option: " << argv[ 0 ] << std::endl;
+                stream() << "usage:\n\tcan loopback {on|off}" << std::endl;
+                stream() << "\tcan silent {on|off}" << std::endl;
+                return;
             }
         }
     } else if ( strcmp( argv[ 0 ], "cansend" ) == 0 ) {
