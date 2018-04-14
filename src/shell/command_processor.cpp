@@ -41,6 +41,7 @@ void gpio_command( size_t argc, const char ** argv );
 void timer_command( size_t argc, const char ** argv );
 void date_command( size_t argc, const char ** argv );
 void hwclock_command( size_t argc, const char ** argv );
+void help( size_t argc, const char ** argv );
 
 void
 system_reset( size_t argc, const char ** argv )
@@ -407,8 +408,22 @@ static const premitive command_table [] = {
     , { "timer",  timer_command,   "" }
     , { "date",   date_command,     " show current date time; date --set 'iso format date'" }
     , { "hwclock", hwclock_command, "" }
-    , { "reset", system_reset, "" }    
+    , { "reset", system_reset, "" }
+    , { "help", help, "" }
+    , { "?", help, "" }    
 };
+
+void
+help( size_t argc, const char ** argv )
+{
+    stream() << "command processor -- help" << std::endl;
+    for ( auto& cmd: command_table )
+        stream() << "\t" << cmd.arg0_ << cmd.help_ << std::endl;
+    
+    stream() << "----------------- RCC -----------------" << std::endl;
+    static const char * rcc_argv[] = { "rcc", 0 };
+    rcc_status( 1, rcc_argv );
+}
 
 bool
 command_processor::operator()( size_t argc, const char ** argv ) const
@@ -434,14 +449,8 @@ command_processor::operator()( size_t argc, const char ** argv ) const
             }
         }
         
-        if ( ! processed ) {
-            stream() << "command processor -- help" << std::endl;
-            for ( auto& cmd: command_table )
-                stream() << "\t" << cmd.arg0_ << cmd.help_ << std::endl;
-
-            stream() << "----------------- RCC -----------------" << std::endl;
-            static const char * rcc_argv[] = { "rcc", 0 };
-            rcc_status( 1, rcc_argv );
+        if ( ! processed && argc > 0 ) {
+            stream() << "Unknown command: " << argv[0] << "\ttype help for command list" << std::endl;
         }
     }
     stream() << std::endl;

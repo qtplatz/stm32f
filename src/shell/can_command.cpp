@@ -29,6 +29,8 @@ constexpr const char * __can_status_strings [] = {
 
 extern void mdelay( uint32_t );
 
+static uint32_t __cansend_repeat;
+
 void
 cansend( const char * data )
 {
@@ -38,8 +40,11 @@ cansend( const char * data )
     msg.RTR = CAN_RTR_DATA;
     msg.DLC = 8;
 
+    if ( __cansend_repeat == 0 )
+        __cansend_repeat = 1;
+
     if ( !data )
-        data = "02#55aa112233445566";
+        data = "041#0101010101010101";
 
     char * endp;
     msg.ID = strtox( data, &endp );
@@ -66,11 +71,14 @@ cansend( const char * data )
 
     if ( msg.ID ) {
         auto can = stm32f103::can_t< stm32f103::CAN1_BASE >::instance();
-        can->filter( 0, CAN_FIFO_0, CAN_FILTER_32BIT, CAN_FILTER_MASK, 0, 0 );
-        auto mbx = can->transmit( &msg );
-        mdelay(10);
-        auto state = can->tx_status( mbx );
-        stream(__FILE__,__LINE__) << __can_status_strings[ state ] << std::endl;
+        can->filter( 0, CAN_FIFO_0, CAN_FILTER_32BIT, CAN_FILTER_MASK, 0, 0 ); // idx, fifo, scale, mode, fr1, fr2
+        for ( uint32_t i = 0; i < __cansend_repeat; ++i ) {
+            auto mbx = can->transmit( &msg );
+            auto state = can->tx_status( mbx );
+            if ( state != CAN_OK )
+                stream(__FILE__,__LINE__) << __can_status_strings[ state ] << std::endl;
+            mdelay( 100 );
+        }
     }
 }
 
@@ -84,10 +92,13 @@ candump()
         mdelay( 10 );
 
     while ( auto rx = can->rx_queue_get() ) {
-        stream() << "\tID: " << rx->ID << ", RTR: " << rx->RTR
-                 << ", DLC: " << rx->DLC << ", FMI: " << rx->FMI << "\tdata: \t";
+        stream() << "\nCAN Recv:\tID: " << rx->ID << ", RTR: " << rx->RTR
+                                               << ", DLC: " << rx->DLC << ", FMI: " << rx->FMI << "\tdata: \t";
         for ( int i = 0; i < sizeof( rx->Data ); ++i )
             stream() << rx->Data[ i ] << ", ";
+
+        stream() << std::endl;
+        
         can->rx_queue_free();
     }
 }
@@ -95,6 +106,11 @@ candump()
 void
 can_command( size_t argc, const char ** argv )
 {
+    if ( ! stm32f103::can_t< stm32f103::CAN1_BASE >::callback_ ) {
+        stm32f103::can_t< stm32f103::CAN1_BASE >::set_callback( &candump );
+        stm32f103::can_t< stm32f103::CAN1_BASE >::instance()->filter( 0, CAN_FIFO_0, CAN_FILTER_32BIT, CAN_FILTER_MASK, 0, 0 );
+    }
+
     if ( strcmp( argv[ 0 ], "can" ) == 0 ) {
 
         auto cbus = stm32f103::can_t< stm32f103::CAN1_BASE >::instance();
@@ -122,6 +138,11 @@ can_command( size_t argc, const char ** argv )
                     ++argv; --argc;
                 }
                 stream() << "can silent " << ( cbus->silent_mode() ? "on" : "off" ) << std::endl;
+            } else if ( strcmp( argv[ 0 ], "repeat" ) == 0 ) {
+                if ( argc ) {
+                    __cansend_repeat = strtod( argv[ 1 ] );
+                    ++argv; --argc;                    
+                }
             } else {
                 stream() << "unknown option: " << argv[ 0 ] << std::endl;
                 stream() << "usage:\n\tcan loopback {on|off}" << std::endl;

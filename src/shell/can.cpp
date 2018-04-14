@@ -289,12 +289,12 @@ can::init( stm32f103::CAN_BASE base, uint32_t control )
             }
 
             //uint32_t prescaler = ( pclk1 / 18 ) / 1000000;   // 1Mbps
-            //uint32_t prescaler = ( pclk1 / 18 ) /    500000; // 500kbps
+            uint32_t prescaler = ( pclk1 / 18 ) /    500000; // 500kbps
             //uint32_t prescaler = ( pclk1 / 18 ) /  250000;   // 250kbps
-            uint32_t prescaler = ( pclk1 / 18 ) /  125000;     // 125kbps
+            //uint32_t prescaler = ( pclk1 / 18 ) /  125000;     // 125kbps
 
             //                  SJW       BS1           // BS2       
-            uint32_t btr = ( 0 << 24 ) | ( 1 << 16 ) | ( 2 << 20 ) | ( prescaler & 0x1ff ) - 1;
+            uint32_t btr = ( 0 << 24 ) | ( 1 << 16 ) | ( 2 << 20 ) | (( prescaler - 1 ) & 0x1ff );
             
             can_->BTR =  btr;
 
@@ -387,23 +387,25 @@ can::transmit( CanMsg * msg )
 	uint32_t data;
 
 	/* Select one empty transmit mailbox */
-	if (can_->TSR & CAN_TSR_TME0)
+	if (can_->TSR & CAN_TSR_TME0) 
 		mbx = CAN_TX_MBX0;
 	else if (can_->TSR & CAN_TSR_TME1)
 		mbx = CAN_TX_MBX1;
 	else if (can_->TSR & CAN_TSR_TME2)
 		mbx = CAN_TX_MBX2;
-	else	{
+	else {
 		status_ = CAN_NO_MB;
 		return CAN_TX_NO_MBX;
 	}
 
+    tx_status_[ mbx ] = 0;
+
     /* Set up the Id */
     // stdid[31:21]; exxid[31:3]
     if (msg->IDE == CAN_ID_STD)
-		data = (msg->ID << 21);             // 10bit standard id
+		data = ( msg->ID << 21 );             // 10bit standard id
     else
-		data = (msg->ID << 3) | CAN_ID_EXT; // 28bit extended id
+		data = ( msg->ID << 3 ) | CAN_ID_EXT; // 28bit extended id
 
 	data |= msg->RTR;
 
@@ -431,47 +433,31 @@ can::transmit( CanMsg * msg )
 }
 
 CAN_STATUS
-can::tx_status( CAN_TX_MBX mbx )
+can::tx_status( CAN_TX_MBX mbx, uint32_t timeout )
 {
 	/* RQCP, TXOK and TME bits */
-	uint8_t state = 0;
+    if ( condition_wait( timeout )( [&]{ return tx_status_[ mbx ].load(); } ) ) {
 
-	switch (mbx) {
-	case CAN_TX_MBX0:
-		state |= (can_->TSR & CAN_TSR_RQCP0) ? 4 : 0;
-		state |= (can_->TSR & CAN_TSR_TXOK0) ? 2 : 0;
-		state |= (can_->TSR & CAN_TSR_TME0)  ? 1 : 0;
-		break;
-	case CAN_TX_MBX1:
-		state |= (can_->TSR & CAN_TSR_RQCP1) ? 4 : 0;
-		state |= (can_->TSR & CAN_TSR_TXOK1) ? 2 : 0;
-		state |= (can_->TSR & CAN_TSR_TME1)  ? 1 : 0;
-		break;
-	case CAN_TX_MBX2:
-		state |= (can_->TSR & CAN_TSR_RQCP2) ? 4 : 0;
-		state |= (can_->TSR & CAN_TSR_TXOK2) ? 2 : 0;
-		state |= (can_->TSR & CAN_TSR_TME2)  ? 1 : 0;
-		break;
-	default:
-		status_ = CAN_TX_FAILED;
-		return status_;
-	}
+        uint8_t state = tx_status_[ mbx ];
 
-	// state = RQCP TXOK TME
-	switch ( state ) {
-	case 0x0:
-		status_ = CAN_TX_PENDING;
-		break;
-	case 0x5:
-		status_ = CAN_TX_FAILED;
-		break;
-	case 0x7:
-		status_ = CAN_OK;
-		break;
-	default:
-		status_ = CAN_TX_FAILED;
-		break;
-	}
+        switch ( state ) {
+        case 0x0:
+            status_ = CAN_TX_PENDING;
+            break;
+        case 0x5:
+            status_ = CAN_TX_FAILED;
+            break;
+        case 0x7:
+            status_ = CAN_OK;
+            break;
+        default:
+            status_ = CAN_TX_FAILED;
+            break;
+        }
+    } else {
+        stream(__FILE__,__LINE__,__FUNCTION__) << "timeout : " << tx_status_[ mbx ] << std::endl;
+        status_ = CAN_TX_FAILED; // timeout
+    }
 	return status_;
 }
 
@@ -596,12 +582,13 @@ can::rx_read( CAN_FIFO fifo )
 void
 can::handle_rx0_interrupt()
 {
-    stream(__FILE__,__LINE__,__FUNCTION__) << "\n" << std::endl;
-    
     while (( can_->RF0R & CAN_RF0R_FMP0 ) != 0)
         can::rx_read( CAN_FIFO_0 );		// message pending FIFO0
+
     while (( can_->RF1R & CAN_RF1R_FMP1 ) != 0)
         can::rx_read( CAN_FIFO_1 );		// message pending FIFO1
+
+    stm32f103::can_t< CAN1_BASE >::callback();
 }
 
 void
@@ -615,16 +602,26 @@ can::handle_tx_interrupt()
 {
     auto tsr = can_->TSR;
 
-    stream(__FILE__,__LINE__,__FUNCTION__) << "\t" << tsr << std::endl;    
-    
-    if ( tsr & CAN_TSR_RQCP0)
+    if ( tsr & CAN_TSR_RQCP0) {
+        tx_status_[ 0 ] =  tsr & CAN_TSR_RQCP0 ? 4 : 0;
+        tx_status_[ 0 ] |= tsr & CAN_TSR_TXOK0 ? 2 : 0;
+        tx_status_[ 0 ] |= tsr & CAN_TSR_TME0  ? 1 : 0;
         can_->TSR |= CAN_TSR_RQCP0;		// reset request complete mbx 0
+    }
 
-    if ( tsr & CAN_TSR_RQCP1)
+    if ( tsr & CAN_TSR_RQCP1) {
+        tx_status_[ 1 ] =  tsr & CAN_TSR_RQCP1 ? 4 : 0;
+        tx_status_[ 1 ] |= tsr & CAN_TSR_TXOK1 ? 2 : 0;
+        tx_status_[ 1 ] |= tsr & CAN_TSR_TME1  ? 1 : 0;   
         can_->TSR |= CAN_TSR_RQCP1;		// reset request complete mbx 1
+    }
 
-    if ( tsr & CAN_TSR_RQCP2)
+    if ( tsr & CAN_TSR_RQCP2) {
+        tx_status_[ 2 ] =  tsr & CAN_TSR_RQCP2 ? 4 : 0;
+        tx_status_[ 2 ] |= tsr & CAN_TSR_TXOK2 ? 2 : 0;
+        tx_status_[ 2 ] |= tsr & CAN_TSR_TME2  ? 1 : 0;   
         can_->TSR |= CAN_TSR_RQCP2;		// reset request complete mbx 2
+    }
 }
 
 void

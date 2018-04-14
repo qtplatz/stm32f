@@ -3,6 +3,7 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include "scoped_spinlock.hpp"
 
 //  CAN Master Control Register bits
 enum CAN_MasterControlRegister {
@@ -88,6 +89,8 @@ namespace stm32f103 {
         uint8_t rx_count_;
         uint8_t rx_lost_;
         uint8_t active_;
+        std::atomic< uint8_t > tx_status_[3];
+        
         CanMsg rx_queue_[ CAN_RX_QUEUE_SIZE ];
         CAN_STATUS init_enter();
         CAN_STATUS init_leave();
@@ -123,7 +126,7 @@ namespace stm32f103 {
                            , uint32_t fr1 = 0, uint32_t fr2 = 0 );
 
         CAN_TX_MBX transmit( CanMsg* msg );
-        CAN_STATUS tx_status( CAN_TX_MBX mbx );
+        CAN_STATUS tx_status( CAN_TX_MBX mbx, uint32_t timeout = 0xffff );
 
         void cancel( uint8_t );
 
@@ -143,6 +146,9 @@ namespace stm32f103 {
     template< CAN_BASE base > struct can_t {
 
         static std::atomic_flag once_flag_;
+        static std::atomic_flag guard_;
+        
+        static void(*callback_)();
 
         static inline can * instance() {
             static can __instance;
@@ -150,9 +156,29 @@ namespace stm32f103 {
                 __instance.init( base );            
             return &__instance;
         }
+
+        static void set_callback( void (*cb)() ) {
+            scoped_spinlock<> guard( guard_ );
+            callback_ = cb;
+        }
+
+        static void clear_callback() {
+            scoped_spinlock<> guard( guard_ );            
+            callback_ = nullptr;
+        }
+
+        static bool callback() {
+            scoped_spinlock<> guard( guard_ );
+            if ( stm32f103::can_t< base >::callback_ ) {
+                stm32f103::can_t< base >::callback_();
+                return true;
+            }
+            return false;
+        }
     };
     
     template< CAN_BASE base > std::atomic_flag can_t< base >::once_flag_;
-    
+    template< CAN_BASE base > std::atomic_flag can_t<base>::guard_;
+    template< CAN_BASE base > void (*can_t<base>::callback_)();
 }
 
