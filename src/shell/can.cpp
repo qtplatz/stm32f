@@ -298,16 +298,13 @@ can::set_bitrate( uint32_t bitrate )
     constexpr uint32_t __500kbps = 0x001e0003; // n_tq = 18, prescaler = 4, s1=15, s2=2
     constexpr uint32_t __250kbps = 0x001c0008; // n_tq = 16, prescaler = 9, s1=13, s2=2
     constexpr uint32_t __125kbps = 0x001c0011; // n_tq = 16, prescaler = 18, s1=13, s2=2
-    constexpr uint32_t SJW = 1;
+    constexpr uint32_t SJW = 0;
             
-    uint32_t btr = __250kbps | ((SJW - 1) << 24);
-            
-    can_->BTR =  btr;
-    
     scoped_can_init can_init( *can_ );
-    if ( can_init.enter() == CAN_OK ) {
+    CAN_STATUS status;
+    if ( ( status = can_init.enter() ) == CAN_OK ) {
         if ( bitrate >= 1000000 )
-            can_->BTR = (SJW << 24) | _1000kbps;
+            can_->BTR = SJW | _1000kbps;
         else if ( bitrate >= 500000 )
             can_->BTR = (SJW << 24) | __500kbps;
         else if ( bitrate >= 250000 )
@@ -315,7 +312,7 @@ can::set_bitrate( uint32_t bitrate )
         else 
             can_->BTR = (SJW << 24) | __125kbps;                
 	}
-    return status_;
+    return status;
 }
 
 CAN_STATUS
@@ -647,21 +644,23 @@ can::print_registers()
     print()( stream(), std::bitset< 32 >( can_->FA1R ), "FA1R", std::bitset<32>( 0xf<<28 ) ) << "\t" << can_->FA1R << std::endl;
 
     uint32_t btr = can_->BTR;
-    int16_t brp = btr & 0x3f;
+    int16_t prescaler = ( btr & 0x3f ) + 1;
     int32_t ts1 = int(( btr >> 16 ) & 0x0f) + 1;
     int32_t ts2 = int(( btr >> 20 ) & 7) + 1;
     int32_t sjw = int(( btr >> 24 ) & 3) + 1;
+    int32_t n_tq = 1 + ts1 + ts2;
 
     //auto prescaler = ( pclk1 / 18 ) / 500000;  // bps
     
-    stream() << "BTR prescaler=" << ( brp + 1 )
+    stream() << "BTR prescaler=" << prescaler
              << " sync-seg=1" // fixed; see p670, 24.7.7 RM0008 Rev 17
              << " time-seg1="  << ts1
              << " time-seg2="  << ts2
              << " SJW="        << sjw
-             << " n_tq="       << (1 + ts1 + ts2)
+             << " n_tq="       << n_tq
              << " loopback-mode:" << (btr & 0x40000000 ? "[on]" : "[off]" )
              << " silent-mode:" << (btr & 0x80000000 ? "[on]" : "[off]" );
+    stream() << " baudrate=" << int( pclk1 / ( prescaler * n_tq ) );
 }
 
 bool

@@ -143,10 +143,11 @@ can_command( size_t argc, const char ** argv )
                 stream() << "can silent " << ( cbus->silent_mode() ? "on" : "off" ) << std::endl;
             } else if ( strcmp( argv[ 0 ], "bitrate" ) == 0 ) {
                 if ( argc ) {
-                    uint32_t bitrate = strtod( argv[ 1 ] );
-                    if ( bitrate <= 1000 )
-                        bitrate *= 1000;
-                    cbus->set_bitrate( bitrate * 1000 );
+                    int32_t bitrate = strtod( argv[ 1 ] );
+                    if ( cbus->set_bitrate( bitrate * 1000 ) == CAN_OK )
+                        stream() << "can bitrate(" << bitrate << ")";
+                    else
+                        stream() << "can cannot enter init-mode";
                     ++argv; --argc;                    
                 } else {
                     stream() << "\tcan bitrate {125|250|500|1000}";
