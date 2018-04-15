@@ -116,6 +116,8 @@ namespace stm32f103 {
 
         CAN_STATUS set_silent_mode( bool );
         CAN_STATUS set_loopback_mode( bool );
+        CAN_STATUS set_bitrate( uint32_t );
+        
         bool loopback_mode() const;
         bool silent_mode() const;
         

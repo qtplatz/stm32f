@@ -8,6 +8,7 @@
 #include "stm32f103.hpp"
 #include <bitset>
 #include <cstdint>
+#include <ratio>
 
 // each I/O port registers have to be accessed as 32bit words. (reference manual pp158/1133)
 // reference
@@ -221,38 +222,12 @@ CAN_STATUS
 can::init_enter()
 {
     return stm32f103::can_init_enter()( *can_ );
-	// volatile uint32_t wait_ack;
-
-	// status_ = CAN_OK;
-	// if ((can_->MSR & CAN_MSR_INAK) == 0) {	// Check for initialization mode already set
-    //     bitset::set( can_->MCR, CAN_MCR_INRQ );			// Request initialisation
-
-	// 	wait_ack = 0;						// Wait the acknowledge
-	// 	while ((wait_ack != CAN_INAK_TimeOut) && (( can_->MSR & CAN_MSR_INAK) == 0))
-	// 		wait_ack++;
-	// 	if (( can_->MSR & CAN_MSR_INAK) == 0)
-	// 		status_ = CAN_INIT_E_FAILED;		// Timeout
-	// }
-	// return status_;
 }
 
 CAN_STATUS
 can::init_leave()
 {
     return stm32f103::can_init_leave()( *can_ );
-	// volatile uint32_t wait_ack;
-
-	// status_ = CAN_OK;
-	// if ((can_->MSR & CAN_MSR_INAK) != 0) {	// Check for initialization mode already reset
-	// 	can_->MCR &= ~CAN_MCR_INRQ;			// Request initialization
-        
-	// 	wait_ack = 0;						// Wait the acknowledge
-	// 	while ((wait_ack != CAN_INAK_TimeOut) && ((can_->MSR & CAN_MSR_INAK) != 0))
-	// 		wait_ack++;
-	// 	if ((can_->MSR & CAN_MSR_INAK) != 0)
-	// 		status_ = CAN_INIT_L_FAILED;
-	// }
-	// return status_;
 }
 
 
@@ -288,15 +263,7 @@ can::init( stm32f103::CAN_BASE base, uint32_t control )
                 return status_;                              // error, so return
             }
 
-            //uint32_t prescaler = ( pclk1 / 18 ) / 1000000;   // 1Mbps
-            uint32_t prescaler = ( pclk1 / 18 ) /    500000; // 500kbps
-            //uint32_t prescaler = ( pclk1 / 18 ) /  250000;   // 250kbps
-            //uint32_t prescaler = ( pclk1 / 18 ) /  125000;     // 125kbps
-
-            //                  SJW       BS1           // BS2       
-            uint32_t btr = ( 0 << 24 ) | ( 1 << 16 ) | ( 2 << 20 ) | (( prescaler - 1 ) & 0x1ff );
-            
-            can_->BTR =  btr;
+            set_bitrate( 250000 );
 
             // p680 interrupt enable register
             bitset::set( can_->IER,
@@ -317,6 +284,37 @@ can::init( stm32f103::CAN_BASE base, uint32_t control )
         enable_interrupt( stm32f103::CAN1_RX0_IRQn );
     }
 
+    return status_;
+}
+
+CAN_STATUS
+can::set_bitrate( uint32_t bitrate )
+{
+    // BTW based on CAN Bit Time Calculation web site
+    // http://www.bittiming.can-wiki.info/
+
+    constexpr uint32_t _2000kbps = 0x001e0000; // n_tq = 18, prescaler = 1, s1=15, s2=2    
+    constexpr uint32_t _1000kbps = 0x001e0001; // n_tq = 18, prescaler = 2, s1=15, s2=2
+    constexpr uint32_t __500kbps = 0x001e0003; // n_tq = 18, prescaler = 4, s1=15, s2=2
+    constexpr uint32_t __250kbps = 0x001c0008; // n_tq = 16, prescaler = 9, s1=13, s2=2
+    constexpr uint32_t __125kbps = 0x001c0011; // n_tq = 16, prescaler = 18, s1=13, s2=2
+    constexpr uint32_t SJW = 1;
+            
+    uint32_t btr = __250kbps | ((SJW - 1) << 24);
+            
+    can_->BTR =  btr;
+    
+    scoped_can_init can_init( *can_ );
+    if ( can_init.enter() == CAN_OK ) {
+        if ( bitrate >= 1000000 )
+            can_->BTR = (SJW << 24) | _1000kbps;
+        else if ( bitrate >= 500000 )
+            can_->BTR = (SJW << 24) | __500kbps;
+        else if ( bitrate >= 250000 )
+            can_->BTR = (SJW << 24) | __250kbps;
+        else 
+            can_->BTR = (SJW << 24) | __125kbps;                
+	}
     return status_;
 }
 
@@ -647,6 +645,23 @@ can::print_registers()
     print()( stream(), std::bitset< 32 >( can_->FS1R ), "FS1R", std::bitset<32>( 0xf<<28 ) ) << "\t" << can_->FS1R << std::endl;    
     print()( stream(), std::bitset< 32 >( can_->FFA1R ), "FFA1R", std::bitset<32>( 0xf<<28 ) ) << "\t" << can_->FFA1R << std::endl;
     print()( stream(), std::bitset< 32 >( can_->FA1R ), "FA1R", std::bitset<32>( 0xf<<28 ) ) << "\t" << can_->FA1R << std::endl;
+
+    uint32_t btr = can_->BTR;
+    int16_t brp = btr & 0x3f;
+    int32_t ts1 = int(( btr >> 16 ) & 0x0f) + 1;
+    int32_t ts2 = int(( btr >> 20 ) & 7) + 1;
+    int32_t sjw = int(( btr >> 24 ) & 3) + 1;
+
+    //auto prescaler = ( pclk1 / 18 ) / 500000;  // bps
+    
+    stream() << "BTR prescaler=" << ( brp + 1 )
+             << " sync-seg=1" // fixed; see p670, 24.7.7 RM0008 Rev 17
+             << " time-seg1="  << ts1
+             << " time-seg2="  << ts2
+             << " SJW="        << sjw
+             << " n_tq="       << (1 + ts1 + ts2)
+             << " loopback-mode:" << (btr & 0x40000000 ? "[on]" : "[off]" )
+             << " silent-mode:" << (btr & 0x80000000 ? "[on]" : "[off]" );
 }
 
 bool

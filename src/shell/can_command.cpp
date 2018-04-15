@@ -48,11 +48,12 @@ cansend( const char * data )
 
     char * endp;
     msg.ID = strtox( data, &endp );
-    stream(__FILE__,__LINE__) << "strtox endp: " << endp << std::endl;
+
     if ( endp && *endp == '#' ) {
         ++endp;
         size_t id(0);
         {
+            // data high 32bit
             uint32_t d = strtox( endp, &endp );
             msg.Data[ id++ ] = d >> 24;
             msg.Data[ id++ ] = d >> 16;
@@ -60,8 +61,8 @@ cansend( const char * data )
             msg.Data[ id++ ] = d;
         }
         {
+            // data low 32bit
             uint32_t d = strtox( endp, &endp );
-            stream() << "data l: " << d << std::endl;
             msg.Data[ id++ ] = d >> 24;
             msg.Data[ id++ ] = d >> 16;
             msg.Data[ id++ ] = d >> 8;
@@ -92,8 +93,10 @@ candump()
         mdelay( 10 );
 
     while ( auto rx = can->rx_queue_get() ) {
-        stream() << "\nCAN Recv:\tID: " << rx->ID << ", RTR: " << rx->RTR
-                                               << ", DLC: " << rx->DLC << ", FMI: " << rx->FMI << "\tdata: \t";
+        // stream() << "\nCAN Recv:\tID: " << rx->ID << ", RTR: " << rx->RTR
+        //                                        << ", DLC: " << rx->DLC << ", FMI: " << rx->FMI << "\tdata: \t";
+        stream() << "\nCAN Recv:\tID: " << rx->ID << "\tdata:\t";
+
         for ( int i = 0; i < sizeof( rx->Data ); ++i )
             stream() << rx->Data[ i ] << ", ";
 
@@ -138,6 +141,16 @@ can_command( size_t argc, const char ** argv )
                     ++argv; --argc;
                 }
                 stream() << "can silent " << ( cbus->silent_mode() ? "on" : "off" ) << std::endl;
+            } else if ( strcmp( argv[ 0 ], "bitrate" ) == 0 ) {
+                if ( argc ) {
+                    uint32_t bitrate = strtod( argv[ 1 ] );
+                    if ( bitrate <= 1000 )
+                        bitrate *= 1000;
+                    cbus->set_bitrate( bitrate * 1000 );
+                    ++argv; --argc;                    
+                } else {
+                    stream() << "\tcan bitrate {125|250|500|1000}";
+                }
             } else if ( strcmp( argv[ 0 ], "repeat" ) == 0 ) {
                 if ( argc ) {
                     __cansend_repeat = strtod( argv[ 1 ] );
@@ -147,6 +160,7 @@ can_command( size_t argc, const char ** argv )
                 stream() << "unknown option: " << argv[ 0 ] << std::endl;
                 stream() << "usage:\n\tcan loopback {on|off}" << std::endl;
                 stream() << "\tcan silent {on|off}" << std::endl;
+                stream() << "\tcan bitrate {125|250|500|1000}" << std::endl;
                 return;
             }
         }
