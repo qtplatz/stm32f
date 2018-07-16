@@ -1,12 +1,15 @@
 
-all: putty.pdf
+date = "`date +'20%y/%m/%d %H:%M'`"
+
+all: temp.pdf
+#all: putty.pdf
 #all: 2018-03-19.pdf temp.pdf
 
 2018-03-19.tex: 2018-03-19.txt bmp280.gnuplot 
 	gnuplot -c bmp280.gnuplot $@ $< $(basename $@)
 
 temp.tex: ${HOME}/temp.txt bmp280.gnuplot 
-	gnuplot -c bmp280.gnuplot $@ $< $(basename $@)
+	gnuplot -c bmp280.gnuplot $@ $< $(date)
 
 putty.tex: putty.txt bmp280.gnuplot
 	gnuplot -c bmp280.gnuplot $@ $< $(basename $@)
