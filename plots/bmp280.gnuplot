@@ -1,4 +1,4 @@
-set terminal epslatex size 10in,8in color colortext standalone header \
+set terminal epslatex size 12in,9in color colortext standalone header \
 "\\usepackage{graphicx}\n\\usepackage{amsmath}\n\\usepackage[version=3]{mhchem}\n\\usepackage{siunitx}"
 
 set output ARG1
@@ -8,12 +8,12 @@ date = ARG3
 set multiplot layout 2,1
 
 
-set xtics nomirror
+set xtics nomirror rotate
 #set y2tics
 stats logfile using 1 nooutput
 
 set xdata time 
-#set format x "%H:%M" 
+#set format x "%H:%M"
 
 set xlabel sprintf( "Hours (%s)", date )
 #set xlabel sprintf( "Hours (%s)", strftime("%T",time(0)) )
