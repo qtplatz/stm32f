@@ -13,7 +13,7 @@ set xtics nomirror rotate
 stats logfile using 1 nooutput
 
 set xdata time 
-#set format x "%H:%M"
+set format x "%m-%d\n%H:%M"
 
 set xlabel sprintf( "Hours (%s)", date )
 #set xlabel sprintf( "Hours (%s)", strftime("%T",time(0)) )
@@ -21,7 +21,7 @@ set lmargin 12
 
 set ylabel  "Temp.(\\si{\\celsius})"
 set format y "%.2f"
-
+set grid
 #plot logfile using (($1-STATS_max)+time(0)):4 with linespoints pointinterval 600 pt 5 ps 0.5 axes x1y1 title "T"
 
 plot logfile using (($1-STATS_max)+time(0)+3600*9):4 with linespoints pointinterval 600 pt 5 ps 0.5 axes x1y1 title "T"
