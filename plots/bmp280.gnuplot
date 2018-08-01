@@ -4,15 +4,17 @@ set terminal epslatex size 12in,9in color colortext standalone header \
 set output ARG1
 logfile = ARG2
 date = ARG3
+if ( ARGC >= 4 ) {
+  set xrange[time(0)+3600*9-ARG4*3600:time(0)+3600*9]
+}
 
 set multiplot layout 2,1
-
 
 set xtics nomirror rotate
 #set y2tics
 stats logfile using 1 nooutput
 
-set xdata time 
+set xdata time
 set format x "%m-%d\n%H:%M"
 
 set xlabel sprintf( "Hours (%s)", date )

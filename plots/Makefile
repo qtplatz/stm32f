@@ -9,7 +9,7 @@ all: temp.pdf temp-lt.pdf
 	gnuplot -c bmp280.gnuplot $@ $< $(basename $@)
 
 temp.tex: ${HOME}/temp.txt bmp280.gnuplot 
-	gnuplot -c bmp280.gnuplot $@ $< $(date)
+	gnuplot -c bmp280.gnuplot $@ $< $(date) 24
 
 temp-lt.tex: ${HOME}/temp-lt.txt bmp280.gnuplot
 	gnuplot -c bmp280.gnuplot $@ $< $(date)
