@@ -15,7 +15,7 @@ temp-lt.tex: ${HOME}/temp-lt.txt bmp280.gnuplot
 	gnuplot -c bmp280.gnuplot $@ $< $(date)
 
 ${HOME}/temp-lt.txt: ${HOME}/temp.txt ${HOME}/temp1.txt
-	cat ${HOME}/temp1.txt ${HOME}/temp.txt > ${HOME}/temp-lt.txt
+	cat ${HOME}/temp1.txt ${HOME}/temp2.txt ${HOME}/temp.txt > ${HOME}/temp-lt.txt
 
 putty.tex: putty.txt bmp280.gnuplot
 	gnuplot -c bmp280.gnuplot $@ $< $(basename $@)
