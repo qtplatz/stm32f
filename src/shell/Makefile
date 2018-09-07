@@ -44,8 +44,8 @@ OBJCOPY = $(CROSSCOMPILE)objcopy
 # restart gdb
 ####################################################################
 
-CFLAGS   = -mcpu=cortex-m3 -mthumb -Wno-implicit-function-declaration -nostdlib -nodefaultlibs -g -O2
-CXXFLAGS = -mcpu=cortex-m3 -mthumb -std=c++17 -fno-threadsafe-statics -fno-exceptions -fno-unwind-tables -g -O2 -I../
+CFLAGS   = -mcpu=cortex-m3 -mfloat-abi=hard -mthumb -Wno-implicit-function-declaration -nostdlib -nodefaultlibs -g -O2
+CXXFLAGS = -mcpu=cortex-m3 -mfloat-abi=hard -mthumb -std=c++17 -fno-threadsafe-statics -fno-exceptions -fno-unwind-tables -g -O2 -I../
 LDFLAGS = -Tstm32.ld -g -Wl,-Map=shell.map,--cref -nostdlib -nostartfiles -static -Xlinker --gc-sections -fno-exceptions
 
 OCDCFG = -f /usr/share/openocd/scripts/interface/stlink-v2.cfg -f /usr/share/openocd/scripts/target/stm32f1x.cfg
@@ -54,6 +54,7 @@ OBJS = crt0.o main.o prf.o spi.o uart.o stream.o command_processor.o can.o gpio.
 	rcc.o dma.o ad5593.o ad5593_command.o bmp280.o bmp280_command.o i2c_command.o i2c_string.o date_command.o timer.o \
 	rcc_status.o gpio_command.o timer_command.o rtc.o system_clock.o can_command.o \
 	date_time.o bkp.o
+MOBJS = e_log.o e_log10.o
 
 all: shell.elf shell.dump shell.bin
 
@@ -71,6 +72,12 @@ bmp280.o: bmp280.hpp stm32f103.hpp
 timer.o: timer.hpp stm32f103.hpp
 system_clock.o: system_clock.hpp
 
+e_log.o: ../math/e_log.c
+	$(CC) $(CFLAGS) -I../common -o $@ -c $<
+
+e_log10.o: ../math/e_log10.c
+	$(CC) $(CFLAGS) -I../common -o $@ -c $<
+
 date_time.o: ../date_time/date_time.cpp ../date_time/date_time.hpp
 	$(CXX) $(CXXFLAGS) -o date_time.o -c $<
 
@@ -80,8 +87,8 @@ shell.dump:	shell.elf
 shell.bin:	shell.elf
 	$(OBJCOPY) shell.elf shell.bin -O binary
 
-shell.elf: $(OBJS) stm32.ld
-	$(CXX) $(LDFLAGS) -o shell.elf $(OBJS) 
+shell.elf: $(OBJS) $(MOBJS) stm32.ld
+	$(CXX) $(LDFLAGS) -o shell.elf $(OBJS) $(MOBJS)
 
 .PHONY: clean
 clean:

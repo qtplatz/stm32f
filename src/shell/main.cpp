@@ -26,6 +26,9 @@
 #include <algorithm>
 #include <cstddef>
 #include <utility>
+extern "C" {
+#include "../common/fdlibm.h"
+}
 
 extern uint64_t jiffies;  // 100us
 extern uint32_t __bss_start, __bss_end;
@@ -76,6 +79,11 @@ extern "C" {
     void __systick_handler( void );
     void __rcc_handler( void );
     int main();
+}
+
+extern "C" {
+    double __ieee754_log(double x);
+    double __ieee754_log10( double );
 }
 
 void
@@ -258,6 +266,9 @@ main()
     }
 
     init_systick( 7200, true ); // 100us tick
+
+    double x = log( 2.0 );
+    double y = log10( 2.0 );
 
     {
         int x = 0;
