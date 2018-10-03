@@ -377,14 +377,14 @@ command_processor::command_processor()
 {
 }
 
-class premitive {
+class primitive {
 public:
     const char * arg0_;
     void (*f_)(size_t, const char **);
     const char * help_;
 };
 
-static const premitive command_table [] = {
+static const primitive command_table [] = {
     { "spi",    spi_command,    " spi [replicates]" }
     , { "spi2", spi_command,    " spi2 [replicates]" }
     , { "ad5593", ad5593_command,  "ad5593" }
