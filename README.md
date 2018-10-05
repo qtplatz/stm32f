@@ -25,4 +25,3 @@ Reference projects:
 https://github.com/trebisky/stm32f103
 https://github.com/fcayci/stm32f1-bare-metal
 http://www.stm32duino.com/viewtopic.php?t=72
-Reference projects: https://github.com/trebisky/stm32f103 https://github.com/fcayci/stm32f1-bare-metal http://www.stm32duino.com/viewtopic.php?t=72
