@@ -14,9 +14,9 @@ A minor problem is, the class constructor for the global scoped class object doe
 
 Project status:
 
-SPI -- Connect SPI1 and SPI2 by wire, and transmit data has been tested
-I2C -- Read temperature and pressure data from BMP280 has been tested
-RTC -- It seems only works on LSI clock (either HSE and LSE clock did not work so far).
+- SPI -- Connect SPI1 and SPI2 by wire, and transmit data has been tested
+- I2C -- Read temperature and pressure data from BMP280 has been tested
+- RTC -- It seems only works on LSI clock (either HSE and LSE clock did not work so far).
  * Tiny calendar calculation class 'data_time' has been implemented.
  * The system_clock class has been implemented that is used together with std::chrono
 CAN -- Loopback test has been briefly tested without wire.
