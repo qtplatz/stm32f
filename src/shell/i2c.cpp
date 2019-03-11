@@ -29,7 +29,7 @@ extern "C" {
 namespace stm32f103 {
 
     constexpr uint32_t i2c_clock_speed = 100'000; //'; //100kHz
-    
+
     enum I2C_CR1_MASK {
         SWRST          = 1 << 15  // Software reset (0 := not under reset, 0 := under reset state
         , RES0         = 1 << 14  //
@@ -119,29 +119,31 @@ namespace stm32f103 {
                 ;
             bitset::reset( i2c.CR1, SWRST );
             bitset::reset( i2c.CR1, PE );
-            
+
             uint16_t freqrange = uint16_t( __pclk1 / 1000'000 /*'*/ ); // source clk in MHz
             uint16_t cr2 = freqrange;
             i2c.CR2 |= cr2;
-            
-            // p784, 
+
+            // p784,
             i2c.TRISE = freqrange + 1;
             i2c.OAR1 = own_addr << 1;
             i2c.OAR2 = 0;
-            
+
             uint16_t ccr = __pclk1 / ( i2c_clock_speed * 2 );  // ratio make it 5us for 10us interval clock
             i2c.CCR = ccr;  // Sm mode
+
+            return true;
         }
     };
 
-    
+
     // master start
     struct i2c_start {
         volatile I2C& _;
         i2c_start( volatile I2C& t ) : _( t ) {}
 
         // constexpr static uint32_t master_mode_selected = ( ( BUSY | MSL ) << 16 ) | SB;
-        
+
         inline bool operator()() const {
             bitset::set( _.CR1, START );
             return condition_wait()( [&]{ return _.SR1 & SB; } );
@@ -155,7 +157,7 @@ namespace stm32f103 {
         }
         ~scoped_i2c_dma_enable() {
             _.CR2 &= ~DMAEN;
-        }        
+        }
     };
 
     struct scoped_i2c_start {
@@ -180,7 +182,7 @@ namespace stm32f103 {
                     _.SR1 &= ~error_condition; // clear error condition
             }
         }
-        
+
         bool operator()() {
             success = i2c_start( _ )();
             return success;
@@ -189,14 +191,14 @@ namespace stm32f103 {
 
     enum I2C_DIRECTION { Transmitter, Receiver };
 
-    template< I2C_DIRECTION >    
+    template< I2C_DIRECTION >
     struct i2c_address {
         inline bool operator()( volatile I2C& _, uint8_t address ) {
-            
+
             _.DR = ( address << 1 );
             return condition_wait()( [&]{ return _.SR1 & ADDR; } );
         }
-        
+
         void static clear( volatile I2C& _ ) {
             auto x = i2c_status( _ )();
         }
@@ -206,7 +208,7 @@ namespace stm32f103 {
         _.DR = (address << 1) | 1;
         return condition_wait()( [&](){ return _.SR1 & ADDR; } );
     }
-    
+
     template<> void i2c_address<Receiver>::clear( volatile I2C& _ ) {
         auto x = i2c_status( _ )();
     }
@@ -219,7 +221,7 @@ namespace stm32f103 {
         polling_master_receiver( volatile I2C& t ) : _( t ) {
             bitset::set( _.CR1, PE );  // peripheral enable, ACK
         }
-        
+
         I2C_RESULT_CODE operator()( uint8_t address, uint8_t * data, size_t size ) {
             scoped_i2c_start start(_);
             if ( start() ) {
@@ -276,18 +278,18 @@ namespace stm32f103 {
                         --size;
                         if ( condition_wait()( [&](){ return !bitset::test(_.SR2, BUSY); } ) ) {
                             bitset::reset( _.CR1, POS );
-                        } 
+                        }
                     }
                 }
                 return size == 0 ? I2C_RESULT_SUCCESS : I2C_POLLING_MASTER_RECEIVER_RECV_TIMEOUT;
             }
-        } else
-            return I2C_POLLING_MASTER_TRANSMITTER_START_FAILED;
+        }
+        return I2C_POLLING_MASTER_TRANSMITTER_START_FAILED;
     }
 
     template<> I2C_RESULT_CODE polling_master_receiver< 1 >::operator()( uint8_t address, uint8_t * data, size_t size ) {
         scoped_i2c_start start(_);
-        if ( start() ) {        
+        if ( start() ) {
             if ( i2c_address< Receiver >()( _, address ) ) {
                 bitset::reset( _.CR1, ACK );           // ACK = 0
                 i2c_address<Receiver>().clear( _ );    // Clear ADDR
@@ -318,9 +320,9 @@ namespace stm32f103 {
     struct i2c_ready_wait {
         volatile I2C& _;
         uint8_t own_addr_;
-        
+
         i2c_ready_wait( volatile I2C& t, uint8_t own_addr ) : _( t ), own_addr_( own_addr ) {}
-        
+
         I2C_RESULT_CODE operator()( bool reset = false ) const {
             i2c_status st( _ );
 
@@ -329,7 +331,7 @@ namespace stm32f103 {
                 if ( _.SR1 & error_condition )
                     return I2C_DEVICE_ERROR_CONDITION;
             }
-            
+
             if ( ! condition_wait()( [&](){ return !st.busy(); } ) ) {
                 if ( ( _.SR1 & error_condition ) && ( _.SR2 & (BUSY| MSL) ) )
                     i2c_reset()( _, own_addr_ );  // Reset i2c chip
@@ -351,7 +353,7 @@ namespace stm32f103 {
 
         template< typename T >
         I2C_RESULT_CODE operator()( T& dma_channel, uint8_t address, const uint8_t * data, size_t size ) const {
-            
+
             scoped_i2c_start start( _ );
 
             dma_channel.set_transfer_buffer( data, size == 1 ? 1 : size + 1 ); // workaround
@@ -359,7 +361,7 @@ namespace stm32f103 {
             scoped_i2c_dma_enable dma_enable( _ );
 
             if ( start() ) { // generate start condition (master start)
-                
+
                 if ( i2c_address< Transmitter >()( _, address ) ) {
                     i2c_address< Transmitter >().clear( _ );
 
@@ -403,7 +405,7 @@ namespace stm32f103 {
             } else
                 return I2C_DMA_MASTER_RECEIVER_START_FAILED;
         }
-        
+
     };
 
 }
@@ -441,7 +443,7 @@ i2c::attach( dma& dma, DMA_Direction dir )
             if ( __dma_i2c1_tx = new (&__i2c1_tx_dma) dma_channel_t< DMA_I2C1_TX >( dma, 0, 0 ) ) {
                 __dma_i2c1_tx->set_callback( +[]( uint32_t flag ){
                         // stream() << "\n\tI2C-1 Tx irq: " << flag << std::endl;
-                    });                
+                    });
             }
         }
     } else if ( addr == I2C2_BASE ) {
@@ -470,9 +472,9 @@ i2c::init( stm32f103::I2C_BASE addr )
 
     if ( auto I2C = reinterpret_cast< volatile stm32f103::I2C * >( addr ) ) {
         i2c_ = I2C;
-        
+
         reset();
-        
+
         switch ( addr ) {
         case I2C1_BASE:
             enable_interrupt( I2C1_EV_IRQn );
@@ -480,7 +482,7 @@ i2c::init( stm32f103::I2C_BASE addr )
             break;
         case I2C2_BASE:
             enable_interrupt( I2C2_EV_IRQn );
-            enable_interrupt( I2C2_ER_IRQn );            
+            enable_interrupt( I2C2_ER_IRQn );
             break;
         }
     }
@@ -491,7 +493,7 @@ bool
 i2c::listen( uint8_t addr )
 {
     own_addr_ = addr;
-    
+
     i2c_->OAR1 = own_addr_ << 1;
     bitset::set( i2c_->CR1, ACK );
     bitset::set( i2c_->CR2, ITEVTEN | ITERREN );
@@ -594,7 +596,7 @@ bool
 i2c::read( uint8_t address, uint8_t * data, size_t size )
 {
     scoped_spinlock<> lock( lock_ );
-    
+
     if ( ( result_code_ = i2c_ready_wait( *i2c_, own_addr_ )() ) != I2C_RESULT_SUCCESS )
         return false;
 
@@ -611,15 +613,15 @@ bool
 i2c::write( uint8_t address, const uint8_t * data, size_t size )
 {
     scoped_spinlock<> lock( lock_ );
-    
+
     bitset::set( i2c_->CR1, ACK | PE );
 
     if ( ( result_code_ = i2c_ready_wait( *i2c_, own_addr_ )() ) != I2C_RESULT_SUCCESS )
-        return false;    
+        return false;
 
     scoped_i2c_start start( *i2c_ );
 
-    if ( start() ) {    
+    if ( start() ) {
         if ( i2c_address< Transmitter >()( *i2c_, address ) ) { // address phase
             i2c_transmitter writer( *i2c_ );
             while ( size ) {
@@ -632,7 +634,7 @@ i2c::write( uint8_t address, const uint8_t * data, size_t size )
             bitset::set( i2c_->CR1, STOP );
             if ( size == 0 )
                 result_code_ = I2C_RESULT_SUCCESS;
-            else 
+            else
                 result_code_ = I2C_POLLING_MASTER_TRANSMITTER_SEND_TIMEOUT;
         } else {
             result_code_ = I2C_POLLING_MASTER_TRANSMITTER_ADDRESS_FAILED;
@@ -647,7 +649,7 @@ bool
 i2c::dma_transfer( uint8_t address, const uint8_t * data, size_t size )
 {
     scoped_spinlock<> lock( lock_ );
-    
+
     const auto base_addr = reinterpret_cast< uint32_t >( const_cast< I2C * >(i2c_) );
     if ( base_addr == I2C1_BASE && __dma_i2c1_tx == nullptr ) {
         result_code_ = I2C_DMA_MASTER_TRANSMITTER_HAS_NO_DMA;
@@ -658,19 +660,19 @@ i2c::dma_transfer( uint8_t address, const uint8_t * data, size_t size )
     }
 
     if ( ( result_code_ = i2c_ready_wait( *i2c_, own_addr_ )() ) != I2C_RESULT_SUCCESS )
-        return false;        
+        return false;
 
 
     if ( base_addr == I2C1_BASE ) {
 
         result_code_ = dma_master_transfer( *i2c_ )( *__dma_i2c1_tx, address, data, size );
         return result_code_ == I2C_RESULT_SUCCESS;
-        
+
     } else if ( base_addr == I2C2_BASE ) { // && __dma_i2c2_tx != nullptr ) {
 
         result_code_ = dma_master_transfer( *i2c_ )( *__dma_i2c2_tx, address, data, size );
         return result_code_ == I2C_RESULT_SUCCESS;
-        
+
     }
 
     return false;
@@ -680,7 +682,7 @@ bool
 i2c::dma_receive( uint8_t address, uint8_t * data, size_t size )
 {
     scoped_spinlock<> lock( lock_ );
-    
+
     const auto base_addr = reinterpret_cast< uint32_t >( const_cast< I2C * >(i2c_) );
 
     if ( base_addr == I2C1_BASE && __dma_i2c1_rx == nullptr ) {
@@ -689,16 +691,16 @@ i2c::dma_receive( uint8_t address, uint8_t * data, size_t size )
     } else if ( base_addr == I2C2_BASE && __dma_i2c2_rx == nullptr ) {
         result_code_ = I2C_DMA_MASTER_RECEIVER_HAS_NO_DMA;
         return false;
-    }    
+    }
 
     if ( ( result_code_ = i2c_ready_wait( *i2c_, own_addr_ )() ) != I2C_RESULT_SUCCESS )
-        return false;            
+        return false;
 
     if ( size == 1 ) {
         // See AN2824, p10, "master reception of a single byte is not supported."
         return polling_master_receiver< 1 >( *i2c_ )( address, data, size );
     }
-    
+
     if ( base_addr == I2C1_BASE ) {
         result_code_ = dma_master_receiver( *i2c_ )( *__dma_i2c1_rx, address, data, size );
         return result_code_ == I2C_RESULT_SUCCESS;
@@ -722,4 +724,3 @@ i2c::handle_error_interrupt()
     constexpr uint32_t error_condition = SMB_ALART | TIME_OUT | PEC_ERR | OVR | AF | ARLO | BERR;
     i2c_->SR1 &= ~error_condition;
 }
-

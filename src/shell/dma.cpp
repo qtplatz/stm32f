@@ -71,7 +71,7 @@ volatile DMAChannel&
 dma::dmaChannel( uint32_t channel )
 {
     auto number_of_channels = dma_number_of_channels< DMA1_BASE >::value;
-    if ( dma_ == reinterpret_cast< volatile stm32f103::DMA * >( DMA1_BASE ) ) 
+    if ( dma_ == reinterpret_cast< volatile stm32f103::DMA * >( DMA1_BASE ) )
         dma_number_of_channels< stm32f103::DMA2_BASE >::value;
 
     if ( channel < number_of_channels )
@@ -103,6 +103,8 @@ dma::init_channel( DMA_CHANNEL channel_number
     } else {
         enable_interrupt( IRQn( DMA2_Channel1_IRQn + channel_number ) );
     }
+
+    return true;
 }
 
 void
@@ -124,7 +126,7 @@ dma::enable( uint32_t channel_number, bool enable )
              << ", CPAR: 0x" << dmaChannel( channel_number ).CPAR
              << ", CCR: 0x" << dmaChannel( channel_number ).CCR
              << std::endl;
-#endif    
+#endif
 }
 
 void
@@ -146,14 +148,14 @@ void
 dma::set_receive_buffer( uint32_t channel_number, uint8_t * buffer, size_t size )
 {
     dmaChannel( channel_number ).CMAR = reinterpret_cast< uint32_t >( buffer );
-    dmaChannel( channel_number ).CNDTR = size;    
+    dmaChannel( channel_number ).CNDTR = size;
 }
 
 bool
 dma::transfer_complete( uint32_t channel )
 {
     uint32_t isr(0);
-    
+
     while ( ! lock_.test_and_set( std::memory_order_acquire ) )
             ;
     isr = interrupt_status_.load();

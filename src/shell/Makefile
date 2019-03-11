@@ -6,7 +6,7 @@
 ifeq (${OS},Windows_NT)
 	CROSSCOMPILE := "arm-none-eabi-"
 else
-	GCCARM := $(firstword $(wildcard /usr/gcc-arm-none-*))
+	GCCARM := $(firstword $(wildcard /usr/local/gcc-arm-none-*))
 endif
 
 ifeq ( ${GCCARM},"")
@@ -19,7 +19,7 @@ AS   = $(CROSSCOMPILE)as
 LD   = $(CROSSCOMPILE)ld.bfd
 DUMP = $(CROSSCOMPILE)objdump -d
 GDB  = $(CROSSCOMPILE)gdb
-CC   = $(CROSSCOMPILE)gcc 
+CC   = $(CROSSCOMPILE)gcc
 CXX  = $(CROSSCOMPILE)g++
 OBJCOPY = $(CROSSCOMPILE)objcopy
 
@@ -44,8 +44,10 @@ OBJCOPY = $(CROSSCOMPILE)objcopy
 # restart gdb
 ####################################################################
 
-CFLAGS   = -mcpu=cortex-m3 -mfloat-abi=hard -mthumb -Wno-implicit-function-declaration -nostdlib -nodefaultlibs -g -O2
-CXXFLAGS = -mcpu=cortex-m3 -mfloat-abi=hard -mthumb -std=c++17 -fno-threadsafe-statics -fno-exceptions -fno-unwind-tables -g -O2 -I../
+#CFLAGS   = -mcpu=cortex-m3 -mfloat-abi=hard -mthumb -Wno-implicit-function-declaration -nostdlib -nodefaultlibs -g -O2
+#CXXFLAGS = -mcpu=cortex-m3 -mfloat-abi=hard -mthumb -std=c++17 -fno-threadsafe-statics -fno-exceptions -fno-unwind-tables -g -O2 -I../
+CFLAGS   = -mcpu=cortex-m3 -mthumb -Wno-implicit-function-declaration -nostdlib -nodefaultlibs -g -O2
+CXXFLAGS = -mcpu=cortex-m3 -mthumb -std=c++17 -fno-threadsafe-statics -fno-exceptions -fno-unwind-tables -g -O2 -I../
 LDFLAGS = -Tstm32.ld -g -Wl,-Map=shell.map,--cref -nostdlib -nostartfiles -static -Xlinker --gc-sections -fno-exceptions
 
 OCDCFG = -f /usr/share/openocd/scripts/interface/stlink-v2.cfg -f /usr/share/openocd/scripts/target/stm32f1x.cfg
@@ -98,7 +100,7 @@ install:
 	stm32ld /dev/ttyUSB0 115200 ./shell.bin
 
 flash: shell.elf
-	openocd ${OCDCFG} -c 
+	openocd ${OCDCFG} -c
 
 echo:
 	@echo "GCCARM: " ${GCCARM}

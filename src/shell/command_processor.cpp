@@ -117,7 +117,7 @@ strtox( const char * s, char ** end )
         xnum = (xnum << 4) | x;
         ++s;
     }
-    
+
     if ( end )
         *end = const_cast< char * >(s);
 
@@ -181,7 +181,7 @@ spi_command( size_t argc, const char ** argv )
             // SPI 2
             // (see RM0008, p166, Table 25)
             gpio_mode()( stm32f103::PB12, stm32f103::GPIO_CNF_OUTPUT_PUSH_PULL,     stm32f103::GPIO_MODE_OUTPUT_50M ); // ~SS
-            
+
             gpio_mode()( stm32f103::PB13, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // SCLK
             gpio_mode()( stm32f103::PB14, stm32f103::GPIO_CNF_INPUT_FLOATING,       stm32f103::GPIO_MODE_INPUT );      // MISO
             gpio_mode()( stm32f103::PB15, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // MOSI
@@ -190,7 +190,7 @@ spi_command( size_t argc, const char ** argv )
                 spix.setup( 'B', 12 );
             else
                 spix.setup( 0, 0 );
-            
+
         } else {
             // SPI 1
             gpio_mode()( stm32f103::PA4, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // ~SS
@@ -211,7 +211,7 @@ spi_command( size_t argc, const char ** argv )
             spi_t< SPI1_BASE >::instance()->slave_setup();
         }
     }
-    
+
     if ( spi_read ) {
         uint16_t rxd;
         while ( count-- ) {
@@ -233,7 +233,7 @@ void
 alt_test( size_t argc, const char ** argv )
 {
     // alt spi [remap]
-    using namespace stm32f103;    
+    using namespace stm32f103;
     auto AFIO = reinterpret_cast< volatile stm32f103::AFIO * >( stm32f103::AFIO_BASE );
     if ( argc > 1 && strcmp( argv[1], "spi" ) == 0 ) {
         if ( argc == 2 ) {
@@ -275,12 +275,12 @@ adc_command( size_t argc, const char ** argv )
 
     if ( !__adc ) {
         using namespace stm32f103;
-        
+
         stream() << "adc0 not initialized." << std::endl;
-        
+
         // it must be initalized in main though, just in case
         gpio_mode()( stm32f103::PA0, GPIO_CNF_INPUT_ANALOG, GPIO_MODE_INPUT ); // ADC1 (0,0)
-        
+
         stream() << "adc reset & calibration: status " << (( __adc.cr2() & 0x0c ) == 0 ? " PASS" : " FAIL" )  << std::endl;
     }
 
@@ -321,7 +321,7 @@ dma_command( size_t argc, const char ** argv )
     if ( it != (argv + argc) ) {
         channel = **it - '0';
     }
-    
+
     constexpr static uint32_t src [] = { 0x1a2b3c4d, uint32_t(-2), uint32_t(-3), 4, 5, 6, 7, 8 };
     uint32_t dst [ countof( src ) ] = { 0 };
 
@@ -332,7 +332,7 @@ dma_command( size_t argc, const char ** argv )
     using namespace stm32f103;
     //constexpr uint32_t ccr = MEM2MEM | PL_High | 2 << 10 | 2 << 8 | MINC | PINC;  // [11:10], [1:0] size {0,1,3} = {8,16,32 bits}
     constexpr uint32_t ccr = MEM2MEM | PL_High | 0 << 10 | 0 << 8 | MINC | PINC;  // [11:10], [1:0] size {0,1,3} = {8,16,32 bits}
-    
+
     dma_t< DMA1_BASE >::instance()->init_channel( DMA_CHANNEL(channel), reinterpret_cast< uint32_t >( src ), reinterpret_cast< uint8_t * >( dst ), 5, ccr );
 
     stm32f103::scoped_dma_channel_enable<stm32f103::dma> enable_dma_channel( *dma_t< DMA1_BASE >::instance(), channel );
@@ -345,13 +345,13 @@ dma_command( size_t argc, const char ** argv )
     stream() << "dma result\n";
     i = 0;
     for ( auto& s: src )
-        stream() << s << " == " << dst[ i++ ] << std::endl;    
+        stream() << s << " == " << dst[ i++ ] << std::endl;
 }
 
 void
 afio_test( size_t argc, const char ** argv )
 {
-    if ( auto AFIO = reinterpret_cast< volatile stm32f103::AFIO * >( stm32f103::AFIO_BASE ) ) {    
+    if ( auto AFIO = reinterpret_cast< volatile stm32f103::AFIO * >( stm32f103::AFIO_BASE ) ) {
         stream() << "\tAFIO MAPR: 0x" << AFIO->MAPR << std::endl;
     }
 }
@@ -410,7 +410,7 @@ static const primitive command_table [] = {
     , { "hwclock", hwclock_command, "" }
     , { "reset", system_reset, "" }
     , { "help", help, "" }
-    , { "?", help, "" }    
+    , { "?", help, "" }
 };
 
 void
@@ -419,7 +419,7 @@ help( size_t argc, const char ** argv )
     stream() << "command processor -- help" << std::endl;
     for ( auto& cmd: command_table )
         stream() << "\t" << cmd.arg0_ << cmd.help_ << std::endl;
-    
+
     stream() << "----------------- RCC -----------------" << std::endl;
     static const char * rcc_argv[] = { "rcc", 0 };
     rcc_status( 1, rcc_argv );
@@ -437,7 +437,7 @@ command_processor::operator()( size_t argc, const char ** argv ) const
 #endif
 
         bool processed( false );
-    
+
         if ( argc > 0 ) {
             for ( auto& cmd: command_table ) {
                 if ( strcmp( cmd.arg0_, argv[0] ) == 0 ) {
@@ -448,10 +448,12 @@ command_processor::operator()( size_t argc, const char ** argv ) const
                 }
             }
         }
-        
+
         if ( ! processed && argc > 0 ) {
             stream() << "Unknown command: " << argv[0] << "\ttype help for command list" << std::endl;
         }
     }
     stream() << std::endl;
+
+    return true;
 }

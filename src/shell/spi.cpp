@@ -53,7 +53,7 @@ namespace stm32f103 {
 }
 
 using namespace stm32f103;
-    
+
 void
 spi::init( stm32f103::SPI_BASE base, uint8_t gpio, uint32_t ss_n )
 {
@@ -65,7 +65,7 @@ spi::init( stm32f103::SPI_BASE base, uint8_t gpio, uint32_t ss_n )
 
     scoped_spinlock<> lock( lock_ );
     stream() << "spi::init gpio = " << char( gpio ) << ", ss_n=" << int( ss_n ) << std::endl;
-        
+
     if ( auto SPI = reinterpret_cast< volatile stm32f103::SPI * >( base ) ) {
         spi_ = SPI;
         if ( gpio ) {
@@ -75,7 +75,7 @@ spi::init( stm32f103::SPI_BASE base, uint8_t gpio, uint32_t ss_n )
             SPI->CR1 = cr1 | SPE; // | BIDIMODE | BIDIOE;
             SPI->CR2 = (3 << 5) | SSOE; // SS output enable, IRQ {Rx buffer not empty, Error}
         }
-            
+
         switch( base ) {
         case SPI1_BASE:
             enable_interrupt( stm32f103::SPI1_IRQn );
@@ -111,7 +111,7 @@ spi::setup( uint8_t gpio, uint32_t ss_n )
     ss_n_ = ss_n;
 
     scoped_spinlock<> lock( lock_ );
-        
+
     if ( gpio ) {
         spi_->CR1 = cr1 | SPE | SSM;
         spi_->CR2 = (3 << 5);        // SS output disable, IRQ {Rx buffer not empty, Error}
@@ -131,7 +131,7 @@ spi::setup( uint8_t gpio, uint32_t ss_n )
 //     //dma_ = &dma;
 //     //dma_channel_ = channel;
 //     if ( auto SPI = reinterpret_cast< volatile stm32f103::SPI * >( base ) ) {
-//         spi_ = SPI;        
+//         spi_ = SPI;
 //         spi_->CR1 = cr1 | SPE;
 //         spi_->CR2 = SSOE;
 //         cr1_ = spi_->CR1;
@@ -168,7 +168,7 @@ spi::operator >> ( uint16_t& d )
 
     // cr1_ &= ~BIDIOE; // read only
     // spi_->CR1 = cr1_;
-    
+
     while( ! rxd_ )
         ;
 
@@ -178,7 +178,7 @@ spi::operator >> ( uint16_t& d )
         rxd_ = 0;
     }
     return * this;
-}    
+}
 
 spi&
 spi::operator << ( uint16_t d )
@@ -188,7 +188,7 @@ spi::operator << ( uint16_t d )
 
     while ( --wait && txd_ )
         ;
-    
+
     if ( wait == 0 ) {
         scoped_spinlock<> lock( lock_ );
         stream() << "spi tx timeout" << std::endl;
@@ -197,6 +197,8 @@ spi::operator << ( uint16_t d )
     // spi_->CR1 |= SPE | BIDIOE; // SPI enable, output only mode
     // cr1_ = spi_->CR1;
     spi_->CR2 |= (1 << 7);     // Tx empty irq
+
+    return *this;
 }
 
 void
@@ -211,7 +213,7 @@ spi::handle_interrupt()
             if ( spi_ == reinterpret_cast< volatile stm32f103::SPI * >( SPI2_BASE ) )
                 stream() << "SPI2 got : " << ( rxd_.load() & 0xffff ) << std::endl;
         }
-            
+
         if ( spi_->SR & 02 ) { // Tx empty
             if ( txd_ ) {
                 (*this) = false;  // ~SS = 'L'
@@ -219,13 +221,13 @@ spi::handle_interrupt()
                 txd_ = 0;
             } else {
                 spi_->CR2 &= ~(1 << 7); // Tx empty irq disable
-                (*this) = true;        // ~SS = 'H'                    
+                (*this) = true;        // ~SS = 'H'
             }
         }
 
         if ( auto flags = ( spi_->SR & 0x7c ) ) { // ignore BSY, RX not empty, TX empty
             scoped_spinlock<> lock( lock_ );
-            
+
             stream() << "SPI IRQ: [" << flags << " CR1=" << spi_->CR1 << "]";
             if ( flags & 0x80 )
                 stream() << ("BSY,");
@@ -254,4 +256,3 @@ spi::interrupt_handler( spi * _this )
 {
     _this->handle_interrupt();
 }
-

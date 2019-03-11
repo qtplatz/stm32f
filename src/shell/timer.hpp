@@ -13,7 +13,7 @@ namespace stm32f103 {
 
     enum TIM_BASE : uint32_t;
     template< TIM_BASE > struct timer_t;
-    
+
     class timer {
         timer( const timer& ) = delete;
         timer& operator = ( const timer& ) = delete;
@@ -39,8 +39,8 @@ namespace stm32f103 {
             if ( !flag_initialized_.test_and_set() )
                 timer::init( base );
         }
-        
-        operator bool () const { return flag_initialized_; }
+
+        // operator bool () const { return bool( flag_initialized_ ); }
 
         static void print_registers() { timer::print_registers( base ); }
 
@@ -57,11 +57,11 @@ namespace stm32f103 {
             if ( allow_recursive_call ) {
                 callback_ = nullptr;
             } else {
-                scoped_spinlock<> guard( guard_ );            
+                scoped_spinlock<> guard( guard_ );
                 callback_ = nullptr;
             }
         }
-        
+
         static bool callback() {
             scoped_spinlock<> guard( guard_ );
             if ( stm32f103::timer_t< base >::callback_ ) {
@@ -76,4 +76,3 @@ namespace stm32f103 {
     template< TIM_BASE base > std::atomic_flag timer_t<base>::guard_;
     template< TIM_BASE base > void (*timer_t<base>::callback_)();
 }
-

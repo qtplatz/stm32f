@@ -17,23 +17,23 @@ namespace stm32f103 {
         "SWRST",        nullptr, "ALERT", "PEC",  "POS",      "ACK",   "STOP", "START"
         , "NO_STRETCH", "ENGC", "ENPEC", "ENARP", "SMB_TYPE", nullptr, "SMBUS", "PE"
     };
-    
+
     constexpr const char * __CR2__ [] = {
         nullptr,   nullptr, nullptr, "LAST", "DMAEN", "ITBUFEN", "ITEVTEN", "ITERREN"
         , nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,  nullptr,   nullptr
     };
-    
+
     constexpr const char * __SR1__ [] = {
         "SMB_ALERT", "TIMEOUT", nullptr, "PEC_ERR", "OVR",   "AF",  "ARLO", "BUS_ERR"
         , "TxE",     "RxNE",    nullptr, "STOPF",   "ADD10", "BTF", "ADDR", "SB"
     };
-    
+
     constexpr const char * __SR2__ [] = {
         "DUALF", "SMB_HOST", "SMBDE_FAULT", "GEN_CALL", nullptr, "TRA", "BUSY", "MSL"
     };
 
     namespace i2cdebug {
-    
+
         const char * CR1_to_string( uint32_t reg ) {
             stream() << "CR1 {";
             for ( int i = 0; i < 16; ++i ) {
@@ -105,7 +105,7 @@ namespace stm32f103 {
         , { "CCR", 0x3000,   &i2c_string::CCR   }
         , { "TRISE", 0xffc0, &i2c_string::TRISE }
     };
-    
+
 }
 
 using namespace stm32f103;
@@ -140,7 +140,7 @@ i2c_string::SR2( stream& o, uint16_t reg, volatile I2C * )
 {
     o << "SR2  : {";
     if ( reg & 0xf0 )
-        o << "PEC=" << int( ( reg >> 8 ) & 0xff ) << ", ";    
+        o << "PEC=" << int( ( reg >> 8 ) & 0xff ) << ", ";
     return print()( o, std::bitset< 16 >( reg ), "", __SR2__, 0, 7 ) << "}";
 }
 
@@ -154,7 +154,7 @@ i2c_string::OAR1( stream& o, uint16_t reg, volatile I2C * )
 stream&
 i2c_string::OAR2( stream& o, uint16_t reg, volatile I2C * )
 {
-    return o;    
+    return o;
 }
 
 stream&
@@ -203,5 +203,6 @@ i2c_string::print_registers( stream&& o, volatile I2C * _ )
             << std::endl;
         ++i;
     }
-}
 
+    return o;
+}
