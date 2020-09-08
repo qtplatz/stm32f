@@ -41,7 +41,6 @@ void gpio_command( size_t argc, const char ** argv );
 void timer_command( size_t argc, const char ** argv );
 void date_command( size_t argc, const char ** argv );
 void hwclock_command( size_t argc, const char ** argv );
-void dc_command( size_t argc, const char ** argv );
 void help( size_t argc, const char ** argv );
 
 void
@@ -400,7 +399,6 @@ static const primitive command_table [] = {
     , { "candump",   can_command,     " candump" }
     , { "cansend",   can_command,     " cansend 01a#11223333aabbccdd" }
     , { "date",      date_command,    " show current date time; date --set 'iso format date'" }
-    , { "dc",        dc_command,      " dc values..." }    
     , { "disable",   rcc_enable,      " reg1 [reg2...] Disable clock for specified peripheral." }
     , { "dma",       dma_command,     " ram to ram dma copy teset" }
     , { "enable",    rcc_enable,      " reg1 [reg2...] Enable clock for specified peripheral." }

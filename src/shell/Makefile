@@ -68,13 +68,12 @@ OCDCFG = -f /usr/share/openocd/scripts/interface/stlink-v2.cfg -f /usr/share/ope
 OBJS = crt0.o main.o prf.o spi.o uartx.o stream.o command_processor.o can.o gpio.o gpio_mode.o atexit.o adc.o memset.o i2c.o \
 	rcc.o dma.o ad5593.o ad5593_command.o bmp280.o bmp280_command.o i2c_command.o i2c_string.o date_command.o timer.o \
 	rcc_status.o gpio_command.o timer_command.o rtc.o system_clock.o can_command.o \
-	date_time.o bkp.o dc.o
+	date_time.o bkp.o 
 
 MOBJS = e_log.o e_log10.o
 
 all: shell.elf shell.dump shell.bin
 
-dc.o: to_string.hpp
 main.o: tokenizer.hpp gpio_mode.hpp stm32f103.hpp
 gpio_mode.o: gpio_mode.hpp stm32f103.hpp
 can.o: can.hpp stm32f103.hpp stm32f103.hpp
@@ -109,7 +108,6 @@ shell.bin: shell.elf
 
 shell.elf: $(OBJS) ${MOBJS} stm32.ld Makefile
 	$(CXX) $(LDFLAGS) -o shell.elf $(OBJS) ${MOBJS}
-	${DUMP} -D -h dc.o > dc.lst
 
 .PHONY: clean
 clean:
