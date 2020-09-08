@@ -28,6 +28,7 @@ public:
     stream( const char * file, const int line, const char * function = 0 );
 
     void flush();
+
     stream& operator << ( const bool );
     stream& operator << ( const char );
     stream& operator << ( const char * );
@@ -39,6 +40,7 @@ public:
     stream& operator << ( const uint32_t );
     stream& operator << ( const int64_t );
     stream& operator << ( const uint64_t );
+    stream& operator << ( const double );    
 #if __GNUC__ >= 7
     stream& operator << ( const int );    
     stream& operator << ( const size_t );

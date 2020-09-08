@@ -5,3 +5,4 @@
 *.dump
 *.elf
 *.map
+compile_commands.json

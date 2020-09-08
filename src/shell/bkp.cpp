@@ -46,6 +46,7 @@ bkp::data( size_t idx )
     idx -= sizeof( reg->DR ) / sizeof( reg->DR[0] );
     if ( idx < sizeof( reg->DR11 ) / sizeof( reg->DR11[0] ) )
         return reg->DR11[ idx ];
+    return 0;
 }
 
 void

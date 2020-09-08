@@ -12,7 +12,8 @@ class scoped_spinlock {
 public:
 
     scoped_spinlock( T& flag ) : flag_( flag ) {
-        flag_.test_and_set( std::memory_order_acquire );
+        while (flag_.test_and_set( std::memory_order_acquire ))  // acquire lock
+            ; // spin        
     };
 
     ~scoped_spinlock() {

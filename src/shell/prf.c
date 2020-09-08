@@ -34,6 +34,10 @@
 
 #define PUTCHAR(x)	if ( buf <= end ) *buf++ = (x)
 
+void serial_puts ( const char * );
+void serial_putc ( int );
+static int vsnprintf ( char * abuf, unsigned int size, const char * fmt, va_list args );
+
 static char *
 shex2( char *buf, char *end, int val )
 {
@@ -150,7 +154,7 @@ sprintf(char *buf, const char *fmt, ...)
 static int
 vsprintf(char *buf, const char *fmt, va_list args)
 {
-    return vsnprintf(buf, 0x0FFFFFFFUL, fmt, args);
+    return vsnprintf(buf, 0x0FFFFFFFU, fmt, args);
 }
 
 /* XXX size should/could really be size_t

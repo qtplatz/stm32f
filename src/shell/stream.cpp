@@ -8,6 +8,7 @@
 #include "stm32f103.hpp"
 #include "uart.hpp"
 #include <atomic>
+#include <cmath>
 #include <type_traits>
 #include <typeinfo>
 
@@ -20,7 +21,7 @@ public:
     void operator()( uart& o_, T d ) const {
         if ( std::is_signed< T >::value ) {
             // signed int -- output in decimal numbers
-            char buf[ 22 ];
+            char buf[ 22 ]; // 64bit signed max = 20 chars + sign and '\0'
             char * p = &buf[21];
             *p-- = '\0';
             
@@ -42,9 +43,8 @@ public:
     }
 };
 
-template<> void stream_t::operator()( uart& o, uint64_t d ) const {
-    for ( size_t i = 0; i < 16; ++i )
-        o.putc( __chars__[ ( d >> (( 15 - i )*4) ) & 0x0f ] );
+template<> void stream_t::operator()( uart& o, double d ) const {
+    o << "stream_t::operator()(uart&, double) " << std::endl;
 }
 
 
@@ -136,6 +136,13 @@ stream::operator << ( const int64_t d )
 
 stream&
 stream::operator << ( const uint64_t d )
+{
+    stream_t()( uart_, d );
+    return *this;
+}
+
+stream&
+stream::operator << ( const double d )
 {
     stream_t()( uart_, d );
     return *this;

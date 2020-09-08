@@ -10,11 +10,19 @@
 #define NVIC            ((NVIC_type  *)  NVIC_BASE)
 
 uint64_t jiffies;
+extern unsigned int __data_start;
+extern unsigned int __data_end;
+extern unsigned int __data_load;
+extern unsigned int __bss_start;
+extern unsigned int __bss_end;
 
 // Function declarations. Add your functions here
 void enable_interrupt(IRQn_type IRQn);
 void disable_interrupt(IRQn_type IRQn);
 void __main(void);
+
+extern int main();
+
 
 extern void __adc1_handler(void);
 extern void __can1_tx_handler(void);
@@ -50,6 +58,10 @@ extern void __dma2_ch3_handler( void );
 extern void __dma2_ch4_handler( void );
 extern void __dma2_ch5_handler( void );
 
+extern void __hard_fault( void );
+extern void __bus_fault( void );
+extern void __usage_fault( void );
+
 /////////////////////////////////////
 // Table 62, p200 in RM0008
 ////////////////////////////////////
@@ -58,10 +70,10 @@ void ( * const vector_table [] )() __attribute__ ((section(".vect"))) = {
 	(void (*)()) STACKINIT,         /* 0x000 Stack Pointer                   */
 	__main,                         /* 0x004 Reset                           */
 	0,                              /* 0x008 Non maskable interrupt          -14 */
-	0,                              /* 0x00C HardFault                       -13 */
+	__hard_fault,                   /* 0x00C HardFault                       -13 */
 	0,                              /* 0x010 Memory Management               -12 */
-	0,                              /* 0x014 BusFault                        -11 */
-	0,                              /* 0x018 UsageFault                      -10 */
+	__bus_fault,                    /* 0x014 BusFault                        -11 */
+	__usage_fault,                  /* 0x018 UsageFault                      -10 */
 	0,                              /* 0x01C Reserved                        */
 	0,                              /* 0x020 Reserved                        */
 	0,                              /* 0x024 Reserved                        */
@@ -163,7 +175,13 @@ disable_interrupt(IRQn_type IRQn)
 void
 __main(void)
 {
+    volatile unsigned int * src, * dst;
+
+    for ( src = &__data_load, dst = &__data_start; dst < &__data_end; dst++, src++)
+        *dst = *src;
+    
     jiffies = 0;
+
     main();
 }
 

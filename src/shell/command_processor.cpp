@@ -41,6 +41,7 @@ void gpio_command( size_t argc, const char ** argv );
 void timer_command( size_t argc, const char ** argv );
 void date_command( size_t argc, const char ** argv );
 void hwclock_command( size_t argc, const char ** argv );
+void dc_command( size_t argc, const char ** argv );
 void help( size_t argc, const char ** argv );
 
 void
@@ -264,12 +265,13 @@ adc_command( size_t argc, const char ** argv )
 {
     size_t count = 1;
 
-    if ( argc >= 2 ) {
+    auto it = std::find_if( argv, argv + argc, [](auto a){ return strcmp( a, "help" ) == 0; } );
+    if ( argc < 2 || ( it != (argv + argc ) ) ) { // help
+        stream() << "adc on NN -- enable ADC; start AD conversion by software cpu cycle, NN replicates.\n";
+        stream() << "adc off -- disable ADC.\n";        
+        stream() << "adc dma -- auto (hardware) repeat AD conversion in background (continue until cpu reset).\n";
+        return;
     }
-
-    bool use_dma( false );
-    auto it = std::find_if( argv, argv + argc, [](auto a){ return strcmp( a, "dma" ) == 0; } );
-    use_dma = it != ( argv + argc );
 
     auto& __adc = *stm32f103::adc::instance();
 
@@ -287,10 +289,13 @@ adc_command( size_t argc, const char ** argv )
     while ( --argc ) {
         ++argv;
         if ( strcmp( argv[0], "off" ) == 0 ) {
+            stream() << "adc.enable( false )" << std::endl;
             __adc.enable( false );
         } else if ( strcmp( argv[0], "on" ) == 0 ) {
+            stream() << "adc.enable( true )" << std::endl;
             __adc.enable( true );
         } else if ( strcmp( argv[0], "dma" ) == 0 || strcmp( argv[0], "start" ) == 0 ) {
+            stream() << "adc.attach( dma1 )" << std::endl;
             __adc.attach( *stm32f103::dma_t< stm32f103::DMA1_BASE >::instance() );
             if ( __adc.start_conversion() ) { // software trigger
                 uint32_t d = __adc.data(); // can't read twince
@@ -299,7 +304,7 @@ adc_command( size_t argc, const char ** argv )
                          << std::endl;
             }
         } else if ( std::isdigit( *argv[0] ) ) {
-            count = strtod( argv[ 1 ] );
+            count = strtod( *argv );
             for ( size_t i = 0; i < count; ++i ) {
                 if ( __adc.start_conversion() ) { // software trigger
                     uint32_t d = __adc.data(); // can't read twince
@@ -385,33 +390,36 @@ public:
 };
 
 static const primitive command_table [] = {
-    { "spi",    spi_command,    " spi [replicates]" }
-    , { "spi2", spi_command,    " spi2 [replicates]" }
-    , { "ad5593", ad5593_command,  "ad5593" }
-    , { "adc",  adc_command,    " replicates (1)" }
-    , { "alt",  alt_test,       " spi [remap]" }
-    , { "bkp",    bkp_command,  " backup registers" }
-    , { "bmp",    bmp280_command,  " start|stop" }
-    , { "can",    can_command,  " can" }
-    , { "cansend",  can_command,  " cansend 01a#11223333aabbccdd" }
-    , { "candump",  can_command,  " candump" }
-    , { "gpio", gpio_command,   " pin# (toggle PA# as GPIO, where # is 0..12)" }
-    , { "rcc",  rcc_status,     " RCC clock enable register list" }
-    , { "rtc",  rtc_status,     " RTC register print" }
-    , { "disable", rcc_enable,  " reg1 [reg2...] Disable clock for specified peripheral." }
-    , { "enable", rcc_enable,   " reg1 [reg2...] Enable clock for specified peripheral." }
-    , { "afio", afio_test,      " AFIO MAPR list" }
-    , { "i2c",  i2c_command,    " I2C-1 test" }
-    , { "i2c2", i2c_command,    " I2C-2 test" }
-    , { "i2cdetect", i2cdetect, " i2cdetect [0|1]" }
-    , { "dma",    dma_command,     " ram to ram dma copy teset" }
-    , { "timer",  timer_command,   "" }
-    , { "date",   date_command,     " show current date time; date --set 'iso format date'" }
-    , { "hwclock", hwclock_command, "" }
-    , { "reset", system_reset, "" }
-    , { "help", help, "" }
+    { "ad5593",      ad5593_command,  " ad5593" }
+    , { "adc",       adc_command,     " replicates (1)" }
+    , { "afio",      afio_test,       " AFIO MAPR list" }
+    , { "alt",       alt_test,        " spi [remap]" }
+    , { "bkp",       bkp_command,     " backup registers" }
+    , { "bmp",       bmp280_command,  " start|stop" }
+    , { "can",       can_command,     " can" }
+    , { "candump",   can_command,     " candump" }
+    , { "cansend",   can_command,     " cansend 01a#11223333aabbccdd" }
+    , { "date",      date_command,    " show current date time; date --set 'iso format date'" }
+    , { "dc",        dc_command,      " dc values..." }    
+    , { "disable",   rcc_enable,      " reg1 [reg2...] Disable clock for specified peripheral." }
+    , { "dma",       dma_command,     " ram to ram dma copy teset" }
+    , { "enable",    rcc_enable,      " reg1 [reg2...] Enable clock for specified peripheral." }
+    , { "gpio",      gpio_command,    " pin# (toggle PA# as GPIO, where # is 0..12)" }
+    , { "hwclock",   hwclock_command, "" }
+    , { "i2c",       i2c_command,     " I2C-1 test" }
+    , { "i2c2",      i2c_command,     " I2C-2 test" }
+    , { "i2cdetect", i2cdetect,       " i2cdetect [0|1]" }
+    , { "rcc",       rcc_status,      " RCC clock enable register list" }
+    , { "reset",     system_reset,    "" }
+    , { "rtc",       rtc_status,      " RTC register print" }
+    , { "spi",       spi_command,     " spi [replicates]" }
+    , { "spi2",      spi_command,     " spi2 [replicates]" }
+    , { "timer",     timer_command,   "" }
+    , { "help",      help, "" }
     , { "?", help, "" }
 };
+
+constexpr size_t command_table_size = sizeof(command_table)/sizeof(command_table[0]);
 
 void
 help( size_t argc, const char ** argv )
@@ -439,13 +447,12 @@ command_processor::operator()( size_t argc, const char ** argv ) const
         bool processed( false );
 
         if ( argc > 0 ) {
-            for ( auto& cmd: command_table ) {
-                if ( strcmp( cmd.arg0_, argv[0] ) == 0 ) {
-                    processed = true;
-                    stream() << std::endl;
-                    cmd.f_( argc, argv );
-                    break;
-                }
+            auto it = std::find_if( command_table, command_table + command_table_size
+                                    , [&](const auto& cmd){ return strcmp(cmd.arg0_, argv[0]) == 0; });
+            if ( it != command_table + command_table_size ) {
+                processed = true;
+                stream() << std::endl;
+                it->f_( argc, argv );                
             }
         }
 

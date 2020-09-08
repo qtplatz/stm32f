@@ -16,8 +16,8 @@
 ENTRY (__main)
 
 MEMORY {
-   flash (RX)  : ORIGIN = 0x08000000, LENGTH = 128K
-   sram (WAIL)  : ORIGIN = 0x20000000, LENGTH = 20K   /* read/write, allocatable, initialized */
+       flash (RX)  : ORIGIN = 0x08000000, LENGTH = 128K
+       sram (WAIL)  : ORIGIN = 0x20000000, LENGTH = 20K   /* read/write, allocatable, initialized */
 }
 
 SECTIONS {
@@ -26,18 +26,29 @@ SECTIONS {
                 __text_start = .;
         	KEEP(*(.vect))     /* Vector table */
                 *(.text*)          /* Program code */
-                __data_start = .;
+		__rodata_start = .;
                 *(.rodata*)        /* Read only data */
 		. = ALIGN(4);
-                __data_end = .;
+                __rodata_end = .;
 	} > flash
+
+	.data : {
+	      __data_start = .;
+	      *(.data)
+	      *(.data.*)	      
+	      . = ALIGN(4);
+	      __data_end = .;
+	} > sram AT > flash
+
+	__data_load = LOADADDR(.data);
+	
 	.bss :	{
-                 __bss_start = . ;        
-		. = ALIGN(4);
-		*(.bss*)       /* Read-write zero initialized data */
-		*(COMMON)
-		. = ALIGN(4);
-                __bss_end = . ;
+              __bss_start = . ;        
+	      . = ALIGN(4);
+	      *(.bss*)       /* Read-write zero initialized data */
+	      *(COMMON)
+	      . = ALIGN(4);
+              __bss_end = . ;
 	} > sram
         .ARM.exidx : {
                  __exidx_start = .;

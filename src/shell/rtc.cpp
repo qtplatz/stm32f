@@ -197,12 +197,15 @@ rtc::set_hwclock( const time_t& time )
         stream(__FILE__,__LINE__,__FUNCTION__) << "\t(" << hwclock << ")\n";
 
         bitset::set( RTC->CRL, RTC_CRL_CNF );      // set configuration mode
-        condition_wait()( [&](){ return RTC->CRL & RTC_CRL_RTOFF; } );
+        if ( !condition_wait()( [&](){ return RTC->CRL & RTC_CRL_RTOFF; } ) )
+            stream(__FILE__,__LINE__,__FUNCTION__) << "\ttimeout\n";
 
         RTC->CNTH  = hwclock >> 16 & 0xffff;
         RTC->CNTL  = hwclock & 0xffff;
 
         bitset::reset( RTC->CRL, RTC_CRL_CNF );    // exit configuration mode
+
+        stream(__FILE__,__LINE__,__FUNCTION__) << "\tRTC->CRL: " << RTC->CRL << "\tCNT: " << RTC->CNTH << ":" << RTC->CNTL << std::endl;        
 
         condition_wait()( [&](){ return RTC->CRL & RTC_CRL_RTOFF; } );
     }

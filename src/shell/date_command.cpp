@@ -29,7 +29,7 @@ date_command( size_t argc, const char ** argv )
         stream() << date_time::to_string( str.data(), str.size(), time, false ) << std::endl;
     }
     
-    while ( --argc ) {
+    while ( argc && --argc ) {
         ++argv;
         if ( ( strcmp( argv[ 0 ], "--set" ) == 0 ) || ( strcmp( argv[ 0 ], "-s" ) == 0 ) )  {
             // 2018-03-21T16:34:00" | 2018-03-21 16:34:00"
@@ -44,16 +44,14 @@ date_command( size_t argc, const char ** argv )
                 strncat( input.data(), " ", input.size() );
                 strncat( input.data(), argv[ 0 ], input.size() );
             }
-
             std::tm tm;
             auto state = date_time::parse( input.data(), tm );
             if ( state & date_time::date_time_both ) {
-                std::array< char, 30 > dstr;
+                std::array< char, 40 > dstr;
                 date_time::to_string( dstr.data(), dstr.size(), tm, true );
                 std::time_t time = date_time::time( tm );
 
                 stream() << "parsed: " << dstr.data() << "\t" << time << std::endl;
-                
                 stm32f103::rtc::set_hwclock( time );
             }
         } else if ( strcmp( argv[ 0 ], "--calib" ) == 0 ) {

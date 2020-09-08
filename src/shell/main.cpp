@@ -32,6 +32,7 @@ extern "C" {
 
 extern uint64_t jiffies;  // 100us
 extern uint32_t __bss_start, __bss_end;
+extern uint32_t __data_start, __data_end;
 
 uint32_t __system_clock;
 uint32_t __pclk1, __pclk2;
@@ -78,6 +79,11 @@ extern "C" {
     void __usart1_handler( void );
     void __systick_handler( void );
     void __rcc_handler( void );
+
+    void __hard_fault( void );
+    void __bus_fault( void );
+    void __usage_fault( void );
+    
     int main();
 }
 
@@ -126,7 +132,6 @@ init_systick( uint32_t s, bool en )
 int
 main()
 {
-    // zero clear .bss
     memset( &__bss_start, 0, reinterpret_cast< const char * >(&__bss_end) - reinterpret_cast< const char * >(&__bss_start) + 1);
 
     if ( auto RCC = reinterpret_cast< volatile stm32f103::RCC * >( stm32f103::RCC_BASE ) ) {
@@ -250,25 +255,23 @@ main()
     }
     
     {
-        int size = reinterpret_cast< const char * >(&__bss_end) - reinterpret_cast< const char * >(&__bss_start);
+        uint32_t bsize = reinterpret_cast< const char * >(&__bss_end) - reinterpret_cast< const char * >(&__bss_start);
+        uint32_t dsize = reinterpret_cast< const char * >(&__data_end) - reinterpret_cast< const char * >(&__data_start);
         __system_clock = stm32f103::rcc().system_frequency();
         __pclk1 = stm32f103::rcc().pclk1(); // 72MHz
-        __pclk2 = stm32f103::rcc().pclk1(); // 36MHz
-        stream() << "\t**********************************************" << std::endl;
-        stream() << "\t***** BSS = 0x" << uint32_t(&__bss_start) << " -- 0x" << uint32_t(&__bss_end) << "\t *****" << std::endl;
-        stream() << "\t***** " << size << " octsts of bss segment is in use. ***" << std::endl;
-        stream() << "\t***** Current stack pointer = " << uint32_t(&size) << "\t *****" << std::endl;
+        __pclk2 = stm32f103::rcc().pclk2(); // 36MHz
+        stream() << "\n\t****************************************************************" << std::endl;
+        stream() << "\t***** .DATA 0x" << uint32_t(&__data_start) << " -- 0x" << uint32_t(&__data_end) << "\t0x" << dsize << "\t*****" << std::endl;
+        stream() << "\t***** .BSS  0x" << uint32_t(&__bss_start)  << " -- 0x" << uint32_t(&__bss_end)  << "\t0x" << bsize << "\t*****" << std::endl;
+        stream() << "\t***** Current stack pointer = " << uint32_t(&dsize) << "\t *****" << std::endl;
         stream() << "\t***** SYSCLK = " << int32_t( __system_clock ) << "Hz" << std::endl;
         stream() << "\t***** PCLK1  = " << int32_t( __pclk1 ) << "Hz" << std::endl;
         stream() << "\t***** PCLK2  = " << int32_t( __pclk2 ) << "Hz" << std::endl;
-        stream() << "\t**********************************************" << std::endl;
+        stream() << "\t******************************************************************" << std::endl;
         stream() << "\t\ti2c-1 SCL = PB6; SDA = PB7;\tCAN RX = PB8; TX = PB9" << std::endl;
     }
 
     init_systick( 7200, true ); // 100us tick
-
-    double x = log( 2.0 );
-    double y = log10( 2.0 );
 
     {
         int x = 0;
@@ -325,6 +328,24 @@ systick_handler()
         static uint32_t blink = 0;
         stm32f103::gpio< decltype( stm32f103::PC13 ) >( stm32f103::PC13 ) = bool( blink++ & 01 );
     }
+}
+
+void __hard_fault( void )
+{
+    serial_puts( "\nHard fault\n" );
+    while( true );
+}
+
+void __bus_fault( void )
+{
+    serial_puts( "\nBus fault\n" );
+    while( true );    
+}
+
+void __usage_fault( void )
+{
+    serial_puts( "\nUsage fault\n" );
+    while( true );
 }
 
 void

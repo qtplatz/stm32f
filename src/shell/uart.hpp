@@ -16,6 +16,7 @@ namespace stm32f103 {
     class uart {
         volatile USART * usart_;
         uint32_t baud_;
+        std::atomic_flag spinlock_;
 
         uart( const uart& ) = delete;
         uart& operator = ( const uart& ) = delete;
@@ -25,7 +26,7 @@ namespace stm32f103 {
 
         template< typename GPIO_PIN_type >
         bool enable( GPIO_PIN_type tx, GPIO_PIN_type rx
-                     , parity = parity_none, int nbits = 8, uint32_t baud = 115200, uint32_t pclk = 72000000 );
+                     , parity = parity_none, int nbits = 8, uint32_t baud = 115200, uint32_t pclk = 72'000'000 );
 
         bool config( parity = parity_even, int nbits = 8, uint32_t baud = 115200, uint32_t pclk = 72000000 );
 
@@ -36,7 +37,7 @@ namespace stm32f103 {
         void handle_interrupt();
 
         // printf & console interface
-        static int getc();
+        static int getc( bool echo = true );
         static size_t gets( char * p, size_t size );
     private:
         bool init( USART_BASE addr );
@@ -45,11 +46,12 @@ namespace stm32f103 {
 
     template< USART_BASE base > struct uart_t {
         static std::atomic_flag once_flag_;
-
+        
         static inline uart * instance() {
             static uart __instance;
-            if ( !once_flag_.test_and_set() )
+            if ( !once_flag_.test_and_set() ) {
                 __instance.init( base );
+            }
             return &__instance;
         }
     };

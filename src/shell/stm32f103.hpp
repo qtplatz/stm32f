@@ -15,7 +15,7 @@ namespace stm32f103 {  // as known as Blue Pill
 #endif
 
     enum STACK {
-        STACKINIT = 0x20005000   // stack top address (SRAM = 0x20000000 - 0x20004FFFF)
+        STACKINIT = 0x20005000   // stack top address (SRAM = 0x20000000 - 0x20004FFF)
     };
 
 #ifdef __cplusplus

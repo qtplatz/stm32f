@@ -44,9 +44,7 @@ extern "C" {
     void enable_interrupt( stm32f103::IRQn_type IRQn );
 }
 
-namespace stm32f103 {
-    
-    static std::atomic_flag __input_lock;
+namespace {
     static std::atomic< int > __input_char;
 }
 
@@ -54,12 +52,15 @@ using namespace stm32f103;
 
 uart::uart() : usart_( 0 )
              , baud_( 115200 )
+             , spinlock_( ATOMIC_FLAG_INIT )
 {
+    spinlock_.clear();
 }
 
 bool
-uart::init( stm32f103::USART_BASE addr )
+uart::init( stm32f103::USART_BASE addr ) // call_once
 {
+    new (this) stm32f103::uart();
     usart_ = reinterpret_cast< stm32f103::USART * >( addr );
     return true;
 }
@@ -67,7 +68,7 @@ uart::init( stm32f103::USART_BASE addr )
 bool
 uart::config( parity parity, int nbits, uint32_t baud, uint32_t pclk )
 {
-    baud_ = baud;
+    baud_ = baud; // 115200
     if ( usart_ ) {
         uint32_t flag( UE | TE | RE ); // uart enable, transmitter enable, receiver enable
         if ( parity != parity_none )
@@ -77,10 +78,13 @@ uart::config( parity parity, int nbits, uint32_t baud, uint32_t pclk )
             flag |= RXNEIE; // rx interrupt enable
 
         usart_->CR1  = flag;
-        usart_->CR2  = 0;
-        usart_->CR3  = 0;
+        usart_->CR2  = 0;  // 1 stop bit
+        usart_->CR3  = 0;  // CTS/RTS...
         usart_->GTPR = 0;
-        usart_->BRR  = pclk / baud;  // 72000000 / 115200
+        // baud = pclk / (16 * USARTDIV)
+        // pclk / baud / 16 = USARTDIV
+        // brr = (pclk / 16 / baud (in real)) * 16
+        usart_->BRR  = pclk / baud;  // 72000000 / 115200 (mantissa + 4bit fraction)
 
         if ( reinterpret_cast< uint32_t >( usart_ ) == stm32f103::USART1_BASE ) {
             enable_interrupt( stm32f103::USART1_IRQn );
@@ -91,7 +95,12 @@ uart::config( parity parity, int nbits, uint32_t baud, uint32_t pclk )
     return false;
 }
 
-template<> bool uart::enable( GPIOA_PIN pa9, GPIOA_PIN pa10, parity parity, int nbits, uint32_t baud, uint32_t pclk )
+template<> bool uart::enable( GPIOA_PIN pa9
+                              , GPIOA_PIN pa10
+                              , parity parity // parity_none
+                              , int nbits     // 8
+                              , uint32_t baud //115200
+                              , uint32_t pclk /* 72'000'000*/)
 {
     stm32f103::gpio_mode gpio_mode;    
     gpio_mode( pa9, stm32f103::GPIO_CNF_ALT_OUTPUT_PUSH_PULL, stm32f103::GPIO_MODE_OUTPUT_50M ); // (2,3)
@@ -129,15 +138,13 @@ uart::putc( int c )
 // always handle with usart1
 // static
 int
-uart::getc()
+uart::getc( bool echo )
 {
     int c = 0;
-    while ( ( c = __input_char.load() ) == 0 )
+    while ( ( c = __input_char.exchange( 0 ) ) == 0 )
         ;
-    __input_char = 0;
-    __input_lock.clear(); // release lock
-
-    uart_t< USART1_BASE >::instance()->putc( c ); // echo
+    if ( echo )
+        uart_t< USART1_BASE >::instance()->putc( c ); // echo
     
     return c;
 }
@@ -172,6 +179,6 @@ uart::gets( char * s, size_t size )
 void
 uart::handle_interrupt()
 {
-    __input_char = usart_->DR & 0xff;
+    __input_char.store( usart_->DR & 0xff );
 }
 

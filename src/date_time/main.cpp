@@ -4,6 +4,7 @@
 // Contact: toshi.hondo@qtplatz.com
 
 #include "date_time.hpp"
+#include <array>
 #include <iostream>
 #include <iomanip>
 
