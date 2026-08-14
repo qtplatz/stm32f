@@ -59,7 +59,7 @@ dma::init( stm32f103::DMA_BASE addr )
 void
 dma::clear_callback( uint32_t channel )
 {
-    while ( !lock_.test_and_set( std::memory_order_acquire ) )
+    while ( lock_.test_and_set( std::memory_order_acquire ) )
         ;
     callbacks_[ channel ] = nullptr;
     lock_.clear();
@@ -111,7 +111,7 @@ void
 dma::enable( uint32_t channel_number, bool enable )
 {
     if ( enable ) {
-        while ( !lock_.test_and_set( std::memory_order_acquire ) )
+        while ( lock_.test_and_set( std::memory_order_acquire ) )
             ;
         interrupt_status_ &= ~( 0x0f << channel_number );
         lock_.clear();
@@ -156,8 +156,8 @@ dma::transfer_complete( uint32_t channel )
 {
     uint32_t isr(0);
 
-    while ( ! lock_.test_and_set( std::memory_order_acquire ) )
-            ;
+    while ( lock_.test_and_set( std::memory_order_acquire ) )
+        ;
     isr = interrupt_status_.load();
     interrupt_status_ = dma_->ISR;
     lock_.clear();
@@ -169,7 +169,7 @@ dma::transfer_complete( uint32_t channel )
 void
 dma::handle_interrupt( uint32_t channel )
 {
-    while ( !lock_.test_and_set( std::memory_order_acquire ) )
+    while ( lock_.test_and_set( std::memory_order_acquire ) )
         ;
     uint32_t flag = dma_->ISR;
     interrupt_status_ = flag;
